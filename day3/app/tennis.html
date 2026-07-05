@@ -445,9 +445,9 @@ for (let i = 0; i < 7; i++) {
 // so the scene never looks empty and the game logic (which reads cpu.position)
 // keeps working. Once the mascot arrives, we swap it into the same Group.
 
-const CPU_SCALE = 0.014;
+const CPU_SCALE = 0.012;
 const cpu = new THREE.Group();
-cpu.position.set(0, 0, -HALF_L + 4.5);
+cpu.position.set(0, 0, -HALF_L + 3.5);
 scene.add(cpu);
 
 // Cream placeholder — same silhouette-ish shape as soup, sized to match
@@ -493,12 +493,14 @@ loader.load('assets/mascot.glb', (gltf) => {
     soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     soup.scale.setScalar(CPU_SCALE);
     soup.rotation.x = -Math.PI / 2;
-    soup.rotation.y = Math.PI;    // face -Z (toward player)
+    // No y-flip: after the x-flip the mascot faces +Z toward camera/player,
+    // which is exactly what a CPU on the far baseline should do.
     // Retint body: soft blue-cream, distinct from player-side hot orange
+    // Cool teal-blue tint distinct from player-side hot orange AND sky/court.
     const body = soup.getObjectByName('body');
-    if (body) body.material.color.setHex(0xb8d4e8);
+    if (body) body.material.color.setHex(0x6fb3c8);
     const ears = soup.getObjectByName('ears');
-    if (ears) ears.material.color.setHex(0x9cbdd6);
+    if (ears) ears.material.color.setHex(0x4d8fa5);
     soupPaws = soup.getObjectByName('paws');
 
     // Remove placeholder, add mascot
@@ -1113,8 +1115,8 @@ function tick() {
       }
     }
 
-    // apply combined lean; keep base y-rotation (facing player)
-    soupMascot.rotation.y = Math.PI;
+    // apply combined lean; base y-rotation stays at 0 (facing player)
+    soupMascot.rotation.y = 0;
     soupMascot.rotation.z = swingLean + missLean;
   }
 
