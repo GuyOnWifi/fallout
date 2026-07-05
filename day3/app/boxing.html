@@ -413,9 +413,14 @@ scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
 const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 72 : 55;
 let BASE_FOV = fovForAspect();
 const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth/innerHeight, 0.05, 100);
-const camHome = new THREE.Vector3(0, 1.6, 3.6);
+// Third person, slightly behind and above the player Soup's right shoulder.
+// The player Soup reads as a back-and-shoulders silhouette in the near
+// foreground; the opponent stands well upstage across the ring. Slight
+// downward tilt so the ring floor grounds both fighters.
+const camHome = new THREE.Vector3(1.4, 3.0, 5.4);
+const lookHome = new THREE.Vector3(-0.1, 1.1, -1.2);
 camera.position.copy(camHome);
-camera.lookAt(0, 1.55, 0);
+camera.lookAt(lookHome);
 
 // Camera FOV punch state.
 const camFx = { fov: BASE_FOV, target: BASE_FOV, until: 0, phase: 'idle' };
@@ -556,153 +561,107 @@ for (let i = 0; i < 8; i++) {
   clouds.push(cloud);
 }
 
-// ══════════════════════════ Opponent (Soup mascot) ══════════════════════════
-const opp = new THREE.Group();
-// Slightly back but well inside the fog window — camera at z=3.6 looks at him.
-opp.position.set(0, 0, -0.2);
-scene.add(opp);
+// ══════════════════════════ Fighters (two Soups) ══════════════════════════
+// Each fighter is a three-deep chain:
+//   g (world position + facing — the ONLY place a y-turn is allowed, on the
+//      parent group, never on the soup root itself — see DEVLOG §11/§12)
+//   └─ lean (all procedural body animation: pitch/yaw/roll/squash, feet pivot)
+//      └─ soup (canonical x-flip + scale only)
+// In lean-local space both fighters agree: +Z is toward the other fighter,
+// the character's right hand sits at local -X. The paws node animates in
+// MODEL space: mm units, +z is up, -y is forward.
+const SOUP_SCALE = 0.014; // 122mm model → ~1.7m fighters
 
-const oppHome = opp.position.clone();
-let oppVel = new THREE.Vector3();
+function makeFighter(x, z, faceSign) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  if (faceSign < 0) g.rotation.y = Math.PI; // turn the parent group, not the soup root
+  const lean = new THREE.Group();
+  g.add(lean);
+  scene.add(g);
 
-// Placeholder while GLB loads (also fallback if it fails)
-const placeholder = new THREE.Mesh(
-  new THREE.BoxGeometry(0.9, 1.6, 0.5),
-  new THREE.MeshStandardMaterial({ color: 0xecdcb1, roughness: 0.8 })
-);
-placeholder.position.y = 0.8;
-placeholder.castShadow = true;
-opp.add(placeholder);
+  // Placeholder box until the GLB lands (also the fallback if it fails)
+  const placeholder = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 1.3, 0.45),
+    new THREE.MeshStandardMaterial({ color: 0xecdcb1, roughness: 0.8 })
+  );
+  placeholder.position.y = 0.65;
+  placeholder.castShadow = true;
+  lean.add(placeholder);
 
-// Mascot state we'll wire into the tick loop
-const mascot = {
-  root: null,          // the loaded soup THREE.Object3D
-  bodyMat: null,       // cloned body material for red-flash
-  bodyBaseHex: 0xecdcb1,
-  hitUntil: 0,         // performance.now() while shake+flash lasts
-  koStartedAt: 0,      // 0 until KO plays
-  koProgress: 0,       // 0..1
-  baseY: 0,            // resting y (feet on floor)
-};
+  return {
+    g, lean, faceSign,
+    home: new THREE.Vector3(x, 0, z),
+    vel: new THREE.Vector3(),   // shove spring velocity (opponent only)
+    placeholder,
+    root: null, paws: null, pawsBase: null,
+    bodyMat: null, bodyBaseHex: 0xecdcb1,
+    act: null,                  // { name, start (gt ms), dur, side, dir, power }
+    flashUntil: 0,              // gt ms — body red flash on hit
+    idlePhase: 0,
+  };
+}
+
+const player = makeFighter(0.35, 1.4, -1);   // faces -Z, back to camera
+const opp    = makeFighter(0,   -2.4, +1);   // faces +Z, squared up with the player
+player.idlePhase = 0;
+opp.idlePhase = 2.4; // desync the idles so they don't mirror each other
+
+function setupSoup(soup, tint) {
+  // Y-up flip. Per soup/HANDOFF.md, after rot.x=-π/2 the face already points +Z.
+  soup.rotation.x = -Math.PI / 2;
+  soup.scale.setScalar(SOUP_SCALE);
+  // Clone materials so per-instance tints don't bleed
+  soup.traverse(o => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.castShadow = true;
+      o.receiveShadow = false;
+    }
+  });
+  if (tint) for (const [name, hex] of Object.entries(tint)) {
+    const node = soup.getObjectByName(name);
+    if (node && node.material) node.material.color.setHex(hex);
+  }
+  return soup;
+}
+
+function attachSoup(f, soup) {
+  if (f.placeholder) { f.lean.remove(f.placeholder); f.placeholder = null; }
+  f.root = soup;
+  f.paws = soup.getObjectByName('paws');
+  f.pawsBase = f.paws ? f.paws.position.clone() : null;
+  const body = soup.getObjectByName('body');
+  f.bodyMat = body ? body.material : null;
+  f.bodyBaseHex = f.bodyMat ? f.bodyMat.color.getHex() : 0xecdcb1;
+  f.lean.add(soup);
+}
 
 const loader = new GLTFLoader();
 loader.load(
   'assets/mascot.glb',
   (gltf) => {
-    const soup = gltf.scene;
-    // Y-up flip. Per soup/HANDOFF.md, after rot.x=-π/2 face points +Z (toward camera).
-    soup.rotation.x = -Math.PI / 2;
-    // Bigger read so the opponent is clearly the star of the ring.
-    soup.scale.setScalar(0.020);
-
-    // Clone materials so per-instance tints don't bleed
-    soup.traverse(o => {
-      if (o.isMesh) {
-        o.material = o.material.clone();
-        o.castShadow = true;
-        o.receiveShadow = false;
-      }
-    });
-
-    // Warm taupe/earthier tint for the opponent
-    const body = soup.getObjectByName('body');
-    const paws = soup.getObjectByName('paws');
-    const ears = soup.getObjectByName('ears');
-    const tail = soup.getObjectByName('tail');
-    const OPP_BODY = 0xecdcb1; // cream-deep — warmer than default
-    const OPP_TRIM = 0xc9a878; // deeper taupe
-    if (body) body.material.color.setHex(OPP_BODY);
-    if (paws) paws.material.color.setHex(OPP_TRIM);
-    if (ears) ears.material.color.setHex(OPP_TRIM);
-    if (tail) tail.material.color.setHex(OPP_TRIM);
-
-    mascot.root = soup;
-    mascot.bodyMat = body ? body.material : null;
-    mascot.bodyBaseHex = OPP_BODY;
-    mascot.baseY = 0;
-
-    // Swap in
-    opp.remove(placeholder);
-    opp.add(soup);
-    log('mascot loaded');
+    // Player keeps the default cream; opponent gets the warmer taupe trim
+    // so the matchup reads from behind the player's shoulder.
+    attachSoup(player, setupSoup(gltf.scene.clone(true), null));
+    attachSoup(opp, setupSoup(gltf.scene.clone(true), {
+      body: 0xecdcb1, paws: 0xc9a878, ears: 0xc9a878, tail: 0xc9a878,
+    }));
+    log('mascots loaded');
   },
   undefined,
   (err) => {
     console.error('mascot load failed', err);
-    log('mascot load FAILED — using placeholder');
-    // Keep the placeholder as the opponent; give it a bodyMat so hits still flash
-    mascot.root = placeholder;
-    mascot.bodyMat = placeholder.material;
-    mascot.bodyBaseHex = 0xecdcb1;
-    mascot.baseY = 0.8;
+    log('mascot load FAILED, using placeholders');
+    for (const f of [player, opp]) {
+      if (f.placeholder) { f.bodyMat = f.placeholder.material; f.bodyBaseHex = 0xecdcb1; }
+    }
   }
 );
 
-// ══════════════════════════ Player arm (first-person glove) ══════════════════════════
-function makeArm(side) {
-  const g = new THREE.Group();
-  const forearmMat = new THREE.MeshStandardMaterial({ color: 0x37628a, roughness: 0.6 });
-  const gloveMat   = new THREE.MeshStandardMaterial({ color: 0xff9663, roughness: 0.55 });
-  const trimMat    = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.8 });
-
-  const forearm = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.11, 0.55, 18),
-    forearmMat
-  );
-  forearm.position.set(0, -0.05, 0);
-  forearm.rotation.x = Math.PI / 2;
-  g.add(forearm);
-
-  const cuff = new THREE.Mesh(
-    new THREE.TorusGeometry(0.115, 0.028, 10, 22),
-    trimMat
-  );
-  cuff.position.set(0, -0.05, 0.24);
-  cuff.rotation.y = Math.PI / 2;
-  g.add(cuff);
-
-  const glove = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 22, 18),
-    gloveMat
-  );
-  glove.position.set(0, -0.05, 0.42);
-  g.add(glove);
-
-  const thumb = new THREE.Mesh(
-    new THREE.SphereGeometry(0.06, 14, 12),
-    gloveMat
-  );
-  thumb.position.set(side * 0.10, -0.02, 0.45);
-  g.add(thumb);
-
-  return g;
-}
-const armGroup = new THREE.Group();
-const armR = makeArm(+1);
-const armL = makeArm(-1);
-armR.position.set( 0.55, -0.45, -1.15);
-armR.rotation.set(-0.15, -0.20, -0.05);
-armR.scale.setScalar(0.75);
-armL.position.set(-0.55, -0.45, -1.15);
-armL.rotation.set(-0.15,  0.20,  0.05);
-armL.scale.setScalar(0.75);
-armGroup.add(armR); armGroup.add(armL);
-camera.add(armGroup);
-scene.add(camera); // camera needs to be in the graph for its children to render.
-
-const armState = {
-  R: { base: armR.position.clone(), baseRot: armR.rotation.clone(), punchUntil: 0 },
-  L: { base: armL.position.clone(), baseRot: armL.rotation.clone(), punchUntil: 0 },
-};
-
-function punchArm(armId) {
-  const key = (armId === 1) ? 'L' : 'R';
-  armState[key].punchUntil = performance.now() + 220;
-}
-
-// ── Impact point light ──
+// ── Impact point light (hangs over the opponent's head) ──
 const impactLight = new THREE.PointLight(0xffcc66, 0, 8, 2);
-impactLight.position.set(0, 2.2, 1.0);
+impactLight.position.set(0, 1.6, -1.6);
 scene.add(impactLight);
 
 // ══════════════════════════ Game state ══════════════════════════
@@ -712,10 +671,27 @@ const state = {
   lastHitAt: 0,
   camShake: { x:0, y:0, until:0, amp:0 },
   koFired: false,
+  koStartGt: 0,     // game-clock ms when the KO landed
+  koRealStart: 0,   // performance.now() when the KO landed (drives slow-mo)
+  koDir: -1,        // which side the opponent topples toward
 };
 
 const DMG = { jab: 6, hook: 10, uppercut: 14 };
 const STAM_COST = { jab: 8, hook: 14, uppercut: 20 };
+
+// Punch timing: dur = full player animation, impact = when the paw connects.
+// The opponent's reaction, damage, and screen feedback all wait for impact.
+const PUNCH = {
+  jab:      { dur: 280, impact: 105, react: 'hit_jab',   reactDur: 280 },
+  hook:     { dur: 360, impact: 190, react: 'hit_hook',  reactDur: 430 },
+  uppercut: { dur: 360, impact: 200, react: 'hit_upper', reactDur: 470 },
+};
+
+// Game clock (ms). Runs at real speed except for the KO slow-mo beat.
+let gt = 0;
+let pendingImpacts = [];
+
+const koCamPos = new THREE.Vector3(1.0, 1.3, opp.home.z + 2.2);
 
 const $hp1 = document.getElementById('p1-hp');
 const $st1 = document.getElementById('p1-stam');
@@ -789,8 +765,8 @@ function fireKO() {
   // Freeze-frame flash
   $koFlash.classList.add('on');
   setTimeout(() => $koFlash.classList.remove('on'), 130);
-  // Banner pop
-  setTimeout(() => $koBanner.classList.add('pop'), 120);
+  // Banner pop, held back so the slow-mo crumple reads first
+  setTimeout(() => $koBanner.classList.add('pop'), 650);
   // Confetti rain
   const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3'];
   for (let i = 0; i < 90; i++) {
@@ -848,51 +824,65 @@ function applyGesture(g, armId = 0) {
   markGestured();
   popGesture(g.gesture, g.power);
   const dmgBase = DMG[g.gesture];
-  if (!dmgBase) return;
+  const spec = PUNCH[g.gesture];
+  if (!dmgBase || !spec) return;
+
+  // Character-local x of the punching arm (right hand lives at local -X),
+  // and the world-x direction the hit knocks the opponent toward.
+  const side = (armId === 1) ? 1 : -1;
+  const dir  = (armId === 1) ? 1 : -1;
+
+  // Player swings now; everything else waits until the paw connects.
+  player.act = { name: g.gesture, start: gt, dur: spec.dur, side, power: g.power };
 
   const staminaMul = state.p1.stamina > 20 ? 1.0 : 0.5;
   const dmg = Math.round(dmgBase * (0.5 + 0.9 * g.power) * staminaMul);
-
-  state.p2.hp = Math.max(0, state.p2.hp - dmg);
   state.p1.stamina = Math.max(0, state.p1.stamina - STAM_COST[g.gesture]);
-
-  const now = performance.now();
-  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
-  else                              state.p1.combo = 15;
-  state.lastHitAt = now;
-
   refreshHud();
-  triggerHit(g.power);
 
-  const sideBias = (armId === 1) ? -0.45 : 0.45;
-  const headWorld = new THREE.Vector3(sideBias, 2.2, opp.position.z);
-  headWorld.project(camera);
-  const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
-  const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
-  fireHitConfirm(px, py, g.power, dmg);
-  fireHitFlash(g.power);
-  spawnSparks(px, py, g.power);
-  fovPunch(g.power);
-  punchArm(armId);
-
-  if (state.p2.hp <= 0 && !state.koFired) {
-    state.koFired = true;
-    mascot.koStartedAt = performance.now();
-    fireKO();
-    log('KO!');
-  }
+  pendingImpacts.push({ at: gt + spec.impact, gesture: g.gesture, power: g.power, dmg, dir, spec });
 }
 
-function triggerHit(power) {
+function landImpact(imp) {
+  if (state.koFired) return;
+  const { gesture, power, dmg, dir, spec } = imp;
+
+  state.p2.hp = Math.max(0, state.p2.hp - dmg);
   const now = performance.now();
+  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
+  else                             state.p1.combo = 15;
+  state.lastHitAt = now;
+  refreshHud();
+
+  // Opponent reaction animation + physical shove + red flash
+  opp.act = { name: spec.react, start: gt, dur: spec.reactDur, dir, power };
+  opp.flashUntil = gt + 130;
+  if (gesture === 'jab')       { opp.vel.z += -0.5 * power; }
+  else if (gesture === 'hook') { opp.vel.x += dir * 0.9 * power; opp.vel.z += -0.35 * power; }
+  else                         { opp.vel.z += -0.3 * power; }
+
+  // Screen feedback at the opponent's head
   state.camShake.until = now + 280;
   state.camShake.amp = 0.05 + 0.14 * power;
   impactLight.intensity = 3 + 8 * power;
-  // Shove the opponent group backward.
-  oppVel.z += -1.2 * power;
-  oppVel.y +=  0.6 * power;
-  // Mascot hit reaction: shake window + red flash
-  mascot.hitUntil = now + 260;
+
+  const headWorld = new THREE.Vector3(dir * 0.25, 1.2, opp.g.position.z);
+  headWorld.project(camera);
+  const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
+  const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
+  fireHitConfirm(px, py, power, dmg);
+  fireHitFlash(power);
+  spawnSparks(px, py, power);
+  fovPunch(power);
+
+  if (state.p2.hp <= 0 && !state.koFired) {
+    state.koFired = true;
+    state.koStartGt = gt;
+    state.koRealStart = now;
+    state.koDir = (gesture === 'hook') ? dir : -1;
+    fireKO();
+    log('KO');
+  }
 }
 
 function log(line) {
@@ -901,70 +891,232 @@ function log(line) {
   $log.textContent = txt.split('\n').slice(0, 6).join('\n');
 }
 
+// ══════════════════════════ Procedural animation ══════════════════════════
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < 0.5 ? 2*x*x : 1 - Math.pow(-2*x + 2, 2) / 2;
+// Fast rise to 1 at `peak`, eased fall back to 0 at p=1.
+function spikeEnv(p, peak) {
+  return p < peak ? easeOutCubic(p / peak) : 1 - easeInOut((p - peak) / (1 - peak));
+}
+// Same, but the recovery carries a damped wobble (the hook stagger).
+function wobbleEnv(p, peak) {
+  if (p < peak) return easeOutCubic(p / peak);
+  const t = (p - peak) / (1 - peak);
+  return (1 - easeInOut(t)) * (0.75 + 0.25 * Math.cos(t * 9));
+}
+
+function resetPose(f) {
+  f.lean.rotation.set(0, 0, 0);
+  f.lean.position.set(0, 0, 0);
+  f.lean.scale.set(1, 1, 1);
+  if (f.paws) f.paws.position.copy(f.pawsBase);
+}
+
+// Guard-stance idle: breathe-squish, slow sway + weight shift, paws held up.
+function applyIdle(f, ts) {
+  const ph = f.idlePhase;
+  f.lean.scale.y += Math.sin(ts * 2.1 + ph) * 0.025;
+  f.lean.rotation.x += 0.05;                              // slight crouch toward the other fighter
+  f.lean.rotation.z += Math.sin(ts * 0.9 + ph) * 0.045;   // sway
+  f.lean.position.x += Math.sin(ts * 0.7 + ph) * 0.05;    // weight shift foot to foot
+  f.lean.position.z += Math.sin(ts * 1.3 + ph) * 0.03;
+  if (f.paws) {
+    f.paws.position.z += 9 + Math.sin(ts * 2.1 + ph) * 3; // guard held up
+    f.paws.position.y += -6;                              // and slightly forward
+  }
+}
+
+// Player punches. Applied on top of idle; act.side is the punching arm's
+// character-local x sign (right hand = -1).
+function applyPunch(f, act) {
+  const p = clamp01((gt - act.start) / act.dur);
+  const side = act.side;
+  const L = f.lean, paws = f.paws;
+
+  if (act.name === 'jab') {
+    // Sharp straight thrust: full extension by 38%, brief hold, snap back.
+    const e = p < 0.38 ? easeOutCubic(p / 0.38) : 1 - easeInOut((p - 0.38) / 0.62);
+    if (paws) {
+      paws.position.y += -52 * e;        // arm shoots straight out
+      paws.position.x += side * 14 * e;  // biased toward the punching arm
+    }
+    L.rotation.x += 0.16 * e;            // body leans in behind it
+    L.rotation.y += side * 0.12 * e;     // shoulder follows
+    L.position.z += 0.24 * e;            // short lunge toward the opponent
+
+  } else if (act.name === 'hook') {
+    // Coil away, whip across the body in an arc, recover. Hips lead the paw.
+    if (p < 0.32) {
+      const w = easeInOut(p / 0.32);
+      L.rotation.y += side * 0.50 * w;   // wind up toward the punching side
+      L.rotation.z += side * 0.06 * w;
+      if (paws) { paws.position.x += side * 36 * w; paws.position.y += 8 * w; }
+    } else if (p < 0.62) {
+      const s = easeOutCubic((p - 0.32) / 0.30);
+      L.rotation.y += side * 0.50 - side * 1.15 * s;   // twist through to the far side
+      L.rotation.z += side * 0.06 - side * 0.20 * s;
+      L.position.z += 0.12 * Math.sin(s * Math.PI);
+      if (paws) {
+        paws.position.x += side * 36 * Math.cos(s * Math.PI); // outside → inside arc
+        paws.position.y += 8 - 66 * Math.sin(s * Math.PI);    // bulges forward mid-swing
+      }
+    } else {
+      const r = 1 - easeInOut((p - 0.62) / 0.38);
+      L.rotation.y += -side * 0.65 * r;
+      L.rotation.z += -side * 0.14 * r;
+      if (paws) { paws.position.x += -side * 36 * r; paws.position.y += 8 * r; }
+    }
+
+  } else if (act.name === 'uppercut') {
+    // Rock back and crouch to load, drive up through the punch line, settle.
+    if (p < 0.34) {
+      const l = easeInOut(p / 0.34);
+      L.rotation.x += -0.15 * l;         // rock back
+      L.scale.y *= 1 - 0.10 * l;         // crouch into the load
+      if (paws) { paws.position.z += -28 * l; paws.position.y += -8 * l; }
+    } else if (p < 0.66) {
+      const d = easeOutCubic((p - 0.34) / 0.32);
+      L.rotation.x += -0.15 + 0.30 * d;  // drop through to a forward lean
+      L.scale.y *= 0.90 + 0.22 * d;      // whole body extends at the peak
+      if (paws) {
+        paws.position.z += -28 + 86 * d; // paw rises from below through the chin line
+        paws.position.y += -8 - 34 * d;
+        paws.position.x += side * 10 * d;
+      }
+    } else {
+      const r = 1 - easeInOut((p - 0.66) / 0.34);
+      L.rotation.x += 0.15 * r;
+      L.scale.y *= 1 + 0.12 * r;
+      if (paws) { paws.position.z += 58 * r; paws.position.y += -42 * r; paws.position.x += side * 10 * r; }
+    }
+  }
+  if (p >= 1) f.act = null;
+}
+
+// Opponent hit reactions, one per punch type. act.dir = world x he's knocked toward.
+function applyReaction(f, act) {
+  const p = clamp01((gt - act.start) / act.dur);
+  const pw = 0.55 + 0.6 * act.power;
+  const L = f.lean;
+
+  if (act.name === 'hit_jab') {
+    // Quick head-snap straight back; body barely moves; fast recovery.
+    const k = spikeEnv(p, 0.18) * pw;
+    L.rotation.x += -0.30 * k;    // top snaps away from the player
+    L.position.z += -0.10 * k;    // nudged straight back
+
+  } else if (act.name === 'hit_hook') {
+    // Head and upper body whipped sideways; staggered, wobbling recovery.
+    const k = wobbleEnv(p, 0.22) * pw;
+    L.rotation.z += -act.dir * 0.38 * k;  // tips toward the knock direction
+    L.rotation.y += act.dir * 0.55 * k;   // whole upper body rotates with it
+    L.position.x += act.dir * 0.12 * k;
+
+  } else if (act.name === 'hit_upper') {
+    // Vertical stretch off the chin, feet planted, arched back; slowest recovery.
+    const k  = spikeEnv(p, 0.20) * pw;
+    const k2 = spikeEnv(p, 0.32) * pw;    // arch peaks a beat after the stretch
+    L.scale.y *= 1 + 0.26 * k;
+    L.scale.x *= 1 - 0.07 * k;
+    L.scale.z *= 1 - 0.07 * k;
+    L.rotation.x += -0.30 * k2;
+  }
+  if (p >= 1) f.act = null;
+}
+
+// KO crumple: legs give way (squash straight down), topple sideways to the
+// mat with a settle bounce, hold. Feet pivot means the topple lands flat.
+function applyKO(f) {
+  const t = gt - state.koStartGt;
+  const dir = state.koDir;
+  const L = f.lean;
+  L.position.set(0, 0, 0);
+  if (f.paws) f.paws.position.copy(f.pawsBase);
+  if (t < 300) {
+    const c = easeInOut(t / 300);
+    L.scale.set(1 + 0.10 * c, 1 - 0.5 * c, 1 + 0.10 * c);  // legs give way
+    L.rotation.set(0.25 * c, 0, 0);                        // slumps forward
+  } else if (t < 900) {
+    const e = Math.pow((t - 300) / 600, 2);                // gravity-shaped fall
+    L.scale.set(1.1 - 0.1 * e, 0.5 + 0.35 * e, 1.1 - 0.1 * e);
+    L.rotation.set(0.25 * (1 - e), 0, dir * (Math.PI / 2) * e);
+  } else {
+    const s = Math.min(1, (t - 900) / 300);
+    const wob = (1 - s) * Math.sin(s * 12) * 0.10;         // settle bounce
+    L.scale.set(1, 0.85, 1);
+    L.rotation.set(0, 0, dir * (Math.PI / 2 + wob));
+  }
+}
+
 // ══════════════════════════ Tick ══════════════════════════
 let lastT = performance.now();
 function tick() {
   const now = performance.now();
-  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
-  const tSec = now / 1000;
+  const rdt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
 
-  // Opponent spring back to home + idle sway (group-level, unchanged)
-  const target = new THREE.Vector3(oppHome.x, oppHome.y, oppHome.z);
-  oppVel.x += (target.x - opp.position.x) * 40 * dt;
-  oppVel.y += (target.y - opp.position.y) * 45 * dt;
-  oppVel.z += (target.z - opp.position.z) * 40 * dt;
-  oppVel.multiplyScalar(0.86);
-  opp.position.addScaledVector(oppVel, dt);
-  opp.rotation.y = Math.sin(now / 1200) * 0.1;
+  // KO slow-mo: quarter speed for 400ms after the KO lands, then ramp back.
+  let timeScale = 1;
+  if (state.koFired) {
+    const since = now - state.koRealStart;
+    if (since < 400) timeScale = 0.22;
+    else if (since < 750) timeScale = 0.22 + 0.78 * ((since - 400) / 350);
+  }
+  const dt = rdt * timeScale;
+  gt += dt * 1000;
+  const ts = gt / 1000;
 
-  // ── Mascot procedural animation ───────────────────
-  if (mascot.root) {
-    const m = mascot.root;
-
-    // KO: play once, then hold pose.
-    if (state.koFired) {
-      const koDur = 400;
-      const p = Math.min(1, (now - mascot.koStartedAt) / koDur);
-      mascot.koProgress = p;
-      // ease-out
-      const e = 1 - Math.pow(1 - p, 2);
-      m.rotation.z = e * (Math.PI / 2);
-      // Drop toward floor (mascot pivot is at feet; sink slightly for visual "down")
-      m.position.y = mascot.baseY - e * 0.15;
-      // Also freeze idle by falling through
-    } else {
-      // Idle: bob + squish
-      const bob = Math.sin(tSec * 2) * 0.02;
-      const squish = 1 + Math.sin(tSec * 2) * 0.03;
-      m.position.y = mascot.baseY + bob;
-      m.scale.y = (m.userData.baseScaleY ?? (m.userData.baseScaleY = m.scale.y || 1)) * squish;
-
-      // Hit: brief x-shake + body red-flash
-      if (now < mascot.hitUntil) {
-        m.position.x = (Math.random() - 0.5) * 0.08;
-        if (mascot.bodyMat) {
-          mascot.bodyMat.color.setHex(0xff4444);
-        }
-      } else {
-        m.position.x = 0;
-        if (mascot.bodyMat) {
-          mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
-        }
-      }
-    }
+  // Punches that are due to land
+  if (pendingImpacts.length) {
+    const due = pendingImpacts.filter(i => gt >= i.at);
+    pendingImpacts = pendingImpacts.filter(i => gt < i.at);
+    for (const imp of due) landImpact(imp);
   }
 
-  // ── Drift clouds ──
+  // Opponent spring back to home after shoves
+  opp.vel.x += (opp.home.x - opp.g.position.x) * 40 * dt;
+  opp.vel.y += (opp.home.y - opp.g.position.y) * 45 * dt;
+  opp.vel.z += (opp.home.z - opp.g.position.z) * 40 * dt;
+  opp.vel.multiplyScalar(0.86);
+  opp.g.position.addScaledVector(opp.vel, dt);
+
+  // ── Fighter poses: reset, idle, then the active action on top ──
+  resetPose(player);
+  applyIdle(player, ts);
+  if (player.act) applyPunch(player, player.act);
+
+  resetPose(opp);
+  if (state.koFired) {
+    applyKO(opp);
+  } else {
+    applyIdle(opp, ts);
+    if (opp.act) applyReaction(opp, opp.act);
+  }
+
+  // Red flash on the opponent's body while a hit lands
+  if (opp.bodyMat) {
+    opp.bodyMat.color.setHex(gt < opp.flashUntil ? 0xff4444 : opp.bodyBaseHex);
+  }
+
+  // ── Drift clouds (real time — unaffected by slow-mo) ──
   for (const cloud of clouds) {
-    cloud.position.x += cloud.userData.driftSpeed * dt;
+    cloud.position.x += cloud.userData.driftSpeed * rdt;
     if (cloud.position.x > 16) cloud.position.x = -16;
   }
 
-  // Camera shake
+  // ── Camera: home framing → KO push-in on the crumpled opponent + shake ──
+  const camPos = camHome.clone();
+  const camLook = lookHome.clone();
+  if (state.koFired) {
+    const cp = easeInOut(clamp01((gt - state.koStartGt) / 1400));
+    camPos.lerp(koCamPos, cp);
+    camLook.lerp(new THREE.Vector3(state.koDir * 0.5, 0.35, opp.home.z), cp);
+  }
   const shake = state.camShake.until > now ? (state.camShake.until - now) / 280 : 0;
-  camera.position.x = camHome.x + (Math.random() - 0.5) * state.camShake.amp * shake;
-  camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
-  camera.lookAt(0, 1.55, opp.position.z);
+  camPos.x += (Math.random() - 0.5) * state.camShake.amp * shake;
+  camPos.y += (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
+  camera.position.copy(camPos);
+  camera.lookAt(camLook);
 
   // ── FOV punch: zoom in fast (60ms), zoom back slow (200ms) ──
   if (camFx.phase === 'in') {
@@ -979,35 +1131,11 @@ function tick() {
     camera.updateProjectionMatrix();
   }
 
-  // ── Player-arm idle sway + punch reaction ──
-  const swayY = Math.sin(tSec * 1.6) * 0.012;
-  const swayX = Math.sin(tSec * 1.1) * 0.006;
-  for (const key of ['R', 'L']) {
-    const arm = (key === 'R') ? armR : armL;
-    const st  = armState[key];
-    const punchLeft = st.punchUntil - now;
-    if (punchLeft > 0) {
-      // Punch-forward pop: shoots toward -z, then springs back.
-      const p = 1 - Math.min(1, punchLeft / 220);
-      // ease: quick out, slower return
-      const pop = (p < 0.35) ? (p / 0.35) : (1 - (p - 0.35) / 0.65);
-      arm.position.z = st.base.z - pop * 0.55;
-      arm.position.y = st.base.y + swayY + pop * 0.06;
-      arm.position.x = st.base.x + swayX * 0.5;
-      arm.rotation.x = st.baseRot.x - pop * 0.4;
-    } else {
-      arm.position.x = st.base.x + swayX * (key === 'R' ? 1 : -1);
-      arm.position.y = st.base.y + swayY;
-      arm.position.z = st.base.z;
-      arm.rotation.x = st.baseRot.x;
-    }
-  }
-
-  // Light decay + stamina regen
+  // Light decay + stamina regen (real time)
   impactLight.intensity *= 0.88;
-  state.p1.stamina = Math.min(100, state.p1.stamina + 18 * dt);
-  state.p2.stamina = Math.min(100, state.p2.stamina + 18 * dt);
-  if (now - state.lastHitAt > 900) state.p1.combo = Math.max(0, state.p1.combo - 60 * dt);
+  state.p1.stamina = Math.min(100, state.p1.stamina + 18 * rdt);
+  state.p2.stamina = Math.min(100, state.p2.stamina + 18 * rdt);
+  if (now - state.lastHitAt > 900) state.p1.combo = Math.max(0, state.p1.combo - 60 * rdt);
   refreshHud();
 
   renderer.render(scene, camera);

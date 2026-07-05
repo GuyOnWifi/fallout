@@ -231,20 +231,41 @@
 <div id="devhint">keys · space bowl · r reset</div>
 
 <div id="tutorial">
-  <svg width="180" height="140" viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg">
-    <!-- shoulder circle -->
-    <circle cx="50" cy="30" r="10" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="3"/>
-    <!-- arm (rotates) -->
+  <svg width="200" height="150" viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+    <!-- shoulder pivot -->
+    <circle cx="60" cy="34" r="12" fill="#f7b8c4" stroke="#1c2a3a" stroke-width="3"/>
+    <!-- arm rotates around shoulder -->
     <g id="tut-arm">
-      <rect x="46" y="30" width="8" height="46" rx="4"
-            fill="#fbf3e0" stroke="#1c2a3a" stroke-width="3"/>
-      <circle cx="50" cy="80" r="8" fill="#ff9663" stroke="#1c2a3a" stroke-width="3"/>
+      <!-- bicep + forearm as a stubby limb, hand at the tip -->
+      <path d="M 60 26
+               C 52 30, 50 40, 54 62
+               C 55 80, 58 92, 62 96
+               C 66 96, 69 90, 68 74
+               C 68 60, 66 44, 60 26 Z"
+            fill="#ffc9a4" stroke="#1c2a3a" stroke-width="3" stroke-linejoin="round"/>
+      <!-- wristband -->
+      <rect x="54" y="92" width="14" height="7" rx="2"
+            fill="#4a9440" stroke="#1c2a3a" stroke-width="2.5"/>
+      <!-- fist -->
+      <path d="M 52 100
+               C 50 108, 54 116, 62 116
+               C 70 116, 74 108, 72 100 Z"
+            fill="#fbf3e0" stroke="#1c2a3a" stroke-width="3" stroke-linejoin="round"/>
+      <!-- knuckle marks -->
+      <circle cx="58" cy="108" r="1.6" fill="#1c2a3a"/>
+      <circle cx="64" cy="109" r="1.6" fill="#1c2a3a"/>
+      <circle cx="68" cy="107" r="1.6" fill="#1c2a3a"/>
     </g>
-    <!-- ball rolling out -->
+    <!-- ball rolling out along the ground -->
     <g id="tut-ball">
-      <circle cx="90" cy="110" r="9" fill="#ff9663"
+      <circle cx="110" cy="132" r="10" fill="#ff9663"
               stroke="#1c2a3a" stroke-width="3"/>
+      <ellipse cx="108" cy="128" rx="3" ry="2" fill="rgba(255,255,255,.5)"/>
     </g>
+    <!-- faint arc path for the swing -->
+    <path d="M 60 46 Q 30 90, 60 130 Q 96 138, 140 132"
+          fill="none" stroke="#1c2a3a" stroke-width="2"
+          stroke-dasharray="4 6" opacity=".35"/>
   </svg>
 </div>
 
