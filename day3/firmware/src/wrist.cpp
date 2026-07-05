@@ -37,7 +37,10 @@ static bool espnow_ready = false;
 
 // Fired when a send completes — used only to notice persistent failure.
 static uint32_t send_fail_count = 0;
-static void on_send(const uint8_t *mac, esp_now_send_status_t status) {
+// Newer arduino-esp32 changed the callback signature: mac address is now
+// inside wifi_tx_info_t. Keep support for both by using the current one.
+static void on_send(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  (void)info;
   if (status != ESP_NOW_SEND_SUCCESS) send_fail_count++;
 }
 

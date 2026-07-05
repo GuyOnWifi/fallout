@@ -223,8 +223,29 @@ Repeat of `CLAUDE.md`'s "What NOT to do" section, with extras:
 
 1. **`CLAUDE.md`** — evergreen orientation, palette, mascot, rules.
 2. **`NEXT_STEPS.md`** (this file) — recent activity, in-flight.
-3. **`JOURNEY.md`** — pivot history so mistakes don't repeat.
-4. **`day3/GESTURES.md`** — what each game consumes from the wristband.
-5. **`soup/HANDOFF.md`** — mascot 3D details.
+3. **`DEVLOG.md`** — technical war stories, presentation-ready. **Append new
+   bug-fix stories at the top** as they happen. Format: "Symptom → Debug →
+   Fix → Lesson." Doubles as demo-day talk material.
+4. **`JOURNEY.md`** — pivot history so mistakes don't repeat.
+5. **`day3/GESTURES.md`** — what each game consumes from the wristband.
+6. **`soup/HANDOFF.md`** — mascot 3D details.
 
-That's ~1500 lines total. Reasonable startup cost for a fresh session.
+That's ~1700 lines total. Reasonable startup cost for a fresh session.
+
+## Docs discipline for this repo
+
+- `CLAUDE.md` — **evergreen.** Rewrite in place; older sections should stay
+  true forever.
+- `NEXT_STEPS.md` — **rolling.** Update as work state shifts. Don't append,
+  rewrite in place.
+- `DEVLOG.md` — **append-only, newest-first.** Every new bug fixed = new §
+  at the top. Every clever solution = story worth writing down. This is
+  where the demo-day talk lives.
+- `JOURNEY.md` — **append-only.** Records completed pivots and their
+  rationales. Don't edit prior entries.
+- `day3/GESTURES.md` — **spec.** Update when adding new games / gestures.
+- `soup/HANDOFF.md` — **spec.** Update when the mascot model changes.
+
+Any session that fixes a real bug **should add a new § at the top of
+DEVLOG.md** with the Symptom/Debug/Fix/Lesson format. Users have explicitly
+asked for this pattern to be maintained.

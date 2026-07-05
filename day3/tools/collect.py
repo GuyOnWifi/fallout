@@ -47,30 +47,50 @@ HOLD_STILL_GYRO  = 40.0  # deg/s
 HOLD_DURATION_S  = 1.0
 
 # Gesture set mirrored from kevinyhe/eureka-hacks-2026 (their Wii-boxing move
-# list) — jab, hook, uppercut, block, dodge_left/right/back — plus an idle
-# baseline. `hook` is the right-arm horizontal hook; if you also train a left
-# hook, capture it under a separate label (e.g. `hook_left`) via `[c] custom`.
+# The full training set from GESTURES.md.
+#
+# Priority for the boxing classifier (do these first):
+#   jab, hook, uppercut, block, idle
+# Nice-to-have polish:
+#   dodge_left, dodge_right, dodge_back, idle_twist
+# Optional for raw-detector inspection (bowling / tennis / baseball
+# don't need training but capturing 5-10 reps each lets you check the
+# raw signal in replay.mjs and tune the game's per-file constants):
+#   bowl_swing, tennis_forehand, tennis_backhand, bat_swing
 GESTURE_MODES = {
-    "idle":       "hold",
-    "jab":        "dyn",
-    "hook":       "dyn",
-    "uppercut":   "dyn",
-    "block":      "hold",
-    "dodge_left": "dyn",
-    "dodge_right":"dyn",
-    "dodge_back": "dyn",
+    # ---- boxing classifier, priority ----
+    "jab":              "dyn",
+    "hook":             "dyn",
+    "uppercut":         "dyn",
+    "block":            "hold",
+    "idle":             "hold",
+    # ---- boxing polish ----
+    "dodge_left":       "dyn",
+    "dodge_right":      "dyn",
+    "dodge_back":       "dyn",
+    "idle_twist":       "dyn",
+    # ---- raw-detector inspection (optional) ----
+    "bowl_swing":       "dyn",
+    "tennis_forehand":  "dyn",
+    "tennis_backhand":  "dyn",
+    "bat_swing":        "dyn",
 }
 DEFAULT_GESTURES = list(GESTURE_MODES.keys())
 
 GESTURE_HINTS = {
-    "idle":       "arm relaxed at your side, don't move — sets the noise floor.",
-    "jab":        "sharp straight punch forward from guard, snap back to guard.",
-    "hook":       "horizontal hooking punch, elbow ~90°, arc across the body.",
-    "uppercut":   "upward punch from hip level, drive up under their chin.",
-    "block":      "forearm up in front of face, palm inward, HOLD still ~1s.",
-    "dodge_left": "lean torso left (band travels sideways with your body).",
-    "dodge_right":"lean torso right.",
-    "dodge_back": "lean torso back / pull head away.",
+    "jab":              "sharp straight punch forward from guard, snap back.",
+    "hook":             "horizontal hooking punch, elbow around 90 degrees, arc across the body.",
+    "uppercut":         "upward punch from hip level, drive up under their chin.",
+    "block":            "forearm up in front of face, palm inward, hold still about 1 second.",
+    "idle":             "arm relaxed at your side, do not move. sets the noise floor.",
+    "dodge_left":       "lean torso left, the band travels sideways with your body.",
+    "dodge_right":      "lean torso right.",
+    "dodge_back":       "lean torso back, pull your head away.",
+    "idle_twist":       "twist forearm palm-up-to-palm-down without translating. negative class.",
+    "bowl_swing":       "underhand arm arc, backswing then forward and down through release.",
+    "tennis_forehand":  "horizontal swing, right to left across the body, wider than a hook.",
+    "tennis_backhand":  "horizontal swing crossing from left back to right.",
+    "bat_swing":        "batting-cage swing, whole arm horizontal from behind to in front.",
 }
 
 # ─────────────────────────────────────────── serial reader ──
