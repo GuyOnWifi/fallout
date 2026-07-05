@@ -1,0 +1,12 @@
+# ESP-IDF sdkconfig overrides. Applied on top of PIO defaults.
+# Regenerate the effective sdkconfig with:  pio run -t menuconfig
+
+# Route stdout/console over the S3's native USB-Serial-JTAG (XIAO USB-C port).
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+
+# Arduino component requires 1000Hz tick.
+CONFIG_FREERTOS_HZ=1000
+
+# Let Arduino provide app_main() and call setup()/loop().
+CONFIG_AUTOSTART_ARDUINO=y

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IMmerseU — boxxing</title>
+<style>
+  :root {
+    --p1: #ff5555;
+    --p2: #5555ff;
+    --hp-good: #00ff00;
+    --stam:    #ffd43b;
+    --combo:   #ff66cc;
+  }
+  html, body { margin:0; padding:0; height:100%; background:#000;
+               color:#fff; font-family: sans-serif; overflow:hidden; }
+  canvas { display:block; width:100vw; height:100vh; }
+
+  /* ── HUD ───────────────────────────────────────────── */
+  #hud { position:absolute; top:20px; width:100%;
+         display:flex; justify-content:space-around;
+         font-weight:bold; text-transform:uppercase;
+         font-size:24px; text-shadow:2px 2px 4px rgba(0,0,0,.8);
+         z-index:100; pointer-events:none;
+         opacity:0; transition:opacity 400ms ease; }
+  body.game-active #hud { opacity:1; }
+  .hud-p1 { color:var(--p1); text-align:center; }
+  .hud-p2 { color:var(--p2); text-align:center; }
+  .bar-container { width:200px; background:#333; border:2px solid #fff;
+                   margin-top:6px; overflow:hidden; }
+  .health-bar-container { height:12px; margin-top:8px; }
+  .health-bar { height:100%; width:100%; background:var(--hp-good);
+                transition:width .2s ease-out, background .3s; }
+  .stamina-bar-container, .combo-bar-container { height:6px; }
+  .stamina-bar { height:100%; width:100%; background:var(--stam);
+                 transition:width .16s ease-out; }
+  .combo-bar { height:100%; width:0%; background:var(--combo);
+               transition:width .16s ease-out; }
+
+  /* ── Center gesture flash ──────────────────────────── */
+  #gesture { position:absolute; top:38%; left:50%;
+             transform:translate(-50%,-50%) scale(1);
+             font-size:72px; font-weight:900; letter-spacing:.04em;
+             text-transform:uppercase; text-shadow:0 4px 32px #000, 0 0 12px currentColor;
+             opacity:0; transition:opacity 90ms, transform 120ms;
+             pointer-events:none; z-index:95; }
+  #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+
+  /* ── Hit confirm (burst + ring + damage) ───────────── */
+  .hit-confirm { position:absolute; top:0; bottom:0; left:0; right:0;
+                 pointer-events:none; z-index:91; overflow:hidden; }
+  .hit-confirm .burst, .hit-confirm .ring, .hit-confirm .damage {
+    position:absolute; left:var(--hit-x, 50%); top:var(--hit-y, 50%);
+    opacity:0; will-change:transform, opacity;
+  }
+  .hit-confirm .burst {
+    width:  calc(140px + 320px * var(--hit-power, .4));
+    height: calc(140px + 320px * var(--hit-power, .4));
+    margin-left: calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(255,245,200,.95) 0%,
+      rgba(255,180,60,.75) 30%,
+      rgba(255,80,20,.35) 60%,
+      rgba(255,60,20,0) 75%);
+    mix-blend-mode:screen; filter:blur(2px);
+  }
+  .hit-confirm .ring {
+    width:  calc(110px + 360px * var(--hit-power, .4));
+    height: calc(110px + 360px * var(--hit-power, .4));
+    margin-left: calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    border: calc(3px + 5px * var(--hit-power, .4)) solid rgba(255,220,130,.85);
+    mix-blend-mode:screen;
+  }
+  .hit-confirm .damage {
+    font-family:sans-serif; font-weight:900;
+    font-size: calc(28px + 60px * var(--hit-power, .4));
+    color:#ffe58a; text-shadow:0 3px 0 #7a2a00, 0 0 18px rgba(255,180,60,.6);
+    transform:translate(-50%,-50%);
+  }
+  .hit-confirm.active .burst  { animation: burst 480ms ease-out forwards; }
+  .hit-confirm.active .ring   { animation: ring  520ms ease-out forwards; }
+  .hit-confirm.active .damage { animation: dmg   700ms ease-out forwards; }
+  @keyframes burst {
+    0%   { opacity:0; transform:scale(.3); }
+    30%  { opacity:1; transform:scale(1.05); }
+    100% { opacity:0; transform:scale(1.25); }
+  }
+  @keyframes ring {
+    0%   { opacity:0; transform:scale(.4); }
+    25%  { opacity:1; }
+    100% { opacity:0; transform:scale(1.6); }
+  }
+  @keyframes dmg {
+    0%   { opacity:0; transform:translate(-50%,-40%) scale(.4); }
+    20%  { opacity:1; transform:translate(-50%,-60%) scale(1.1); }
+    100% { opacity:0; transform:translate(-50%,-110%) scale(1); }
+  }
+
+  /* ── Screen-wide red hit flash ─────────────────────── */
+  .hit-flash { position:absolute; inset:0; background:rgba(255,0,0,.4);
+               opacity:0; pointer-events:none; z-index:90;
+               transition:opacity 100ms; }
+
+  /* ── Vignette so the ring pops ────────────────────── */
+  #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
+              background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
+
+  /* ── Connect button / status ──────────────────────── */
+  #status { position:absolute; bottom:14px; left:14px; font-size:12px;
+            opacity:.65; text-transform:uppercase; letter-spacing:.16em;
+            font-family: ui-monospace, Menlo, monospace; z-index:110; }
+  #connect { position:absolute; bottom:12px; right:14px;
+             padding:10px 18px; background:#111; color:#fff;
+             border:2px solid #fff; text-transform:uppercase;
+             font-weight:bold; letter-spacing:.14em; cursor:pointer;
+             z-index:110; font-size:12px; }
+  #connect:hover { background:#fff; color:#000; }
+  body.game-active #connect { display:none; }
+
+  #log { position:absolute; bottom:44px; left:14px; font-size:10px; opacity:.35;
+         font-family: ui-monospace, Menlo, monospace; white-space:pre;
+         pointer-events:none; z-index:105; }
+
+  /* Title on the pre-game screen */
+  #title { position:absolute; top:50%; left:50%;
+           transform:translate(-50%,-50%); text-align:center;
+           font-weight:900; letter-spacing:.2em; font-size:64px;
+           text-shadow:0 4px 24px #000, 0 0 40px #ff5555;
+           z-index:70; transition:opacity 400ms; }
+  body.game-active #title { opacity:0; pointer-events:none; }
+  #title small { display:block; font-size:14px; letter-spacing:.4em;
+                 opacity:.65; margin-top:14px; font-weight:normal; }
+</style>
+</head>
+<body>
+
+<div id="title">BOXXING<small>IMmerseU — day 1 vertical slice</small></div>
+
+<div id="hud">
+  <div class="hud-p1">
+    YOU
+    <div class="bar-container health-bar-container"><div class="health-bar" id="p1-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p1-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p1-combo"></div></div>
+  </div>
+  <div class="hud-p2">
+    OPPONENT
+    <div class="bar-container health-bar-container"><div class="health-bar" id="p2-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p2-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p2-combo"></div></div>
+  </div>
+</div>
+
+<div id="gesture"></div>
+<div id="vignette"></div>
+
+<div class="hit-confirm" id="hit-confirm">
+  <div class="burst"></div>
+  <div class="ring"></div>
+  <div class="damage">0</div>
+</div>
+<div class="hit-flash" id="hit-flash"></div>
+
+<div id="status">not connected</div>
+<button id="connect">Connect wrist</button>
+<div id="log"></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.161.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { openSerial } from './serial.js';
+import { Classifier } from './classifier.js';
+
+// ══════════════════════════ Scene ══════════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+scene.fog = new THREE.Fog(0x000000, 6, 22);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.05, 100);
+const camHome = new THREE.Vector3(0, 1.6, 3.6);
+camera.position.copy(camHome);
+camera.lookAt(0, 1.55, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Lights: hot key over ring, cool rim from behind ──
+scene.add(new THREE.AmbientLight(0x223344, 0.5));
+const key = new THREE.DirectionalLight(0xffe5b8, 1.2);
+key.position.set(4, 8, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x88aaff, 0.55);
+rim.position.set(-4, 3, -5);
+scene.add(rim);
+
+// ── Ring floor: gray gridded canvas texture, red/blue corners ──
+function makeRingFloor() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024; canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#222'; ctx.fillRect(0, 0, 1024, 1024);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+  for (let i = 0; i < 1024; i += 64) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1024); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1024, i); ctx.stroke();
+  }
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(512, 512, 450, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#c22'; ctx.fillRect(862, 862, 100, 100); ctx.fillRect(62, 862, 100, 100);
+  ctx.fillStyle = '#22c'; ctx.fillRect(862, 62, 100, 100);  ctx.fillRect(62, 62, 100, 100);
+  return new THREE.CanvasTexture(canvas);
+}
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(9, 9),
+  new THREE.MeshStandardMaterial({ map: makeRingFloor(), roughness: 0.9 })
+);
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true;
+scene.add(floor);
+
+// ── Corner posts + pads ──
+const postMat  = new THREE.MeshStandardMaterial({ color: 0x111, roughness: 0.8 });
+const padRed   = new THREE.MeshStandardMaterial({ color: 0xaa0000, roughness: 0.7 });
+const padBlue  = new THREE.MeshStandardMaterial({ color: 0x0000aa, roughness: 0.7 });
+const postGeo  = new THREE.CylinderGeometry(0.1, 0.12, 1.8, 16);
+const padGeo   = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+const cornerXY = [[-3.8,-3.8],[3.8,3.8],[-3.8,3.8],[3.8,-3.8]];
+cornerXY.forEach(([x, z], idx) => {
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.position.set(x, 0.9, z); post.castShadow = true; scene.add(post);
+  const pad  = new THREE.Mesh(padGeo, (idx === 1 || idx === 2) ? padRed : padBlue);
+  pad.position.set(x, 1.1, z); pad.castShadow = true; scene.add(pad);
+});
+
+// ── Ropes: 4 alternating heights, red/white ──
+const ropeMatRed   = new THREE.MeshStandardMaterial({ color: 0xbb0000, roughness: 0.9 });
+const ropeMatWhite = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.9 });
+const corners = [
+  new THREE.Vector3(-3.8, 0, -3.8), new THREE.Vector3( 3.8, 0, -3.8),
+  new THREE.Vector3( 3.8, 0,  3.8), new THREE.Vector3(-3.8, 0,  3.8),
+  new THREE.Vector3(-3.8, 0, -3.8),
+];
+[0.5, 0.9, 1.2, 1.5].forEach((h, i) => {
+  const mat = (i % 2 === 0) ? ropeMatRed : ropeMatWhite;
+  for (let c = 0; c < 4; c++) {
+    const a = corners[c].clone().setY(h), b = corners[c+1].clone().setY(h);
+    const len = a.distanceTo(b);
+    const geo = new THREE.CylinderGeometry(0.03, 0.03, len, 8);
+    const rope = new THREE.Mesh(geo, mat);
+    rope.position.copy(a).lerp(b, 0.5);
+    rope.lookAt(b); rope.rotateX(Math.PI/2);
+    scene.add(rope);
+  }
+});
+
+// ── Opponent (blue-cornered) fighter ──
+const opp = new THREE.Group();
+const skinMat  = new THREE.MeshStandardMaterial({ color: 0x9a5a3a, roughness: 0.6 });
+const shortMat = new THREE.MeshStandardMaterial({ color: 0x1a2f88, roughness: 0.7 });
+const glovMat  = new THREE.MeshStandardMaterial({ color: 0x1a2f88, roughness: 0.4 });
+
+const torso = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 0.55), skinMat);
+torso.position.y = 1.9; torso.castShadow = true; opp.add(torso);
+const shorts = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.5, 0.6), shortMat);
+shorts.position.y = 1.15; shorts.castShadow = true; opp.add(shorts);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 24, 18), skinMat);
+head.position.y = 2.75; head.castShadow = true; opp.add(head);
+const legL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.0, 0.35), shortMat);
+legL.position.set(-0.28, 0.5, 0); legL.castShadow = true; opp.add(legL);
+const legR = legL.clone(); legR.position.x = 0.28; opp.add(legR);
+const gloveL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), glovMat);
+gloveL.position.set(-0.75, 2.1, 0.5); gloveL.castShadow = true; opp.add(gloveL);
+const gloveR = gloveL.clone(); gloveR.position.x = 0.75; opp.add(gloveR);
+
+opp.position.set(0, 0, -0.5);
+scene.add(opp);
+
+const oppHome = opp.position.clone();
+let oppVel = new THREE.Vector3();
+
+// ── Impact point light ──
+const impactLight = new THREE.PointLight(0xffcc66, 0, 8, 2);
+impactLight.position.set(0, 2.2, 1.0);
+scene.add(impactLight);
+
+// ══════════════════════════ Game state ══════════════════════════
+const state = {
+  p1: { hp:100, stamina:100, combo:0 },
+  p2: { hp:100, stamina:100, combo:0 },
+  lastHitAt: 0,
+  camShake: { x:0, y:0, until:0, amp:0 },
+};
+
+const DMG = { jab: 6, hook: 10, uppercut: 14 };
+const STAM_COST = { jab: 8, hook: 14, uppercut: 20 };
+
+const $hp1 = document.getElementById('p1-hp');
+const $st1 = document.getElementById('p1-stam');
+const $cb1 = document.getElementById('p1-combo');
+const $hp2 = document.getElementById('p2-hp');
+const $st2 = document.getElementById('p2-stam');
+const $cb2 = document.getElementById('p2-combo');
+const $gest= document.getElementById('gesture');
+const $conf= document.getElementById('hit-confirm');
+const $flash= document.getElementById('hit-flash');
+const $stat= document.getElementById('status');
+const $log = document.getElementById('log');
+
+function refreshHud() {
+  $hp1.style.width = state.p1.hp + '%';
+  $hp1.style.background = state.p1.hp > 40 ? 'var(--hp-good)' : '#ff3030';
+  $st1.style.width = state.p1.stamina + '%';
+  $cb1.style.width = state.p1.combo + '%';
+  $hp2.style.width = state.p2.hp + '%';
+  $hp2.style.background = state.p2.hp > 40 ? 'var(--hp-good)' : '#ff3030';
+  $st2.style.width = state.p2.stamina + '%';
+  $cb2.style.width = state.p2.combo + '%';
+}
+refreshHud();
+
+const GEST_COLOR = { jab:'#ffd166', hook:'#ff6b6b', uppercut:'#7cf', block:'#8ef' };
+function popGesture(name, power) {
+  $gest.textContent = `${name.toUpperCase()}  ${Math.round(power*100)}`;
+  $gest.style.color = GEST_COLOR[name] || '#fff';
+  $gest.classList.remove('pop'); void $gest.offsetWidth;
+  $gest.classList.add('pop');
+  setTimeout(() => $gest.classList.remove('pop'), 420);
+}
+
+function fireHitConfirm(x, y, power, dmg) {
+  $conf.style.setProperty('--hit-x', x + 'px');
+  $conf.style.setProperty('--hit-y', y + 'px');
+  $conf.style.setProperty('--hit-power', power.toFixed(2));
+  $conf.querySelector('.damage').textContent = dmg;
+  $conf.classList.remove('active'); void $conf.offsetWidth;
+  $conf.classList.add('active');
+}
+
+function fireHitFlash(power) {
+  $flash.style.background = `rgba(255,${Math.round(60 - 60*power)},${Math.round(60 - 60*power)},${0.25 + 0.35*power})`;
+  $flash.style.opacity = 1;
+  setTimeout(() => { $flash.style.opacity = 0; }, 90);
+}
+
+function applyGesture(g) {
+  popGesture(g.gesture, g.power);
+  const dmgBase = DMG[g.gesture];
+  if (!dmgBase) return;
+
+  const staminaMul = state.p1.stamina > 20 ? 1.0 : 0.5;
+  const dmg = Math.round(dmgBase * (0.5 + 0.9 * g.power) * staminaMul);
+
+  state.p2.hp = Math.max(0, state.p2.hp - dmg);
+  state.p1.stamina = Math.max(0, state.p1.stamina - STAM_COST[g.gesture]);
+
+  // Combo: any hit within 900ms of the previous grows the meter.
+  const now = performance.now();
+  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
+  else                              state.p1.combo = 15;
+  state.lastHitAt = now;
+
+  refreshHud();
+  triggerHit(g.power);
+
+  // Hit confirm floats near where the opponent's head is on screen.
+  const headWorld = new THREE.Vector3(0, 2.75, opp.position.z);
+  headWorld.project(camera);
+  const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
+  const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
+  fireHitConfirm(px, py, g.power, dmg);
+  fireHitFlash(g.power);
+}
+
+function triggerHit(power) {
+  const now = performance.now();
+  state.camShake.until = now + 280;
+  state.camShake.amp = 0.05 + 0.14 * power;
+  impactLight.intensity = 3 + 8 * power;
+  // Give the opponent a shove backward.
+  oppVel.z += -1.2 * power;
+  oppVel.y +=  0.6 * power;
+}
+
+function log(line) {
+  const t = new Date().toLocaleTimeString();
+  const txt = `[${t}] ${line}\n` + ($log.textContent || '');
+  $log.textContent = txt.split('\n').slice(0, 6).join('\n');
+}
+
+// ══════════════════════════ Tick ══════════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+
+  // Opponent spring back to home + idle sway
+  const target = new THREE.Vector3(oppHome.x, oppHome.y, oppHome.z);
+  oppVel.x += (target.x - opp.position.x) * 40 * dt;
+  oppVel.y += (target.y - opp.position.y) * 45 * dt;
+  oppVel.z += (target.z - opp.position.z) * 40 * dt;
+  oppVel.multiplyScalar(0.86);
+  opp.position.addScaledVector(oppVel, dt);
+  opp.rotation.y = Math.sin(now / 1200) * 0.1;
+  head.rotation.y = Math.sin(now / 900) * 0.18;
+
+  // Camera shake
+  const shake = state.camShake.until > now ? (state.camShake.until - now) / 280 : 0;
+  camera.position.x = camHome.x + (Math.random() - 0.5) * state.camShake.amp * shake;
+  camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
+  camera.lookAt(0, 1.55, opp.position.z);
+
+  // Light decay + stamina regen
+  impactLight.intensity *= 0.88;
+  state.p1.stamina = Math.min(100, state.p1.stamina + 18 * dt);
+  state.p2.stamina = Math.min(100, state.p2.stamina + 18 * dt);
+  if (now - state.lastHitAt > 900) state.p1.combo = Math.max(0, state.p1.combo - 60 * dt);
+  refreshHud();
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ══════════════════════════ Serial wire-up ══════════════════════════
+const clf = new Classifier();
+clf.onGesture = (g) => {
+  const f = g.features || {};
+  log(`↯ ${g.gesture} pwr=${g.power.toFixed(2)} dynA=${(f.dynA||0).toFixed(1)} wmag=${(f.wmag||0).toFixed(0)} horiz=${(f.horiz||0).toFixed(1)}`);
+  applyGesture(g);
+};
+
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $stat.textContent = 'requesting port…';
+    await openSerial({
+      baud: 115200,
+      onLine: (line) => clf.onSample(line),
+      onOpen: () => {
+        $stat.textContent = 'connected — punch away';
+        document.body.classList.add('game-active');
+      },
+      onClose: () => { $stat.textContent = 'disconnected'; },
+      onError: (e) => { $stat.textContent = 'serial error: ' + e.message; },
+    });
+  } catch (e) { $stat.textContent = 'connect failed: ' + e.message; }
+});
+
+// Dev shortcut: press "j" or "h" or "u" to fake a gesture and see the FX.
+addEventListener('keydown', (e) => {
+  const map = { j:'jab', h:'hook', u:'uppercut' };
+  if (map[e.key]) {
+    document.body.classList.add('game-active');
+    applyGesture({ gesture: map[e.key], power: 0.7 + Math.random()*0.3 });
+  }
+});
+</script>
+</body>
+</html>

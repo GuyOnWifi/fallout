@@ -1,0 +1,28 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# ESP-IDF vendored deps (regenerable, hundreds of MB)
+managed_components/
+dependencies.lock
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# Playwright / test caches
+.cache/
+.playwright/

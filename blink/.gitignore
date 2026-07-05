@@ -1,0 +1,5 @@
+.pio/
+.vscode/
+sdkconfig
+sdkconfig.old
+sdkconfig.seeed_xiao_esp32s3
