@@ -165,7 +165,17 @@
   }
   @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.9); } }
 
-  .title-block { text-align: center; margin-bottom: 3vh; }
+  /* ────────── hero mascot canvas (real 3D Soup) ────────── */
+  #hero {
+    position: relative;
+    height: clamp(160px, 22vh, 260px);
+    margin: -12px auto 8px;
+    max-width: 900px; width: 100%;
+    pointer-events: none;
+  }
+  #hero canvas { display: block; width: 100%; height: 100%; }
+
+  .title-block { text-align: center; margin-bottom: 2vh; }
   h1 {
     font-size: clamp(64px, 10vw, 140px);
     font-weight: 900; letter-spacing: -.05em; margin: 0; line-height: 0.9;
@@ -295,6 +305,8 @@
     <div class="subhead">The world is flooded. Soup is ready to play.</div>
   </div>
 
+  <div id="hero"></div>
+
   <div class="games">
     <a class="card" href="boxing.html" style="--card-accent: #ff9663;">
       <div class="badge">Playable</div>
@@ -331,5 +343,116 @@
     <div class="version">Soup Sports · hackathon build · v0.4</div>
   </footer>
 </main>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ─── Hero mascot: real 3D Soup, transparent bg so the CSS sky shows through
+const host = document.getElementById('hero');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(
+  38, host.clientWidth / host.clientHeight, 0.1, 20);
+camera.position.set(0, 1.05, 3.2);
+camera.lookAt(0, 0.85, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(host.clientWidth, host.clientHeight);
+renderer.setClearColor(0x000000, 0);   // transparent — CSS background layers through
+host.appendChild(renderer.domElement);
+
+// Cheerful lighting: warm cream key + cool sky fill
+scene.add(new THREE.HemisphereLight(0xbde5f4, 0xf4d9a0, 0.85));
+const key = new THREE.DirectionalLight(0xfff4c8, 1.0);
+key.position.set(2, 3, 3);
+scene.add(key);
+
+const soup = new THREE.Group();
+scene.add(soup);
+
+let paws = null;
+let bodyY = 0;
+let loaded = false;
+
+const loader = new GLTFLoader();
+loader.load('assets/mascot.glb',
+  (gltf) => {
+    const m = gltf.scene;
+    // Clone materials so we can retint without affecting other pages (defensive).
+    m.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    // Y-up + face camera
+    m.rotation.x = -Math.PI / 2;
+    m.rotation.y = Math.PI;
+    m.scale.setScalar(0.014);
+    soup.add(m);
+    paws = m.getObjectByName('paws') || null;
+    bodyY = soup.position.y;
+    loaded = true;
+  },
+  undefined,
+  (err) => {
+    console.warn('mascot load failed:', err);
+    // Fallback: a cream sphere so the hero area isn't empty.
+    const fallback = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 24, 18),
+      new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.8 })
+    );
+    fallback.position.y = 0.75;
+    soup.add(fallback);
+    bodyY = soup.position.y;
+    loaded = true;
+  });
+
+// Cheerful animation: idle bob + squish, periodic wave
+const start = performance.now();
+let lastWave = 0;
+function tick() {
+  const now = performance.now();
+  const t = (now - start) / 1000;
+
+  if (loaded) {
+    // Idle bob
+    soup.position.y = bodyY + Math.sin(t * 2.0) * 0.03;
+    // Gentle squish-breathe (careful — scale.y is under a rotated child, so we
+    // scale the whole soup group vertically instead of the model)
+    const squish = 1 + Math.sin(t * 2.0) * 0.025;
+    soup.scale.set(1, squish, 1);
+    // Slow head sway (rotate the whole soup around Y a hair)
+    soup.rotation.y = Math.sin(t * 0.7) * 0.15;
+
+    // Wave every ~5s: rotate paws forward and back
+    const waveCycle = 5.5;
+    const wavePhase = (now - lastWave) / 1000;
+    if (paws && wavePhase < 0.9) {
+      const p = wavePhase / 0.9;
+      // half-sine bump — up, over, back
+      paws.rotation.z = Math.sin(p * Math.PI) * 0.6;
+    } else if (paws) {
+      paws.rotation.z = 0;
+    }
+    if (wavePhase > waveCycle) lastWave = now;
+  }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Responsive
+addEventListener('resize', () => {
+  camera.aspect = host.clientWidth / host.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(host.clientWidth, host.clientHeight);
+});
+</script>
 </body>
 </html>
