@@ -36,13 +36,14 @@
   canvas { display:block; }
 
   /* ── Score HUD ── */
-  #hud { position:absolute; top:20px; left:0; right:0; text-align:center;
+  #hud { position:absolute; top:14px; left:0; right:0; text-align:center;
          pointer-events:none; z-index:100; }
-  #score { display:inline-flex; align-items:center; gap:14px;
-           padding:8px 24px; background: var(--cream);
-           border: 3px solid var(--ink); border-radius: 18px;
-           box-shadow: 0 4px 0 var(--ink), 0 8px 20px rgba(28,42,58,.22);
-           font-size:36px; font-weight:900; letter-spacing:-.02em; }
+  @media (max-width: 640px) { #hud { top: 64px; } }
+  #score { display:inline-flex; align-items:center; gap:12px;
+           padding:8px 22px; background: var(--cream);
+           border: 3px solid var(--ink); border-radius: 16px;
+           box-shadow: 0 4px 0 var(--ink);
+           font-size:30px; font-weight:900; letter-spacing:-.02em; }
   #score .you  { color: var(--hot);
                  text-shadow: 0 3px 0 #a5471d; }
   #score .cpu  { color: var(--ruin-blue);
@@ -76,21 +77,17 @@
     100% { transform: scale(1.15) rotate(4deg); }
   }
 
-  /* ── Gesture tutorial overlay (idle hint) ── */
-  #tutorial { position:absolute; left:50%; bottom:130px;
+  /* ── Gesture tutorial diagram (idle hint, wordless) ── */
+  #tutorial { position:absolute; left:50%; bottom:126px;
               transform: translate(-50%,0);
-              padding: 10px 18px 10px;
-              background: rgba(251,243,224,.9);
-              border: 3px solid var(--ink); border-radius: 20px;
-              box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
               display:flex; flex-direction:column; align-items:center;
-              gap:6px; pointer-events:none; z-index:94;
+              pointer-events:none; z-index:94;
               opacity:0; transition: opacity 320ms;
-              min-width: 220px; }
+              filter: drop-shadow(0 3px 0 rgba(28,42,58,.25)); }
   #tutorial.show { opacity: 1; }
-  #tutorial .swing-scene { position:relative; width:150px; height:52px; }
+  #tutorial .swing-scene { position:relative; width:150px; height:56px; }
   #tutorial .arm {
-    position:absolute; left:12px; top:32px;
+    position:absolute; left:12px; top:34px;
     width:64px; height:10px; border-radius:6px;
     background: linear-gradient(90deg, var(--hot), #ffbf94);
     border: 2px solid var(--ink);
@@ -98,17 +95,12 @@
     animation: swing-arm 1600ms ease-in-out infinite;
   }
   #tutorial .ball {
-    position:absolute; left:72px; top:22px;
-    font-size: 20px;
+    position:absolute; left:74px; top:24px;
+    width:16px; height:16px; border-radius:50%;
+    background:#d7e75a; border:2px solid var(--ink);
     transform-origin: -60px 10px;
     animation: swing-ball 1600ms ease-in-out infinite;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,.2));
   }
-  #tutorial .label { font-size:10px; letter-spacing:.28em;
-                     text-transform:uppercase; font-weight:800;
-                     color: var(--ink-soft); }
-  #tutorial .hint  { font-size:14px; font-weight:900;
-                     letter-spacing:.04em; color: var(--ink); }
   @keyframes swing-arm {
     0%   { transform: rotate(-42deg); }
     38%  { transform: rotate(-42deg); }
@@ -127,9 +119,11 @@
   /* ── Point sparkle shower ── */
   #sparkles { position:absolute; inset:0; overflow:hidden;
               pointer-events:none; z-index:93; }
-  .spark { position:absolute; font-size:22px;
+  .spark { position:absolute; width:16px; height:16px;
+           background: var(--gold);
+           clip-path: polygon(50% 0%, 63% 37%, 100% 50%, 63% 63%, 50% 100%, 37% 63%, 0% 50%, 37% 37%);
            animation: spark-fall 900ms ease-out forwards;
-           filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
+           filter: drop-shadow(0 2px 0 rgba(28,42,58,.35)); }
   @keyframes spark-fall {
     0%   { opacity:0; transform: translate(0,0) rotate(0deg) scale(.3); }
     25%  { opacity:1; }
@@ -141,12 +135,12 @@
   /* ── Serve / status prompt ── */
   #prompt { position:absolute; bottom:60px; left:50%;
             transform:translateX(-50%);
-            padding:14px 26px; background: var(--cream);
-            border: 3px solid var(--ink); border-radius: 18px;
-            box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
-            font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-            font-size:14px; text-align:center; z-index:100;
-            color: var(--ink);
+            padding:11px 22px; background: var(--cream);
+            border: 3px solid var(--ink); border-radius: 999px;
+            box-shadow: 0 3px 0 var(--ink);
+            font-weight:700; letter-spacing:.01em;
+            font-size:13px; text-align:center; z-index:100;
+            color: var(--ink); white-space:nowrap;
             transition: opacity 220ms; }
   #prompt.hidden { opacity: 0; }
 
@@ -154,11 +148,11 @@
   #gesture { position:absolute; top:38%; left:50%;
              transform:translate(-50%,-50%) scale(1);
              font-size:64px; font-weight:900; letter-spacing:-.02em;
-             text-transform:uppercase;
              text-shadow:0 5px 0 var(--ink), 0 8px 24px rgba(28,42,58,.4);
              opacity:0; transition:opacity 90ms, transform 140ms;
              pointer-events:none; z-index:95; color: var(--hot); }
   #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+  @media (max-width: 640px) { #gesture { font-size:42px; } }
 
   /* ── Hit confirm ── */
   .hit-confirm { position:absolute; inset:0;
@@ -214,86 +208,58 @@
   #banner.cpu { color: var(--ruin-blue); }
   #banner.miss{ color: var(--gold); }
 
-  /* ── Chrome ── */
-  #connect { position:absolute; top:18px; right:18px;
-             padding:12px 20px; background: var(--cream);
-             color: var(--ink);
-             border: 3px solid var(--ink); border-radius: 999px;
-             text-transform:uppercase; font-weight:800;
-             letter-spacing:.14em; cursor:pointer;
-             z-index:110; font-size:12px;
-             font-family: inherit;
-             box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.2);
-             transition: transform 140ms, box-shadow 140ms; }
-  #connect:hover { transform: translateY(-2px);
-                   box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25); }
-  #connect:active { transform: translateY(0);
-                    box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.15); }
-
-  #status { position:absolute; bottom:18px; right:18px;
-            display:flex; align-items:center; gap:10px;
-            padding:9px 16px; border-radius: 999px;
-            background: rgba(255,255,255,.75);
-            border: 2px solid rgba(28,42,58,.1);
-            font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-            color: var(--ink); font-weight:800;
-            box-shadow: 0 3px 0 rgba(0,0,0,.06);
-            z-index:110;
-            backdrop-filter: blur(6px); }
-  #status::before {
-    content:""; width:8px; height:8px; border-radius:50%;
-    background: var(--gold); box-shadow: 0 0 12px var(--gold);
-    animation: pulse 1.8s ease-in-out infinite;
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
   }
-  #status.connected::before {
-    background: var(--vine); box-shadow: 0 0 12px var(--vine);
+  .ss-btn:hover { transform: translateY(-2px); background: var(--cream-warm);
+                  box-shadow: 0 5px 0 var(--ink); }
+  .ss-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
     animation: none;
   }
-  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.9); } }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
 
-  #back { position:absolute; bottom:18px; left:18px;
-          padding:10px 18px; background: var(--cream);
-          color: var(--ink); text-decoration:none;
-          border: 3px solid var(--ink); border-radius: 999px;
-          text-transform:uppercase; font-weight:800;
-          letter-spacing:.14em; font-size:11px;
-          z-index:110;
-          box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.2);
-          transition: transform 140ms, box-shadow 140ms; }
-  #back:hover { transform: translateY(-2px);
-                box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25); }
-  #back:active { transform: translateY(0);
-                 box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.15); }
-
-  #devhint { position:absolute; top:18px; left:18px; font-size:10px;
-             padding: 8px 14px; border-radius: 999px;
-             background: rgba(255,255,255,.5);
-             color: var(--ink); font-weight: 700;
-             letter-spacing: .16em; text-transform:uppercase;
-             z-index:110; pointer-events:none;
-             border: 2px solid rgba(28,42,58,.08); }
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
 </style>
 </head>
 <body>
 
 <div id="hud">
   <div id="score">
-    <span class="you">YOU 0</span><span class="dash">—</span><span class="cpu">0 CPU</span>
+    <span class="you">you 0</span><span class="dash">·</span><span class="cpu">soup 0</span>
   </div>
-  <div id="rally-wrap"><span id="rally">RALLY 0</span></div>
+  <div id="rally-wrap"><span id="rally">rally 0</span></div>
 </div>
 
 <div id="tutorial">
-  <div class="label">Tennis Swing</div>
   <div class="swing-scene">
     <div class="arm"></div>
-    <div class="ball">🎾</div>
+    <div class="ball"></div>
   </div>
-  <div class="hint">Swing your arm across</div>
 </div>
 
 <div id="sparkles"></div>
-<div id="prompt">Swing to serve</div>
+<div id="prompt">give it a swing to serve</div>
 <div id="gesture"></div>
 <div id="banner"></div>
 <div class="hit-confirm" id="hit-confirm">
@@ -301,10 +267,9 @@
   <div class="ring"></div>
 </div>
 
-<div id="devhint">SPACE hit · A miss · N advance ball</div>
-<div id="status">not connected</div>
-<button id="connect">Connect hub</button>
-<a id="back" href="index.html">← menu</a>
+<div id="devhint">keys · space hit · a miss · n rush</div>
+<button id="connect" class="ss-btn">connect hub</button>
+<a id="back" class="ss-btn" href="index.html">← menu</a>
 
 <script type="importmap">
 { "imports": {
@@ -655,7 +620,7 @@ const $prompt = document.getElementById('prompt');
 const $gest   = document.getElementById('gesture');
 const $banner = document.getElementById('banner');
 const $conf   = document.getElementById('hit-confirm');
-const $stat   = document.getElementById('status');
+const $stat   = document.getElementById('connect'); // hub pill doubles as status
 const $tutorial = document.getElementById('tutorial');
 const $sparkles = document.getElementById('sparkles');
 
@@ -689,7 +654,7 @@ function sparkleShower(cx, cy, count = 18) {
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
     el.className = 'spark';
-    el.textContent = Math.random() < 0.7 ? '🎾' : '✨';
+    el.style.background = Math.random() < 0.5 ? '#f4c95d' : (Math.random() < 0.5 ? '#fbf3e0' : '#ff9663');
     const angle = (Math.random() - 0.5) * Math.PI * 1.1;   // spread outward
     const dist  = 120 + Math.random() * 220;
     const dx = Math.sin(angle) * dist;
@@ -708,18 +673,20 @@ function sparkleShower(cx, cy, count = 18) {
 
 function refreshScore() {
   $score.innerHTML =
-    `<span class="you">YOU ${state.scoreYou}</span>` +
-    `<span class="dash">—</span>` +
-    `<span class="cpu">${state.scoreCpu} CPU</span>`;
+    `<span class="you">you ${state.scoreYou}</span>` +
+    `<span class="dash">·</span>` +
+    `<span class="cpu">soup ${state.scoreCpu}</span>`;
   // Rally streak escalates visually at 3+.
   const r = state.rally;
   let streakClass = '';
   let flame = '';
-  if (r >= 6)      { streakClass = 'streak-3'; flame = '<span class="streak-flame">🔥🔥</span>'; }
-  else if (r >= 4) { streakClass = 'streak-2'; flame = '<span class="streak-flame">🔥</span>'; }
-  else if (r >= 3) { streakClass = 'streak-1'; flame = '<span class="streak-flame">✨</span>'; }
+  const FLAME = '<svg width="11" height="14" viewBox="0 0 11 14" aria-hidden="true"><path d="M5.5 1 C7 3.4 9.6 4.9 9.6 8.2 C9.6 11.2 7.7 13 5.5 13 C3.3 13 1.4 11.2 1.4 8.2 C1.4 6.3 2.4 5.2 3.2 4.1 C3.6 5.7 4.5 6.3 4.9 5.9 C5.3 5.3 4.8 3.3 5.5 1 Z" fill="#ff9663" stroke="#a5471d" stroke-width="1"/></svg>';
+  const SPARK = '<svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M5.5 0 L6.7 4.3 L11 5.5 L6.7 6.7 L5.5 11 L4.3 6.7 L0 5.5 L4.3 4.3 Z" fill="#f4c95d" stroke="#c88c00" stroke-width=".7"/></svg>';
+  if (r >= 6)      { streakClass = 'streak-3'; flame = `<span class="streak-flame">${FLAME}${FLAME}</span>`; }
+  else if (r >= 4) { streakClass = 'streak-2'; flame = `<span class="streak-flame">${FLAME}</span>`; }
+  else if (r >= 3) { streakClass = 'streak-1'; flame = `<span class="streak-flame">${SPARK}</span>`; }
   $rally.className = streakClass;
-  $rally.innerHTML = `RALLY ${r}${flame ? ' ' + flame : ''}`;
+  $rally.innerHTML = `rally ${r}${flame ? ' ' + flame : ''}`;
 }
 
 function setPrompt(text, hidden = false) {
@@ -784,7 +751,7 @@ function serveFromYou() {
   state.mode = 'idle';
   ball.position.set(0.4, 1.2, PLAYER_BASE_Z);
   clearTrail();
-  setPrompt('Swing to serve');
+  setPrompt('give it a swing to serve');
 }
 
 function serveFromCpu() {
@@ -792,7 +759,7 @@ function serveFromCpu() {
   state.ballFrom = 'cpu';
   ball.position.set(0, 1.4, cpu.position.z + 0.3);
   clearTrail();
-  setPrompt('Incoming! Swing to return', true);
+  setPrompt('incoming, swing to return', true);
   setTimeout(() => {
     if (state.mode !== 'idle') return;
     cpuHitBall(true);
@@ -809,7 +776,7 @@ function cpuHitBall(isServe = false) {
   launchArc(from, to, flight);
   state.hittableEnd = performance.now() + flight;
   state.hittableStart = state.hittableEnd - HITTABLE_MS;
-  setPrompt('Incoming! Swing to return', false);
+  setPrompt('incoming, swing to return', false);
   // CPU swing animation
   soupAnim.swingStart = performance.now();
 }
@@ -827,7 +794,7 @@ function playerHitBall(power, rollDeg) {
   state.hittableStart = state.hittableEnd - HITTABLE_MS;
   fireHitConfirm(from, power);
   shakeCamera(power);
-  setPrompt('Returned!', true);
+  setPrompt('nice return', true);
 }
 
 function cpuDecideReturn() {
@@ -837,7 +804,7 @@ function cpuDecideReturn() {
   } else {
     // CPU misses → trigger miss anim
     soupAnim.missStart = performance.now();
-    scorePoint('you', 'CPU MISSED');
+    scorePoint('you', 'soup missed');
   }
 }
 
@@ -849,18 +816,18 @@ function scorePoint(winner, bannerText) {
   sparkleShower(cx, cy, 22);
   if (winner === 'you') {
     state.scoreYou++;
-    popBanner(bannerText || 'POINT YOU', '');
+    popBanner(bannerText || 'your point', '');
     playerAnim.hopStart = performance.now();
     shakeCamera(0.6);
   } else {
     state.scoreCpu++;
-    popBanner(bannerText || 'POINT CPU', 'cpu');
+    popBanner(bannerText || "soup's point", 'cpu');
     soupAnim.hopStart = performance.now();
   }
   state.rally = 0;
   refreshScore();
   if (state.scoreYou >= 5 || state.scoreCpu >= 5) {
-    const winMsg = state.scoreYou > state.scoreCpu ? 'GAME — YOU WIN' : 'GAME — CPU WINS';
+    const winMsg = state.scoreYou > state.scoreCpu ? 'you take the game' : 'soup takes the game';
     setTimeout(() => {
       popBanner(winMsg, state.scoreYou > state.scoreCpu ? '' : 'cpu');
       state.scoreYou = 0; state.scoreCpu = 0;
@@ -900,15 +867,15 @@ function updateBall(dt) {
   const now = performance.now();
   if (state.ballFrom === 'cpu') {
     if (ball.position.z > PLAYER_BASE_Z + 1.5 || now > state.hittableEnd + 250) {
-      scorePoint('cpu', 'YOU MISSED');
+      scorePoint('cpu', 'missed');
     }
   } else {
     if (Math.abs(ball.position.x) > halfW + 0.8) {
-      scorePoint('cpu', 'OUT');
+      scorePoint('cpu', 'out');
       return;
     }
     if (ball.position.z < -HALF_L - 0.5) {
-      scorePoint('cpu', 'OUT');
+      scorePoint('cpu', 'out');
       return;
     }
     if (now >= state.arriveTime && state.mode === 'in_flight') {
@@ -1012,7 +979,7 @@ function handleSwing({ power, roll, forehand }) {
   const inWindow = now >= state.hittableStart && now <= state.hittableEnd + 80;
 
   if (state.mode === 'idle' && state.server === 'you' && state.ballFrom === 'you') {
-    popGesture(`SERVE ${Math.round(power*100)}`, '#ff9663');
+    popGesture(`serve ${Math.round(power*100)}`, '#ff9663');
     const from = ball.position.clone();
     const aim = THREE.MathUtils.clamp(roll / 45, -0.7, 0.7);
     const to = new THREE.Vector3(aim * (COURT_W/2 - 1.0), 1.0, -HALF_L + 3.0);
@@ -1026,16 +993,16 @@ function handleSwing({ power, roll, forehand }) {
 
   if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
     if (inWindow) {
-      popGesture(`${forehand ? 'FOREHAND' : 'BACKHAND'} ${Math.round(power*100)}`,
+      popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
                  forehand ? '#ff9663' : '#37628a');
       playerHitBall(power, roll);
     } else {
-      popGesture('MISS', '#f4c95d');
+      popGesture('miss', '#f4c95d');
     }
     return;
   }
 
-  popGesture('SWING', '#476278');
+  popGesture('swing', '#476278');
 }
 
 // ═══════════════════════ Main tick ═══════════════════════
@@ -1173,18 +1140,18 @@ dispatcher.onLine = (line) => {
 
 document.getElementById('connect').addEventListener('click', async () => {
   try {
-    $stat.textContent = 'requesting port…';
+    $stat.textContent = 'choosing port…';
     await openSerial({
       baud: 115200,
       onLine: (line) => dispatcher.onLine(line),
-      onOpen:  () => { $stat.textContent = 'connected — game on';
+      onOpen:  () => { $stat.textContent = 'hub connected';
                        $stat.classList.add('connected'); },
-      onClose: () => { $stat.textContent = 'disconnected';
+      onClose: () => { $stat.textContent = 'hub disconnected';
                        $stat.classList.remove('connected'); },
-      onError: (e) => { $stat.textContent = 'serial error: ' + e.message;
+      onError: () => { $stat.textContent = 'hub error, try again';
                         $stat.classList.remove('connected'); },
     });
-  } catch (e) { $stat.textContent = 'connect failed: ' + e.message; }
+  } catch (e) { $stat.textContent = 'connect hub'; }
 });
 
 // ═══════════════════════ Dev shortcuts ═══════════════════════
@@ -1195,7 +1162,7 @@ addEventListener('keydown', (e) => {
                   roll: (Math.random() - 0.5) * 30,
                   forehand: true });
   } else if (e.key === 'a' || e.key === 'A') {
-    popGesture('MISS', '#f4c95d');
+    popGesture('miss', '#f4c95d');
     if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
       state.hittableStart = -Infinity;
       state.hittableEnd = performance.now() - 500;

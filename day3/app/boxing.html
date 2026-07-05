@@ -43,24 +43,25 @@
   canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
 
   /* ── HUD ───────────────────────────────────────────── */
-  #hud { position:absolute; top:24px; width:100%;
-         display:flex; justify-content:space-around;
+  #hud { position:absolute; top:64px; width:100%;
+         display:flex; justify-content:center; gap:14px;
+         padding: 0 16px;
          z-index:100; pointer-events:none;
          opacity:0; transition:opacity 400ms ease; }
   body.game-active #hud { opacity:1; }
   .hud-panel {
     background: var(--cream);
     border: 3px solid var(--ink);
-    border-radius: 18px;
-    box-shadow: 0 4px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
-    padding: 12px 18px 14px;
-    min-width: 240px;
+    border-radius: 16px;
+    box-shadow: 0 4px 0 var(--ink);
+    padding: 10px 16px 12px;
+    width: 230px; max-width: 44vw;
     text-align: center;
     letter-spacing: -.01em;
   }
   .hud-panel .label {
-    font-size: 12px; font-weight: 800;
-    letter-spacing: .22em; text-transform: uppercase;
+    font-size: 11px; font-weight: 800;
+    letter-spacing: .18em; text-transform: uppercase;
     color: var(--ink-soft);
   }
   .hud-p1 .label { color: var(--ruin-blue); }
@@ -89,6 +90,7 @@
              opacity:0; transition:opacity 90ms, transform 120ms;
              pointer-events:none; z-index:95; }
   #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+  @media (max-width: 640px) { #gesture { font-size:52px; } }
 
   /* ── Hit confirm (burst + ring + damage) ───────────── */
   .hit-confirm { position:absolute; top:0; bottom:0; left:0; right:0;
@@ -155,64 +157,52 @@
   #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
               background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
 
-  /* ────────── Soup Sports styled buttons ────────── */
+  /* ────────── Soup Sports chrome (shared treatment across pages) ────────── */
   .ss-btn {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 12px 22px;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
     background: var(--cream);
     color: var(--ink);
     border: 3px solid var(--ink);
     border-radius: 999px;
     font-family: inherit;
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .01em;
     text-decoration: none;
     cursor: pointer;
-    box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.18);
-    transition: transform 140ms cubic-bezier(.3,.7,.3,1), box-shadow 140ms;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
   }
   .ss-btn:hover {
     transform: translateY(-2px);
     background: var(--cream-warm);
-    box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25);
+    box-shadow: 0 5px 0 var(--ink);
   }
   .ss-btn:active {
     transform: translateY(1px);
-    box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.12);
+    box-shadow: 0 1px 0 var(--ink);
   }
 
-  #back { position:absolute; top:20px; left:20px; z-index:110; }
-  #connect { position:absolute; bottom:20px; right:20px; z-index:110;
-             border-width:3px; }
-  body.game-active #connect { display:none; }
-
-  /* ── Status pill ─────────────────────────────────── */
-  #status {
-    position:absolute; bottom:22px; left:20px; z-index:110;
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 10px 18px; border-radius: 999px;
-    background: var(--cream);
-    border: 3px solid var(--ink);
-    box-shadow: 0 4px 0 var(--ink);
-    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--ink); font-weight: 800;
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
   }
-  #status::before {
-    content: ""; width: 10px; height: 10px; border-radius: 50%;
-    background: var(--gold); box-shadow: 0 0 10px var(--gold);
-    animation: pulse 1.8s ease-in-out infinite;
-  }
-  #status.connected::before {
-    background: var(--vine); box-shadow: 0 0 10px var(--vine);
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
     animation: none;
   }
-  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.85); } }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
 
-  #log { position:absolute; bottom:60px; left:20px; font-size:10px; opacity:.45;
-         font-family: ui-monospace, Menlo, monospace; white-space:pre;
-         pointer-events:none; z-index:105; color: var(--ink); }
+  #log { display:none; }
+
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
 
   /* Title on the pre-game screen */
   #title { position:absolute; top:26%; left:50%;
@@ -225,9 +215,9 @@
            z-index:70; transition:opacity 600ms ease;
            line-height: 0.9; pointer-events:none; }
   body.game-active #title, #title.hidden { opacity:0; pointer-events:none; }
-  #title small { display:block; font-size:14px; letter-spacing:.32em;
-                 color: var(--ink); font-weight: 800;
-                 margin-top: 22px;
+  #title small { display:block; font-size:16px; letter-spacing:.02em;
+                 color: var(--ink); font-weight: 700;
+                 margin-top: 20px;
                  text-shadow: 0 2px 0 rgba(255,255,255,.5); }
   #title .accent { color: var(--hot);
                    text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4); }
@@ -249,19 +239,20 @@
   #tutorial.gone { display:none; }
   .tut-card {
     display:flex; flex-direction:column; align-items:center;
-    width:88px; padding:4px 4px 2px;
+    width:92px; padding:4px 4px 2px;
     border-right:2px dashed rgba(28,42,58,.25);
   }
   .tut-card:last-child { border-right:none; }
   .tut-card svg { width:58px; height:36px; overflow:visible; }
   .tut-card .name {
-    font-size:10px; font-weight:900; letter-spacing:.18em;
-    text-transform:uppercase; color:var(--ink); margin-top:1px;
+    font-size:10px; font-weight:900; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink); margin-top:2px;
   }
   .tut-glove {
-    font-size:16px; line-height:1;
+    width:16px; height:16px; line-height:1;
     animation: tutSlide 2.4s ease-in-out infinite;
   }
+  .tut-glove svg { display:block; }
   .tut-card.jab .tut-glove      { animation-delay: 0s; }
   .tut-card.hook .tut-glove     { animation-delay: 0.4s; animation-name: tutHook; }
   .tut-card.uppercut .tut-glove { animation-delay: 0.8s; animation-name: tutUpper; }
@@ -334,19 +325,19 @@
 </head>
 <body>
 
-<a id="back" class="ss-btn" href="index.html">← Menu</a>
+<a id="back" class="ss-btn" href="index.html">← menu</a>
 
-<div id="title">SOUP <span class="accent">BOXING</span><small>SWING TO PUNCH</small></div>
+<div id="title">SOUP <span class="accent">BOXING</span><small>gloves on, he's waiting</small></div>
 
 <div id="hud">
   <div class="hud-panel hud-p1">
-    <div class="label">YOU</div>
+    <div class="label">you</div>
     <div class="bar-container"><div class="health-bar" id="p1-hp"></div></div>
     <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p1-stam"></div></div>
     <div class="bar-container combo-bar-container"><div class="combo-bar" id="p1-combo"></div></div>
   </div>
   <div class="hud-panel hud-p2">
-    <div class="label">OPPONENT</div>
+    <div class="label">soup</div>
     <div class="bar-container"><div class="health-bar" id="p2-hp"></div></div>
     <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p2-stam"></div></div>
     <div class="bar-container combo-bar-container"><div class="combo-bar" id="p2-combo"></div></div>
@@ -362,7 +353,7 @@
       <path d="M8 26 L62 26"/>
       <path d="M52 16 L66 26 L52 36"/>
     </svg>
-    <div class="tut-glove">&#129354;</div>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Jab</div>
   </div>
   <div class="tut-card hook">
@@ -370,7 +361,7 @@
       <path d="M10 42 Q 22 6 68 22"/>
       <path d="M58 12 L70 22 L58 30"/>
     </svg>
-    <div class="tut-glove">&#129354;</div>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Hook</div>
   </div>
   <div class="tut-card uppercut">
@@ -378,7 +369,7 @@
       <path d="M39 46 L39 8"/>
       <path d="M28 18 L39 6 L50 18"/>
     </svg>
-    <div class="tut-glove">&#129354;</div>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Uppercut</div>
   </div>
 </div>
@@ -392,11 +383,11 @@
 <div id="sparks"></div>
 <div id="ko-flash"></div>
 <div id="confetti"></div>
-<div id="ko-banner">K.O.!<span class="sub">Soup wins</span></div>
+<div id="ko-banner">K.O.<span class="sub">down goes Soup</span></div>
 
-<div id="status">hub → not connected</div>
-<button id="connect" class="ss-btn">Connect hub</button>
+<button id="connect" class="ss-btn">connect hub</button>
 <div id="log"></div>
+<div id="devhint">keys · j h u to punch</div>
 
 <script type="importmap">
 { "imports": {
@@ -418,7 +409,9 @@ scene.background = new THREE.Color(SKY_HEX);
 // Push fog far back so the ring reads as an open-air bright stage, not a tunnel.
 scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
 
-const BASE_FOV = 55;
+// Wider FOV on portrait phones so the opponent doesn't swallow the frame.
+const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 72 : 55;
+let BASE_FOV = fovForAspect();
 const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth/innerHeight, 0.05, 100);
 const camHome = new THREE.Vector3(0, 1.6, 3.6);
 camera.position.copy(camHome);
@@ -435,6 +428,8 @@ document.body.appendChild(renderer.domElement);
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
+  BASE_FOV = fovForAspect();
+  if (camFx.phase === 'idle') { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.target = BASE_FOV; }
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
@@ -731,7 +726,7 @@ const $cb2 = document.getElementById('p2-combo');
 const $gest= document.getElementById('gesture');
 const $conf= document.getElementById('hit-confirm');
 const $flash= document.getElementById('hit-flash');
-const $stat= document.getElementById('status');
+const $stat= document.getElementById('connect'); // hub pill doubles as status
 const $log = document.getElementById('log');
 const $title = document.getElementById('title');
 const $tut  = document.getElementById('tutorial');
@@ -784,7 +779,7 @@ function spawnSparks(x, y, power) {
 
 // ── Camera FOV punch ──
 function fovPunch(power) {
-  camFx.target = 55 - (7 * Math.max(0.3, power));
+  camFx.target = BASE_FOV - (7 * Math.max(0.3, power));
   camFx.phase  = 'in';
   camFx.until  = performance.now() + 60;
 }
@@ -826,7 +821,7 @@ refreshHud();
 
 const GEST_COLOR = { jab:'#f4c95d', hook:'#ff9663', uppercut:'#6cb85a', block:'#4fc0e3' };
 function popGesture(name, power) {
-  $gest.textContent = `${name.toUpperCase()}  ${Math.round(power*100)}`;
+  $gest.textContent = `${name} ${Math.round(power*100)}`;
   $gest.style.color = GEST_COLOR[name] || '#fbf3e0';
   $gest.classList.remove('pop'); void $gest.offsetWidth;
   $gest.classList.add('pop');
@@ -1030,27 +1025,27 @@ const dispatcher = new ArmDispatcher((armId, g) => {
 
 document.getElementById('connect').addEventListener('click', async () => {
   try {
-    $stat.textContent = 'hub → requesting port…';
+    $stat.textContent = 'choosing port…';
     await openSerial({
       baud: 115200,
       onLine: (line) => dispatcher.onLine(line),
       onOpen: () => {
-        $stat.textContent = 'hub → connected';
+        $stat.textContent = 'hub connected';
         $stat.classList.add('connected');
         document.body.classList.add('game-active');
         $title.classList.add('hidden');
       },
       onClose: () => {
-        $stat.textContent = 'hub → disconnected';
+        $stat.textContent = 'hub disconnected';
         $stat.classList.remove('connected');
       },
-      onError: (e) => {
-        $stat.textContent = 'hub → error: ' + e.message;
+      onError: () => {
+        $stat.textContent = 'hub error, try again';
         $stat.classList.remove('connected');
       },
     });
   } catch (e) {
-    $stat.textContent = 'hub → failed: ' + e.message;
+    $stat.textContent = 'connect hub';
     $stat.classList.remove('connected');
   }
 });

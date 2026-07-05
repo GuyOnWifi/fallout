@@ -41,65 +41,55 @@
                           rgba(28,42,58,0.18) 80%,
                           rgba(28,42,58,0.42) 100%); }
 
-  /* Status pill — cream capsule w/ pulsing dot */
-  #status { position:absolute; top:16px; left:16px; z-index:5;
-            display:flex; align-items:center; gap:10px;
-            padding:10px 16px; border-radius: 999px;
-            background: var(--cream);
-            border: 3px solid var(--ink);
-            font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
-            color: var(--ink); font-weight: 800;
-            box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.18); }
-  #status::before {
-    content: ""; width: 10px; height: 10px; border-radius: 50%;
-    background: var(--gold); box-shadow: 0 0 12px var(--gold);
-    animation: pulse 1.8s ease-in-out infinite;
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
   }
-  #status.connected::before {
-    background: var(--vine); box-shadow: 0 0 12px var(--vine);
+  .ss-btn:hover { transform: translateY(-2px); background: var(--cream-warm);
+                  box-shadow: 0 5px 0 var(--ink); }
+  .ss-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
     animation: none;
   }
-  @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
 
-  /* Connect button — chunky cream pill */
-  #connect { position:absolute; top:16px; right:16px; z-index:5;
-             padding:12px 20px; border-radius: 999px;
-             background: var(--cream); color: var(--ink);
-             border: 3px solid var(--ink);
-             font-family: inherit; font-size: 13px; font-weight: 800;
-             letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
-             box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.18);
-             transition: transform 120ms, box-shadow 120ms; }
-  #connect:hover { background: var(--cream-warm);
-                   transform: translateY(-2px);
-                   box-shadow: 0 7px 0 var(--ink), 0 12px 22px rgba(28,42,58,.22); }
-  #connect:active { transform: translateY(2px);
-                    box-shadow: 0 3px 0 var(--ink), 0 4px 12px rgba(28,42,58,.15); }
-
-  /* Menu link — matching cream pill */
-  #back { position:absolute; bottom:20px; left:20px; z-index:5;
-          padding:10px 18px; border-radius:999px;
-          background: var(--cream); color: var(--ink);
-          border: 3px solid var(--ink);
-          text-decoration: none; font-size:12px; font-weight:800;
-          letter-spacing:.16em; text-transform:uppercase;
-          box-shadow: 0 4px 0 var(--ink), 0 8px 16px rgba(28,42,58,.18);
-          transition: transform 120ms, box-shadow 120ms; }
-  #back:hover { background: var(--cream-warm); transform: translateY(-2px);
-                box-shadow: 0 6px 0 var(--ink), 0 10px 20px rgba(28,42,58,.22); }
-
-  /* Big score — top-right cream pill */
-  #score-card { position:absolute; top:16px; right:180px; z-index:4;
+  /* Score panel — top center */
+  #score-card { position:absolute; top:14px; left:50%;
+                transform:translateX(-50%); z-index:100;
                 display:flex; flex-direction:column; align-items:center;
-                gap:4px; padding:8px 18px 10px; border-radius:22px;
+                gap:3px; padding:8px 20px 10px; border-radius:16px;
                 background: var(--cream); border:3px solid var(--ink);
-                box-shadow: 0 5px 0 var(--ink), 0 10px 22px rgba(28,42,58,.18);
-                pointer-events:none; min-width:120px; }
-  #score { font-size:38px; font-weight:900; line-height:1;
+                box-shadow: 0 4px 0 var(--ink);
+                pointer-events:none; min-width:118px; }
+  #score { font-size:34px; font-weight:900; line-height:1;
            color: var(--ink); letter-spacing:-.02em;
            text-shadow: 0 2px 0 var(--cream-deep); }
-  #frame { font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+  #frame { font-size:10px; letter-spacing:.18em; text-transform:uppercase;
            color: var(--ink-soft); font-weight:800; }
+  @media (max-width: 640px) {
+    #score-card { top: 64px; }
+  }
+
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
 
   /* Compact scorecard strip, bottom */
   #scorecard { position:absolute; bottom:16px; left:50%;
@@ -123,21 +113,23 @@
                        font-size:9px; }
 
   /* Prompt, bottom center above scorecard */
-  #prompt { position:absolute; bottom:66px; left:50%;
+  #prompt { position:absolute; bottom:64px; left:50%;
             transform:translateX(-50%); z-index:4;
             padding:10px 20px; background: var(--cream);
             border: 3px solid var(--ink); border-radius: 999px;
-            font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-            font-size:12px; color: var(--ink);
-            box-shadow: 0 4px 0 var(--ink), 0 8px 16px rgba(28,42,58,.18);
+            font-weight:700; letter-spacing:.01em;
+            font-size:13px; color: var(--ink);
+            box-shadow: 0 3px 0 var(--ink);
             white-space:nowrap; }
 
-  /* Peak-charge HUD — small, above prompt */
+  /* Peak-charge HUD — small, above prompt. Hidden until a swing arms it. */
   #charge-wrap { position:absolute; bottom:118px; left:50%;
                  transform:translateX(-50%); z-index:4;
                  width:200px; text-align:center; pointer-events:none;
                  font-size:10px; letter-spacing:.22em; font-weight:800;
-                 text-transform:uppercase; }
+                 text-transform:uppercase;
+                 opacity:0; transition: opacity 240ms ease; }
+  #charge-wrap.on { opacity:1; }
   #charge-label { color: var(--ink); margin-bottom:5px;
                   text-shadow: 0 2px 0 rgba(255,255,255,.5); }
   #charge-bar-container { height:12px; width:100%;
@@ -156,22 +148,15 @@
     50% { box-shadow: 0 3px 0 var(--ink), 0 0 16px var(--hot); }
   }
 
-  /* Gesture tutorial overlay */
-  #tutorial { position:absolute; left:50%; top:52%;
-              transform:translate(-50%,-50%); z-index:3;
+  /* Gesture tutorial diagram — sits just above the prompt, wordless */
+  #tutorial { position:absolute; left:50%; bottom:150px;
+              transform:translateX(-50%); z-index:3;
               pointer-events:none; opacity:0;
               transition: opacity 400ms ease;
               text-align:center; }
   #tutorial.show { opacity: 1; }
-  #tutorial svg { display:block; margin: 0 auto 10px;
-                  filter: drop-shadow(0 4px 0 var(--ink))
-                          drop-shadow(0 8px 18px rgba(28,42,58,.28)); }
-  #tut-hint { display:inline-block;
-              padding: 8px 18px; background: var(--cream);
-              border: 3px solid var(--ink); border-radius:999px;
-              font-size:12px; font-weight:800; letter-spacing:.16em;
-              text-transform:uppercase; color: var(--ink);
-              box-shadow: 0 4px 0 var(--ink); }
+  #tutorial svg { display:block; margin: 0 auto;
+                  filter: drop-shadow(0 3px 0 rgba(28,42,58,.25)); }
   #tut-arm { transform-origin: 50px 30px;
              animation: armSwing 2s ease-in-out infinite; }
   @keyframes armSwing {
@@ -216,9 +201,9 @@
   /* Gutter puff cloud */
   #gutter-puff { position:absolute; left:50%; top:36%; z-index:5;
                  transform:translate(-50%,-50%) scale(0);
-                 pointer-events:none; opacity:0;
-                 font-size:56px;
-                 text-shadow: 0 3px 0 var(--ruin-blue); }
+                 pointer-events:none; opacity:0; }
+  #gutter-puff svg { display:block;
+                     filter: drop-shadow(0 3px 0 rgba(28,42,58,.3)); }
   #gutter-puff.show { animation: puffPop 1.6s ease-out forwards; }
   @keyframes puffPop {
     0%   { opacity:0; transform:translate(-50%,-50%) scale(0.3); }
@@ -228,9 +213,8 @@
 </style>
 </head>
 <body>
-<div id="status">hub → not connected</div>
-<button id="connect">Connect hub</button>
-<a id="back" href="index.html">← menu</a>
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+<button id="connect" class="ss-btn">connect hub</button>
 
 <div id="score-card">
   <div id="score">0</div>
@@ -238,12 +222,13 @@
 </div>
 
 <div id="charge-wrap">
-  <div id="charge-label">Peak Charge</div>
+  <div id="charge-label">swing power</div>
   <div id="charge-bar-container"><div id="charge-bar"></div></div>
 </div>
 
-<div id="prompt">Swing your arm forward to bowl</div>
+<div id="prompt">swing forward and let go</div>
 <div id="scorecard"></div>
+<div id="devhint">keys · space bowl · r reset</div>
 
 <div id="tutorial">
   <svg width="180" height="140" viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg">
@@ -255,25 +240,24 @@
             fill="#fbf3e0" stroke="#1c2a3a" stroke-width="3"/>
       <circle cx="50" cy="80" r="8" fill="#ff9663" stroke="#1c2a3a" stroke-width="3"/>
     </g>
-    <!-- ground line -->
-    <line x1="20" y1="120" x2="160" y2="120"
-          stroke="#1c2a3a" stroke-width="3" stroke-linecap="round"
-          stroke-dasharray="6 6"/>
     <!-- ball rolling out -->
     <g id="tut-ball">
       <circle cx="90" cy="110" r="9" fill="#ff9663"
               stroke="#1c2a3a" stroke-width="3"/>
     </g>
-    <!-- arc guide -->
-    <path d="M 20 90 Q 50 130 100 110" fill="none"
-          stroke="#1c2a3a" stroke-width="2" stroke-dasharray="4 4" opacity="0.4"/>
   </svg>
-  <div id="tut-hint">Swing forward &amp; release</div>
 </div>
 
 <div id="banner"></div>
 <div id="confetti-layer"></div>
-<div id="gutter-puff">💨</div>
+<div id="gutter-puff">
+  <svg width="72" height="48" viewBox="0 0 72 48" fill="none" aria-hidden="true">
+    <path d="M12 34 C6 34 4 28 8 24 C6 17 13 12 19 15 C21 8 32 6 36 12 C41 7 52 9 53 17 C60 16 65 22 62 28 C66 33 61 39 54 38 C48 44 20 44 14 40 C12 38 11 36 12 34 Z"
+          fill="#fbf3e0" stroke="#1c2a3a" stroke-width="3" stroke-linejoin="round" opacity=".95"/>
+    <path d="M22 26 C26 23 32 23 36 26 M42 24 C45 22 49 22 52 24"
+          stroke="#1c2a3a" stroke-width="2.4" stroke-linecap="round" opacity=".45"/>
+  </svg>
+</div>
 <div id="vignette"></div>
 
 <script type="importmap">
@@ -538,10 +522,11 @@ async function loadMascot() {
     bowlerSoup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     const bBody = bowlerSoup.getObjectByName('body');
     if (bBody) bBody.material.color.setHex(0xf6e9c9);
+    // Per soup/HANDOFF.md + DEVLOG §11: no y-flip after the x-flip — the old
+    // extra rotation flipped him out of view entirely.
     bowlerSoup.rotation.x = -Math.PI / 2;
-    bowlerSoup.rotation.y = Math.PI;
-    bowlerSoup.scale.setScalar(0.012);
-    bowlerSoup.position.set(-1.15, 0.05, 2.6);
+    bowlerSoup.scale.setScalar(0.010);
+    bowlerSoup.position.set(-1.55, 0.02, 1.7);
     bowlerBaseY = bowlerSoup.position.y;
     scene.add(bowlerSoup);
   } catch (err) {
@@ -555,7 +540,7 @@ let ballVel = new THREE.Vector3();
 let ballInGutter = false;
 const scoreEl = document.getElementById('score');
 const promptEl = document.getElementById('prompt');
-const statusEl = document.getElementById('status');
+const statusEl = document.getElementById('connect'); // hub pill doubles as status
 const bannerEl = document.getElementById('banner');
 const frameEl = document.getElementById('frame');
 const scorecardEl = document.getElementById('scorecard');
@@ -670,7 +655,7 @@ function renderScorecard() {
   if (!game.gameOver) {
     frameEl.textContent = `FRAME ${game.currentFrame + 1} · BALL ${game.rollInFrame + 1}`;
   } else {
-    frameEl.textContent = `GAME OVER · ${running}`;
+    frameEl.textContent = `game over · ${running}`;
   }
 }
 renderScorecard();
@@ -693,7 +678,7 @@ function launchBall(speed, angle) {
   ballVel.set(angle * 3, 0, -MAX_SPEED * Math.max(0.3, speed));
   ballState = 'rolling';
   ballInGutter = false;
-  promptEl.textContent = `Ball rolling  ${(speed * 100).toFixed(0)}%`;
+  promptEl.textContent = `rolling at ${(speed * 100).toFixed(0)}% power`;
   tutorialEl.classList.remove('show');
   lastSwingActivityMs = performance.now();
 
@@ -735,16 +720,16 @@ function resetBall() {
   const total = frame.rolls.reduce((a, b) => a + b, 0);
 
   if (knocked === 10 && game.rollInFrame === 0) {
-    popBanner('STRIKE!', '#ff9663');
+    popBanner('strike', '#ff9663');
     spawnConfetti();
     strikeCelebration();
   }
   else if (!isTenth && game.rollInFrame === 1 && total === 10) {
-    popBanner('SPARE', '#f4c95d');
+    popBanner('spare', '#f4c95d');
     spawnConfetti();
   }
   else if (knocked === 0) {
-    popBanner('Gutter', '#37628a');
+    popBanner('gutter', '#37628a');
     popGutterPuff();
     bowlerSlump.active = true;
     bowlerSlump.t = 0;
@@ -783,8 +768,8 @@ function resetBall() {
   ballState = 'ready';
   ballInGutter = false;
   promptEl.textContent = game.gameOver
-    ? 'Press R to play again'
-    : 'Swing your arm forward to bowl';
+    ? 'that\'s the game, press R to bowl again'
+    : 'swing forward and let go';
   lastSwingActivityMs = performance.now();
   renderScorecard();
 }
@@ -1002,7 +987,7 @@ function updatePhysics(dt) {
 
   // Strike zoom — slow camera nudge toward pins when strike banner is showing
   const bannerShowing = bannerEl.classList.contains('pop');
-  if (bannerShowing && bannerEl.textContent === 'STRIKE!') {
+  if (bannerShowing && bannerEl.textContent === 'strike') {
     camera.position.z = THREE.MathUtils.lerp(camera.position.z, 3.4, 0.03);
     camera.position.y = THREE.MathUtils.lerp(camera.position.y, 1.9, 0.03);
   } else {
@@ -1151,6 +1136,7 @@ setInterval(() => {
     if (chargeDisplay < 0.01) chargeDisplay = 0;
     chargeWrap.classList.remove('armed');
   }
+  chargeWrap.classList.toggle('on', chargeDisplay > 0.03);
   chargeBar.style.width = (chargeDisplay * 100).toFixed(1) + '%';
 }, 40);
 
@@ -1174,18 +1160,18 @@ dispatcher.onLine = (line) => {
 
 document.getElementById('connect').addEventListener('click', async () => {
   try {
-    statusEl.textContent = 'hub → requesting port…';
+    statusEl.textContent = 'choosing port…';
     await openSerial({
       baud: 115200,
       onLine: (line) => dispatcher.onLine(line),
-      onOpen: () => { statusEl.textContent = 'hub → connected';
+      onOpen: () => { statusEl.textContent = 'hub connected';
                       statusEl.classList.add('connected'); },
-      onClose: () => { statusEl.textContent = 'hub → disconnected';
+      onClose: () => { statusEl.textContent = 'hub disconnected';
                        statusEl.classList.remove('connected'); },
-      onError: (e) => { statusEl.textContent = 'hub → error: ' + e.message;
+      onError: () => { statusEl.textContent = 'hub error, try again';
                         statusEl.classList.remove('connected'); },
     });
-  } catch (e) { statusEl.textContent = 'hub → connect failed: ' + e.message; }
+  } catch (e) { statusEl.textContent = 'connect hub'; }
 });
 
 // Dev shortcuts
@@ -1203,7 +1189,7 @@ addEventListener('keydown', (e) => {
     standUpAllPins();
     ball.position.set(0, 0.25, BALL_HOME_Z); ballVel.set(0, 0, 0);
     ballState = 'ready'; ballInGutter = false;
-    promptEl.textContent = 'Swing your arm forward to bowl';
+    promptEl.textContent = 'swing forward and let go';
     renderScorecard();
   }
 });

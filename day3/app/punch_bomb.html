@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Punch Bomb</title>
+<title>Soup Sports — Soup Bomb</title>
 <style>
   :root {
     --sky-top:    #7bd3ee;
@@ -34,63 +34,53 @@
                            var(--water) 100%); }
   canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
 
-  /* ── Soup Sports buttons ────────────────────────── */
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
   .ss-btn {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 12px 22px;
-    background: var(--cream);
-    color: var(--ink);
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    text-decoration: none;
-    cursor: pointer;
-    box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.18);
-    transition: transform 140ms cubic-bezier(.3,.7,.3,1), box-shadow 140ms;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
   }
   .ss-btn:hover {
     transform: translateY(-2px);
     background: var(--cream-warm);
-    box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25);
+    box-shadow: 0 5px 0 var(--ink);
   }
   .ss-btn:active {
     transform: translateY(1px);
-    box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.12);
+    box-shadow: 0 1px 0 var(--ink);
   }
 
-  #back { position:absolute; bottom:64px; left:20px; z-index:110; }
-  #connect { position:absolute; top:20px; right:20px; z-index:110; }
-
-  /* ── Status pill ─────────────────────────────────── */
-  #status {
-    position:absolute; bottom:20px; left:20px; z-index:110;
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 10px 18px; border-radius: 999px;
-    background: var(--cream);
-    border: 3px solid var(--ink);
-    box-shadow: 0 4px 0 var(--ink);
-    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-    color: var(--ink); font-weight: 800;
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
   }
-  #status::before {
-    content: ""; width: 10px; height: 10px; border-radius: 50%;
-    background: var(--gold); box-shadow: 0 0 10px var(--gold);
-    animation: pulse 1.8s ease-in-out infinite;
-  }
-  #status.connected::before {
-    background: var(--vine); box-shadow: 0 0 10px var(--vine);
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
     animation: none;
   }
-  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.85); } }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  /* Lobby + game-over hide the in-round HUD pieces */
+  body.in-lobby #prompt, body.in-lobby #danger-wrap { display:none; }
 
   /* ── Scoreboard (top-center) ──────────────────────── */
   #scoreboard {
-    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
     z-index:100; display:flex; gap:10px; pointer-events:none;
+  }
+  @media (max-width: 640px) {
+    #scoreboard { top: 64px; }
+    #danger-wrap { top: 170px !important; }
+    #round-points { top: 218px !important; }
+    #lobby { padding-top: 168px !important; }
   }
   .player-pill {
     position:relative;
@@ -234,16 +224,15 @@
 
   /* Prompt bar (bottom center) */
   #prompt {
-    position:absolute; bottom: 90px; left:50%;
+    position:absolute; bottom: 24px; left:50%;
     transform:translateX(-50%); z-index: 95;
-    padding: 12px 26px;
+    padding: 11px 22px;
     background: var(--cream);
     border: 3px solid var(--ink);
     border-radius: 999px;
-    font-weight: 900; letter-spacing: .18em;
-    text-transform: uppercase;
-    font-size: 14px; color: var(--ink);
-    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2);
+    font-weight: 700; letter-spacing: .01em;
+    font-size: 13px; color: var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
     white-space: nowrap;
   }
 
@@ -299,8 +288,12 @@
   #lobby {
     position:absolute; inset:0; z-index: 140;
     display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap: 26px;
+    justify-content:space-between;
+    padding: 12vh 16px 12vh;
     pointer-events:none;
+  }
+  .lobby-controls {
+    display:flex; flex-direction:column; align-items:center; gap:16px;
   }
   #lobby.hidden { display:none; }
   #lobby-title {
@@ -310,12 +303,11 @@
     text-shadow: 0 6px 0 var(--ruin-blue),
                  0 10px 30px rgba(28,42,58,.4);
     line-height: .9; text-align:center;
-    margin-top: -8vh;
   }
   #lobby-title small {
-    display:block; font-size: 14px; letter-spacing: .32em;
-    color: var(--ink); font-weight:800;
-    margin-top: 20px;
+    display:block; font-size: 16px; letter-spacing: .02em;
+    color: var(--ink); font-weight:700;
+    margin-top: 18px;
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
   }
   #lobby-title .accent {
@@ -353,16 +345,15 @@
   }
   #player-picker button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
   #lobby-cta {
-    padding: 16px 34px;
+    padding: 15px 32px;
     background: var(--hot);
     color: var(--cream);
     border: 3px solid var(--ink);
     border-radius: 999px;
     font-family: inherit;
-    font-weight: 900;
+    font-weight: 800;
     font-size: 16px;
-    letter-spacing: .18em;
-    text-transform: uppercase;
+    letter-spacing: .02em;
     box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
     text-shadow: 0 2px 0 rgba(0,0,0,.25);
     pointer-events:auto;
@@ -371,24 +362,16 @@
   @keyframes ctaPulse { 50% { transform: scale(1.04); } }
 
   /* Dev hint */
-  #devhint {
-    position: absolute; bottom: 20px; right: 20px;
-    z-index: 110;
-    padding: 8px 14px;
-    background: rgba(251,243,224,.8);
-    border: 2px dashed var(--ink);
-    border-radius: 12px;
-    font-size: 10px; letter-spacing: .12em;
-    color: var(--ink-soft); font-weight: 700;
-    pointer-events:none;
-    text-transform: uppercase;
-  }
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
 </style>
 </head>
-<body>
+<body class="in-lobby">
 
-<a id="back" class="ss-btn" href="index.html">← Menu</a>
-<button id="connect" class="ss-btn">Connect hub</button>
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+<button id="connect" class="ss-btn">connect hub</button>
 
 <div id="scoreboard"></div>
 
@@ -396,34 +379,35 @@
   <div id="danger-label">Danger</div>
   <div id="danger-bar-container"><div id="danger-bar"></div></div>
 </div>
-<div id="round-points">+0 POINTS</div>
+<div id="round-points">+0 pts</div>
 
 <div id="bank-wrap">
-  <div id="bank-label">Holding to bank…</div>
+  <div id="bank-label">holding to bank</div>
   <div id="bank-bar-container"><div id="bank-bar"></div></div>
 </div>
 
-<div id="prompt">Press any punch to start</div>
+<div id="prompt">throw a punch to start</div>
 
 <div id="banner"></div>
 <div id="boom-flash"></div>
 <div id="particles"></div>
 
 <div id="lobby">
-  <div id="lobby-title">PUNCH <span class="accent">BOMB</span>
-    <small>Push your luck — bank before Soup blows</small>
+  <div id="lobby-title">SOUP <span class="accent">BOMB</span>
+    <small>push your luck, bank before Soup blows</small>
   </div>
-  <div id="player-picker">
-    <div class="plabel">Players</div>
-    <button id="pminus">−</button>
-    <div class="pcount" id="pcount">2</div>
-    <button id="pplus">+</button>
+  <div class="lobby-controls">
+    <div id="player-picker">
+      <div class="plabel">players</div>
+      <button id="pminus">−</button>
+      <div class="pcount" id="pcount">2</div>
+      <button id="pplus">+</button>
+    </div>
+    <button id="lobby-cta">throw a punch to start</button>
   </div>
-  <button id="lobby-cta">Press any punch to start</button>
 </div>
 
-<div id="status">hub → not connected</div>
-<div id="devhint">SPACE punch · B bank · N boom · R restart</div>
+<div id="devhint">keys · space punch · b bank · n boom · r reset</div>
 
 <script type="importmap">
 { "imports": {
@@ -460,8 +444,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY_HEX);
 scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
 
-const BASE_FOV = 55;
-const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth/innerHeight, 0.05, 200);
+// Wider FOV on portrait phones so Soup doesn't swallow the frame.
+const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 70 : 55;
+const camera = new THREE.PerspectiveCamera(fovForAspect(), innerWidth/innerHeight, 0.05, 200);
 const camHome = new THREE.Vector3(0, 1.75, 3.2);
 camera.position.copy(camHome);
 camera.lookAt(0, 1.35, 0);
@@ -473,6 +458,7 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
+  camera.fov = fovForAspect();
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
@@ -568,8 +554,8 @@ const mascot = {
 const loader = new GLTFLoader();
 loader.load('assets/mascot.glb', (gltf) => {
   const soup = gltf.scene;
+  // Per soup/HANDOFF.md + DEVLOG §11: no extra y-flip after the x-flip.
   soup.rotation.x = -Math.PI / 2;
-  soup.rotation.y = Math.PI;
   // ~1.5m at scale 0.012 (spec says 0.008 = ~1m).
   soup.scale.setScalar(0.012);
   soup.traverse(o => {
@@ -614,7 +600,7 @@ const $boomFlash = document.getElementById('boom-flash');
 const $particles = document.getElementById('particles');
 const $lobby = document.getElementById('lobby');
 const $pcount = document.getElementById('pcount');
-const $status = document.getElementById('status');
+const $status = document.getElementById('connect'); // hub pill doubles as status
 
 // ══════════════════════════ Game state ══════════════════════════
 const S = {
@@ -665,7 +651,7 @@ function updateDanger() {
 function updateRoundPoints() {
   if (S.phase === 'PUNCHING' && S.roundPoints > 0) {
     $roundPts.classList.add('show');
-    $roundPts.textContent = `+${S.roundPoints} POINTS`;
+    $roundPts.textContent = `+${S.roundPoints} pts`;
     $roundPts.classList.remove('tick');
     void $roundPts.offsetWidth;
     $roundPts.classList.add('tick');
@@ -762,6 +748,7 @@ function beginMatch() {
   S.currentPlayer = 0;
   S.round = 0;
   S.phase = 'BETWEEN';
+  document.body.classList.remove('in-lobby');
   $lobby.classList.add('hidden');
   renderScoreboard();
   startTurn();
@@ -777,13 +764,13 @@ function startTurn() {
   updateDanger();
   updateRoundPoints();
   renderScoreboard();
-  popBanner(`PLAYER ${S.currentPlayer + 1}`, 'Get ready — go!', 'var(--hot)');
-  setPrompt(`Player ${S.currentPlayer + 1} — punch!`);
+  popBanner(`PLAYER ${S.currentPlayer + 1}`, "you're up", 'var(--hot)');
+  setPrompt(`player ${S.currentPlayer + 1}, start punching`);
   // Small pause then live
   setTimeout(() => {
     if (S.phase === 'ROUND_START') {
       S.phase = 'PUNCHING';
-      setPrompt('Keep going? — hold still to bank');
+      setPrompt('punch for points, hold still to bank');
     }
   }, 900);
 }
@@ -801,7 +788,7 @@ function nextTurn() {
     return;
   }
   S.phase = 'BETWEEN';
-  setPrompt(`Player ${S.currentPlayer + 1}, get ready…`);
+  setPrompt(`player ${S.currentPlayer + 1}, get ready`);
   setTimeout(() => startTurn(), BETWEEN_PLAYER_DELAY_MS);
 }
 
@@ -817,12 +804,12 @@ function endMatch() {
   updateDanger();
   updateRoundPoints();
   if (allZero) {
-    popBanner('EVERYONE BOOMED', 'Tap to try again', 'var(--hot)');
+    popBanner('EVERYONE BOOMED', 'punch to run it back', 'var(--hot)');
   } else {
-    popBanner(`P${winIdx + 1} WINS!`, `${best} points`, 'var(--gold)');
+    popBanner(`PLAYER ${winIdx + 1} WINS`, `${best} points banked`, 'var(--gold)');
     fireConfetti();
   }
-  setPrompt('Press R (or tap) to restart');
+  setPrompt('throw a punch to play again');
 }
 
 function punchOnce(power) {
@@ -850,7 +837,7 @@ function punchOnce(power) {
 
   // Prompt tension
   if (S.punchesThisTurn >= BOMB_MIN) {
-    setPrompt(S.punchesThisTurn >= BOMB_MAX - 2 ? 'DANGER — HOLD STILL TO BANK!' : 'Keep going? Or hold still to bank');
+    setPrompt(S.punchesThisTurn >= BOMB_MAX - 2 ? "he's about to blow, bank now" : 'punch for points, hold still to bank');
   }
 
   // Bomb check — MUST be the last thing so animation state settles first.
@@ -879,14 +866,14 @@ function detonate() {
     pill.classList.add('boomed');
     setTimeout(() => pill.classList.remove('boomed'), 600);
   }
-  popBanner('BOOM!', 'Round points lost', 'var(--gold)');
+  popBanner('BOOM', 'turn points gone', 'var(--gold)');
   fireExplosion();
   // Hide Soup during the explosion
   if (mascot.root) {
     mascot.root.visible = false;
     mascot.hidden = true;
   }
-  setPrompt('BOOM! Soup exploded');
+  setPrompt('boom, that turn is gone');
   setTimeout(() => {
     if (mascot.root) mascot.root.visible = true;
     mascot.hidden = false;
@@ -900,8 +887,8 @@ function bank() {
   const banked = S.roundPoints;
   S.players[S.currentPlayer].total += banked;
   renderScoreboard();
-  popBanner(`BANKED ${banked}!`, `P${S.currentPlayer+1} total: ${S.players[S.currentPlayer].total}`, 'var(--vine)');
-  setPrompt(`Player ${S.currentPlayer+1} banked ${banked}`);
+  popBanner(`BANKED ${banked}`, `player ${S.currentPlayer+1} total ${S.players[S.currentPlayer].total}`, 'var(--vine)');
+  setPrompt(`player ${S.currentPlayer+1} banked ${banked}`);
   // Soup relieved shrug
   mascot.shrugUntil = performance.now() + 800;
   $bankWrap.classList.remove('show');
@@ -1087,37 +1074,38 @@ function onPunchDetected(power, armId) {
 
 function restartMatch() {
   S.phase = 'LOBBY';
+  document.body.classList.add('in-lobby');
   // Clear particles
   $particles.innerHTML = '';
   $lobby.classList.remove('hidden');
   renderScoreboard();
   updateDanger();
   updateRoundPoints();
-  setPrompt('Press any punch to start');
+  setPrompt('throw a punch to start');
 }
 
 // ── Connect hub ──
 document.getElementById('connect').addEventListener('click', async () => {
   try {
-    $status.textContent = 'hub → requesting port…';
+    $status.textContent = 'choosing port…';
     await openSerial({
       baud: 115200,
       onLine: (line) => dispatcher.onLine(line),
       onOpen: () => {
-        $status.textContent = 'hub → connected';
+        $status.textContent = 'hub connected';
         $status.classList.add('connected');
       },
       onClose: () => {
-        $status.textContent = 'hub → disconnected';
+        $status.textContent = 'hub disconnected';
         $status.classList.remove('connected');
       },
-      onError: (e) => {
-        $status.textContent = 'hub → error: ' + e.message;
+      onError: () => {
+        $status.textContent = 'hub error, try again';
         $status.classList.remove('connected');
       },
     });
   } catch (e) {
-    $status.textContent = 'hub → failed: ' + e.message;
+    $status.textContent = 'connect hub';
   }
 });
 

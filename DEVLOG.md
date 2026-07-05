@@ -10,6 +10,57 @@ newest-first when scrolling.
 
 ---
 
+## §12. The §11 bug was hiding in three more files — full-UI design audit findings
+
+**The symptom.** A design audit pass over all six pages started from
+screenshots and immediately found three missing mascots that nobody had
+reported: the landing-page hero Soup (menu), the bowler Soup (bowling), and
+the pitcher Soup (baseball) all rendered zero pixels. Each page logged
+"mascot loaded" happily. On top of that, the UI itself read as
+machine-generated: every game had invented its own button styles and corner
+positions, two games drew raw debug logs on screen ("[12:52:25] mascot
+loaded"), bowling and tennis showed two competing instruction banners at
+once, and the copy was full of ALL-CAPS imperatives, em dashes, and
+exclamation points.
+
+**The debug.** All three invisible mascots shared the same line:
+`soup.rotation.y = Math.PI` after the canonical `rotation.x = -Math.PI/2`
+flip — the exact bug documented in §11 for tennis. Setting both angles on
+one Euler does not compose the way the comment claims ("face -Z"): with
+three.js's default XYZ order the pair lands the mascot upside down /
+inverted, so he ends up below the floor or showing no lit pixels. §11
+documented the fix but only fixed tennis; the same copy-pasted line
+survived in index.html, bowling.html, and baseball.html. Notably the
+baseball comment even said "face -Z (toward home plate)" — but home plate
+is in +Z from the mound, so the flip was wrong twice.
+
+**The fix.** Delete the y-flip in all three files (after the x-flip the
+mascot already faces +Z, which is toward the camera/plate in every one of
+these scenes). The menu hero, bowling sideline Soup, and pitcher all render
+now. The rest of the audit unified the chrome across all six pages: one
+`.ss-btn` pill treatment, menu pill top-left, a single hub pill top-right
+that doubles as the connect button *and* the status indicator (the separate
+status pill is gone — one element fewer per page, and the connect button no
+longer disappears when dev keys fire `game-active`), score HUD top-center
+(dropping to `top: 64px` under 640px so nothing collides on the phone),
+prompts as lowercase cream pills bottom-center, dev-key hints as faint
+bottom-right text hidden on phones, debug `#log` display:none. Copy
+rewritten throughout (no em dashes, no exclamation-point design, lowercase
+voice; "Punch Bomb" renamed to its real name Soup Bomb). Emoji-as-icons
+(🥊🎾💨🔥 etc.) replaced with small inline SVGs. Boxing and Soup Bomb got
+aspect-aware FOV (55° landscape → ~70° portrait) so Soup doesn't swallow
+the phone frame in the cardboard shroud.
+
+**The lesson.** When a bug is documented as fixed, grep for the offending
+line across the whole repo before closing it — §11's line was copy-pasted
+into four files and only one got fixed. `grep -rn "rotation.y = Math.PI"
+day3/app/` would have caught all of them in one shot months of demo-time
+earlier. And for UI: screenshots at both 1280×800 *and* 390×844 are the
+audit tool — every mobile overlap found in this pass was invisible at
+desktop size.
+
+---
+
 ## §11. "The CPU was there but invisible" — tennis mascot backface bug
 
 **The symptom.** After the tennis polish pass integrated the Soup mascot as
