@@ -70,15 +70,113 @@
   #prompt.dim { opacity:0.0; }
 
   /* Big transient banner (HOME RUN / STRIKE / etc.) */
-  #banner { position:absolute; top:36%; left:50%;
-            transform:translate(-50%,-50%) scale(1);
-            font-size: clamp(72px, 10vw, 128px); font-weight:900; letter-spacing:-.02em;
+  #banner { position:absolute; top:30%; left:50%;
+            transform:translate(-50%,-50%) scale(0.9);
+            font-size: clamp(56px, 8vw, 104px); font-weight:900; letter-spacing:-.02em;
             text-transform:uppercase; opacity:0;
             color: var(--gold);
             text-shadow: 0 6px 0 var(--ink), 0 8px 30px rgba(28,42,58,.5);
-            transition:opacity 120ms, transform 220ms; pointer-events:none;
+            transition:opacity 180ms ease-out, transform 240ms cubic-bezier(.34,1.56,.64,1);
+            pointer-events:none;
             z-index:95; }
-  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.12); }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.08); }
+
+  /* Scoreboard gold flash on HR */
+  #score.flash { animation: scoreFlash 1200ms ease-out; }
+  @keyframes scoreFlash {
+    0%,100% { background: var(--cream); }
+    20%,60% { background: var(--gold); box-shadow: 0 4px 0 var(--ink), 0 0 40px var(--gold); }
+  }
+
+  /* Camera shake for strikeout */
+  canvas.shake { animation: camShake 350ms ease-out; }
+  @keyframes camShake {
+    0%,100% { transform: translate(0,0); }
+    15% { transform: translate(-6px, 3px); }
+    30% { transform: translate(5px, -4px); }
+    45% { transform: translate(-4px, 2px); }
+    60% { transform: translate(3px, -2px); }
+    80% { transform: translate(-2px, 1px); }
+  }
+
+  /* Confetti particles */
+  #confetti { position:absolute; inset:0; pointer-events:none; z-index:94;
+              overflow:hidden; }
+  .confetti-p {
+    position:absolute; width:14px; height:14px; top:-20px;
+    border-radius:3px;
+    animation: confettiFall 2200ms cubic-bezier(.5,0,.7,1) forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg); opacity:1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity:0.7; }
+  }
+
+  /* Tutorial gesture hint */
+  #tutorial { position:absolute; bottom:22%; left:50%;
+              transform: translateX(-50%);
+              padding: 18px 26px;
+              background: var(--cream);
+              border: 3px solid var(--ink);
+              border-radius: 20px;
+              box-shadow: 0 4px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+              display:flex; align-items:center; gap:14px;
+              opacity:0; pointer-events:none; z-index:96;
+              transition: opacity 400ms; }
+  #tutorial.show { opacity:1; }
+  #tutorial .hint-txt {
+    font-size:13px; font-weight:900; letter-spacing:.14em; text-transform:uppercase;
+    color: var(--ink);
+  }
+  #tutorial svg { display:block; }
+  #tutorial .arc-path {
+    stroke: var(--ruin-blue); stroke-width: 3; fill:none;
+    stroke-linecap:round;
+    stroke-dasharray: 90; stroke-dashoffset: 90;
+    animation: arcDraw 1800ms ease-in-out infinite;
+  }
+  #tutorial .ball-dot {
+    animation: ballSlide 1800ms ease-in-out infinite;
+  }
+  @keyframes arcDraw {
+    0%   { stroke-dashoffset: 90; }
+    50%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -90; }
+  }
+  @keyframes ballSlide {
+    0%   { transform: translate(0,0); opacity:0; }
+    10%  { opacity:1; }
+    50%  { transform: translate(50px, -8px); opacity:1; }
+    90%  { opacity:1; }
+    100% { transform: translate(100px, 0); opacity:0; }
+  }
+
+  /* Attract screen */
+  #attract { position:absolute; top:50%; left:50%;
+             transform: translate(-50%,-50%);
+             padding: 32px 44px;
+             max-width: 480px;
+             background: var(--cream);
+             border: 4px solid var(--ink);
+             border-radius: 26px;
+             box-shadow: 0 6px 0 var(--ink), 0 16px 34px rgba(28,42,58,.28);
+             text-align:center; z-index:99; pointer-events:none;
+             transition: opacity 500ms, transform 500ms; }
+  #attract.hide { opacity:0; transform: translate(-50%,-60%) scale(.94); }
+  #attract .head {
+    font-size:14px; letter-spacing:.28em; text-transform:uppercase;
+    color: var(--ink-soft); font-weight:900; margin-bottom:10px;
+  }
+  #attract .title {
+    font-size: 32px; font-weight:900; color: var(--ink);
+    letter-spacing:-.01em; line-height:1.15;
+  }
+  #attract .title .accent { color: var(--hot); }
+  #attract .sub {
+    margin-top:14px;
+    font-size:13px; letter-spacing:.16em; text-transform:uppercase;
+    color: var(--ink-soft); font-weight:800;
+  }
 
   /* Distance callout */
   #dist { position:absolute; top:44%; left:50%;
@@ -224,6 +322,23 @@
 <div id="banner"></div>
 <div id="dist"></div>
 <div id="vignette"></div>
+<div id="confetti"></div>
+
+<div id="tutorial">
+  <svg width="120" height="48" viewBox="0 0 120 48">
+    <path class="arc-path" d="M 10 38 Q 60 -6 110 38" />
+    <g class="ball-dot" transform="translate(10, 38)">
+      <circle r="6" fill="#ffffff" stroke="#1c2a3a" stroke-width="2"/>
+    </g>
+  </svg>
+  <div class="hint-txt">Swing through the zone</div>
+</div>
+
+<div id="attract">
+  <div class="head">Batter Up</div>
+  <div class="title">Wait for the pitch. <span class="accent">Swing</span> when the ball's in the zone!</div>
+  <div class="sub">First pitch incoming...</div>
+</div>
 
 <div class="hit-confirm" id="hit-confirm">
   <div class="burst"></div>
@@ -420,24 +535,38 @@ base(-12, -12);
 }
 
 // ── Strike zone (gold outline) ──
+const ZONE_FILL_BASE = 0.28;
+const ZONE_EDGE_BASE = 0.95;
 const zone = new THREE.Mesh(
   new THREE.BoxGeometry(0.55, 0.7, 0.05),
   new THREE.MeshBasicMaterial({ color: COL.gold, transparent: true,
-    opacity: 0.10, depthWrite: false, side: THREE.DoubleSide })
+    opacity: ZONE_FILL_BASE, depthWrite: false, side: THREE.DoubleSide })
 );
 zone.position.set(0, 1.05, PLATE_Z - 0.05);
 scene.add(zone);
-const zoneEdges = new THREE.LineSegments(
-  new THREE.EdgesGeometry(zone.geometry),
-  new THREE.LineBasicMaterial({ color: COL.gold, transparent:true, opacity:0.6 })
-);
-zoneEdges.position.copy(zone.position);
-scene.add(zoneEdges);
+// Thick tube-based border for readable rectangle outline
+const zoneBorderGroup = new THREE.Group();
+zoneBorderGroup.position.copy(zone.position);
+scene.add(zoneBorderGroup);
+{
+  const bMat = new THREE.MeshBasicMaterial({ color: COL.gold, transparent:true, opacity: ZONE_EDGE_BASE });
+  const W = 0.55, H = 0.7, T = 0.025;
+  const top    = new THREE.Mesh(new THREE.BoxGeometry(W + T, T, T), bMat);
+  const bot    = new THREE.Mesh(new THREE.BoxGeometry(W + T, T, T), bMat);
+  const left   = new THREE.Mesh(new THREE.BoxGeometry(T, H + T, T), bMat);
+  const right  = new THREE.Mesh(new THREE.BoxGeometry(T, H + T, T), bMat);
+  top.position.y   =  H/2;
+  bot.position.y   = -H/2;
+  left.position.x  = -W/2;
+  right.position.x =  W/2;
+  zoneBorderGroup.add(top, bot, left, right);
+}
 
 // ── Clouds: white spheres drifting overhead ──
 const clouds = [];
 {
-  const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, emissive: 0x1a2030, emissiveIntensity: 0.02 });
+  // Unlit white so clouds read as bright and don't take fog/lighting darkening
+  const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
   for (let i = 0; i < 7; i++) {
     const g = new THREE.Group();
     // A cloud is a couple of squished spheres
@@ -500,7 +629,7 @@ loader.load(
         }
       });
       // z-up mm → y-up meters
-      soup.scale.setScalar(0.008);
+      soup.scale.setScalar(0.011);
       soup.rotation.x = -Math.PI/2;
       soup.rotation.y = Math.PI; // face -Z (toward home plate)
 
@@ -552,17 +681,33 @@ ball.castShadow = true;
 ball.visible = false;
 scene.add(ball);
 
-// Ball trail (line)
+// Ball trail (batted-ball, thick gold)
 const TRAIL_MAX = 40;
 const trailGeo = new THREE.BufferGeometry();
 const trailPos = new Float32Array(TRAIL_MAX * 3);
 trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
-const trailMat = new THREE.LineBasicMaterial({ color: COL.gold, transparent:true, opacity:0.9 });
+const trailMat = new THREE.LineBasicMaterial({ color: COL.gold, transparent:true, opacity:1.0, linewidth: 4 });
 const trail = new THREE.Line(trailGeo, trailMat);
 trail.frustumCulled = false;
 trail.visible = false;
 scene.add(trail);
 let trailPoints = [];
+
+// Pitch trail — small trailing spheres that fade so the batter can track it
+const PITCH_TRAIL_N = 8;
+const pitchTrail = [];
+{
+  for (let i = 0; i < PITCH_TRAIL_N; i++) {
+    const s = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07 - i * 0.006, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent:true, opacity: 0, fog:false })
+    );
+    s.visible = false;
+    scene.add(s);
+    pitchTrail.push(s);
+  }
+}
+let pitchTrailHistory = []; // recent ball positions during flight
 
 // Contact flash light
 const contactLight = new THREE.PointLight(COL.gold, 0, 12, 2);
@@ -588,6 +733,12 @@ const state = {
   promptShown: false,
   // Pitcher anim
   windupAt: 0,       // ms of last windup
+  celebAt: 0,        // ms of last celebration (paw pump)
+  defeatAt: 0,       // ms of HR defeated animation
+  // Warmup countdown to next pitch (for anticipation pulse)
+  nextPitchAt: 0,
+  hasSwungOnce: false,
+  firstPitchStarted: false,
 };
 
 const $hr      = document.getElementById('hr');
@@ -601,6 +752,10 @@ const $status  = document.getElementById('status');
 const $conf    = document.getElementById('hit-confirm');
 const $flash   = document.getElementById('hit-flash');
 const $log     = document.getElementById('log');
+const $score   = document.getElementById('score');
+const $tutorial= document.getElementById('tutorial');
+const $attract = document.getElementById('attract');
+const $confetti= document.getElementById('confetti');
 
 function refreshHud() {
   $hr.textContent      = state.homeRuns;
@@ -615,7 +770,43 @@ function popBanner(text, color) {
   if (color) $banner.style.color = color;
   $banner.classList.remove('pop'); void $banner.offsetWidth;
   $banner.classList.add('pop');
-  setTimeout(() => $banner.classList.remove('pop'), 900);
+  setTimeout(() => $banner.classList.remove('pop'), 950);
+}
+
+function flashScoreboard() {
+  $score.classList.remove('flash'); void $score.offsetWidth;
+  $score.classList.add('flash');
+  setTimeout(() => $score.classList.remove('flash'), 1200);
+}
+
+function shakeCamera() {
+  const c = renderer.domElement;
+  c.classList.remove('shake'); void c.offsetWidth;
+  c.classList.add('shake');
+  setTimeout(() => c.classList.remove('shake'), 380);
+}
+
+function spawnConfetti() {
+  const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#4fc0e3'];
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-p';
+    p.style.left = (30 + Math.random() * 40) + 'vw';
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = (Math.random() * 200) + 'ms';
+    p.style.animationDuration = (1800 + Math.random() * 800) + 'ms';
+    p.style.transform = `rotate(${Math.random()*360}deg)`;
+    $confetti.appendChild(p);
+    setTimeout(() => p.remove(), 3200);
+  }
+}
+
+function hideTutorial() {
+  $tutorial.classList.remove('show');
+}
+function hideAttract() {
+  $attract.classList.add('hide');
+  setTimeout(() => { $attract.style.display = 'none'; }, 600);
 }
 
 function popDistance(feet, isHomeRun) {
@@ -647,11 +838,18 @@ function log(line) {
 
 // ══════════════════════════ Pitching / ball flight ══════════════════════════
 function schedulePitch(delayMs = PITCH_INTERVAL_MS) {
+  state.nextPitchAt = performance.now() + delayMs;
   setTimeout(startPitch, delayMs);
 }
 
 function startPitch() {
   if (state.pitchPhase !== 'idle') return;
+  // On the first pitch, hide attract card
+  if (!state.firstPitchStarted) {
+    state.firstPitchStarted = true;
+    hideAttract();
+    hideTutorial();
+  }
   state.pitchPhase = 'flight';
   state.pitchStartMs = performance.now();
   state.windupAt = performance.now();
@@ -663,6 +861,8 @@ function startPitch() {
   ball.visible = true;
   trail.visible = false;
   trailPoints = [];
+  pitchTrailHistory = [];
+  for (const s of pitchTrail) { s.visible = false; s.material.opacity = 0; }
 }
 
 function endPitchOutcome(outcome) {
@@ -680,11 +880,19 @@ function endPitchOutcome(outcome) {
     state.homeRuns += 1;
     popBanner('HOME RUN!', '#f4c95d');
     state.strikes = 0; state.balls = 0;
+    flashScoreboard();
+    spawnConfetti();
+    state.defeatAt = performance.now();
   } else if (outcome === 'hit') {
     popBanner('IN PLAY', '#f4c95d');
     state.strikes = 0; state.balls = 0;
   }
-  if (state.strikes >= 3) { state.strikes = 0; state.balls = 0; popBanner('STRIKEOUT', '#ff9663'); }
+  if (state.strikes >= 3) {
+    state.strikes = 0; state.balls = 0;
+    popBanner('STRIKEOUT', '#ff9663');
+    state.celebAt = performance.now();
+    shakeCamera();
+  }
   if (state.balls   >= 4) { state.strikes = 0; state.balls = 0; popBanner('WALK', '#6cb85a'); }
   refreshHud();
 
@@ -834,6 +1042,8 @@ function onRawSample(armId, s) {
 }
 
 function commitSwing(nowMs) {
+  state.hasSwungOnce = true;
+  hideTutorial();
   const power = Math.max(0.3, Math.min(1.0, swing.peakAccel / 25));
   const angleFrac = Math.max(-1, Math.min(1, swing.peakPitch / 45));
   const launchAngle = 5 + (angleFrac * 0.5 + 0.5) * 55;
@@ -875,8 +1085,9 @@ function animatePitcher(nowMs) {
   const squish = 1 + Math.sin(t * 2) * 0.03;
 
   if (soup) {
-    // Base uniform scale is 0.008 (see loader). Apply squish to y only.
-    soup.scale.set(0.008, 0.008 * squish, 0.008);
+    // Base uniform scale is 0.011 (see loader). Apply squish to y only.
+    soup.scale.set(0.011, 0.011 * squish, 0.011);
+
 
     // Windup animation: for 500ms after startPitch, lean-back → spring forward + paw swing.
     const dt = nowMs - state.windupAt;
@@ -906,6 +1117,39 @@ function animatePitcher(nowMs) {
       if (pawsN) pawsN.rotation.z = 0;
       state.windupAt = 0;
     }
+
+    // Strikeout celebration: paw pump up for 800ms
+    if (state.celebAt) {
+      const cd = nowMs - state.celebAt;
+      if (cd < 800) {
+        const k = cd / 800;
+        // two quick pumps
+        const pump = Math.abs(Math.sin(k * Math.PI * 2)) * 0.9;
+        const pawsN = pitcher.userData.pawsNode;
+        if (pawsN) pawsN.rotation.z = pump;
+        pitcher.position.y = 0.35 + Math.abs(Math.sin(k * Math.PI * 2)) * 0.15;
+      } else {
+        state.celebAt = 0;
+      }
+    }
+
+    // HR defeat: head-in-paws (tilt body forward, paws up) for 1400ms
+    if (state.defeatAt) {
+      const dd = nowMs - state.defeatAt;
+      if (dd < 1400) {
+        const k = Math.min(1, dd / 300);
+        const outK = dd > 1100 ? (1400 - dd) / 300 : 1;
+        const blend = k * outK;
+        pitcher.rotation.x = 0.35 * blend;         // slump forward
+        const pawsN = pitcher.userData.pawsNode;
+        if (pawsN) pawsN.rotation.z = -0.7 * blend; // paws to face
+      } else {
+        pitcher.rotation.x = 0;
+        const pawsN = pitcher.userData.pawsNode;
+        if (pawsN) pawsN.rotation.z = 0;
+        state.defeatAt = 0;
+      }
+    }
   } else {
     // Fallback pitcher: same lean if windup active
     const dt = nowMs - state.windupAt;
@@ -933,6 +1177,48 @@ function tick() {
   for (const c of clouds) {
     c.position.x += c.userData.drift * dt;
     if (c.position.x > 120) c.position.x = -120;
+  }
+
+  // Strike zone anticipation pulse — starts 500ms before next pitch, and stays lit during flight
+  {
+    let pulse = 0;
+    if (state.pitchPhase === 'flight') {
+      pulse = 1.0;
+    } else if (state.pitchPhase === 'idle' && state.nextPitchAt) {
+      const untilPitch = state.nextPitchAt - now;
+      if (untilPitch > 0 && untilPitch < 500) {
+        // ramp up
+        const k = 1 - untilPitch / 500;
+        // pulse sinusoid 0..1
+        pulse = k * (0.5 + 0.5 * Math.sin(now / 90));
+      }
+    }
+    const fillOp = ZONE_FILL_BASE + pulse * 0.35;
+    const edgeOp = ZONE_EDGE_BASE * (0.75 + pulse * 0.25);
+    zone.material.opacity = fillOp;
+    zoneBorderGroup.children.forEach(m => m.material.opacity = edgeOp);
+  }
+
+  // Pitch trail (during incoming flight): small white spheres that fade
+  if (state.pitchPhase === 'flight') {
+    pitchTrailHistory.push(ball.position.clone());
+    if (pitchTrailHistory.length > PITCH_TRAIL_N) pitchTrailHistory.shift();
+    for (let i = 0; i < PITCH_TRAIL_N; i++) {
+      const idx = pitchTrailHistory.length - 1 - i;
+      const s = pitchTrail[i];
+      if (idx >= 0) {
+        s.position.copy(pitchTrailHistory[idx]);
+        s.material.opacity = (1 - i / PITCH_TRAIL_N) * 0.55;
+        s.visible = true;
+      } else {
+        s.visible = false;
+      }
+    }
+  } else {
+    for (const s of pitchTrail) {
+      if (s.material.opacity > 0.01) s.material.opacity *= 0.85;
+      else s.visible = false;
+    }
   }
 
   // Bat wiggle
@@ -1026,11 +1312,17 @@ addEventListener('keydown', (e) => {
   }
 });
 
-// Kick off the first pitch after a beat.
+// Kick off the first pitch after the player sees the field for a few seconds.
+// Show attract card immediately; tutorial hint appears after 2s if no swing yet.
 setTimeout(() => {
-  schedulePitch(1200);
-  setTimeout(() => $prompt.classList.add('dim'), 4500);
-}, 300);
+  if (!state.hasSwungOnce && !state.firstPitchStarted) {
+    $tutorial.classList.add('show');
+  }
+}, 2000);
+
+// First pitch: 3s delay so player sees pitcher + field first.
+schedulePitch(3000);
+setTimeout(() => $prompt.classList.add('dim'), 6000);
 </script>
 </body>
 </html>

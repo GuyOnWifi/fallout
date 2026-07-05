@@ -215,22 +215,121 @@
          pointer-events:none; z-index:105; color: var(--ink); }
 
   /* Title on the pre-game screen */
-  #title { position:absolute; top:44%; left:50%;
+  #title { position:absolute; top:26%; left:50%;
            transform:translate(-50%,-50%); text-align:center;
-           font-weight:900; letter-spacing:-.04em; font-size:clamp(64px, 11vw, 140px);
+           font-weight:900; letter-spacing:-.04em; font-size:clamp(56px, 9vw, 120px);
            color: var(--cream);
            text-shadow:
              0 6px 0 var(--ruin-blue),
              0 10px 30px rgba(28,42,58,.4);
-           z-index:70; transition:opacity 400ms;
-           line-height: 0.9; }
-  body.game-active #title { opacity:0; pointer-events:none; }
+           z-index:70; transition:opacity 600ms ease;
+           line-height: 0.9; pointer-events:none; }
+  body.game-active #title, #title.hidden { opacity:0; pointer-events:none; }
   #title small { display:block; font-size:14px; letter-spacing:.32em;
                  color: var(--ink); font-weight: 800;
                  margin-top: 22px;
                  text-shadow: 0 2px 0 rgba(255,255,255,.5); }
   #title .accent { color: var(--hot);
                    text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4); }
+
+  /* ── Gesture tutorial (bottom-center) ─────────────── */
+  #tutorial {
+    position:absolute; bottom:24px; left:50%;
+    transform:translateX(-50%);
+    display:flex; gap:10px; z-index:88;
+    padding:8px 12px;
+    background:rgba(251,243,224,0.94);
+    border:3px solid var(--ink);
+    border-radius:22px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2);
+    opacity:0; pointer-events:none;
+    transition:opacity 500ms ease;
+  }
+  #tutorial.show { opacity:1; }
+  #tutorial.gone { display:none; }
+  .tut-card {
+    display:flex; flex-direction:column; align-items:center;
+    width:88px; padding:4px 4px 2px;
+    border-right:2px dashed rgba(28,42,58,.25);
+  }
+  .tut-card:last-child { border-right:none; }
+  .tut-card svg { width:58px; height:36px; overflow:visible; }
+  .tut-card .name {
+    font-size:10px; font-weight:900; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--ink); margin-top:1px;
+  }
+  .tut-glove {
+    font-size:16px; line-height:1;
+    animation: tutSlide 2.4s ease-in-out infinite;
+  }
+  .tut-card.jab .tut-glove      { animation-delay: 0s; }
+  .tut-card.hook .tut-glove     { animation-delay: 0.4s; animation-name: tutHook; }
+  .tut-card.uppercut .tut-glove { animation-delay: 0.8s; animation-name: tutUpper; }
+  @keyframes tutSlide {
+    0%, 100% { transform: translate(-28px, 0); opacity:.6; }
+    45%      { transform: translate(28px, 0);  opacity:1; }
+    55%      { transform: translate(28px, 0);  opacity:1; }
+  }
+  @keyframes tutHook {
+    0%, 100% { transform: translate(-24px, 6px); opacity:.6; }
+    50%      { transform: translate(24px, -10px); opacity:1; }
+  }
+  @keyframes tutUpper {
+    0%, 100% { transform: translate(0, 14px); opacity:.6; }
+    50%      { transform: translate(0, -14px); opacity:1; }
+  }
+
+  /* ── Hit sparks (star particles) ──────────────────── */
+  #sparks { position:absolute; inset:0; pointer-events:none; z-index:92; overflow:hidden; }
+  .spark {
+    position:absolute; width:22px; height:22px;
+    margin-left:-11px; margin-top:-11px;
+    background: var(--gold);
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    filter: drop-shadow(0 2px 0 var(--ink));
+    animation: sparkPop 520ms ease-out forwards;
+  }
+  @keyframes sparkPop {
+    0%   { transform: translate(0,0) scale(.2) rotate(0deg); opacity:0; }
+    20%  { opacity:1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--rot)); opacity:0; }
+  }
+
+  /* ── KO banner + confetti ─────────────────────────── */
+  #ko-flash { position:absolute; inset:0; background:var(--cream);
+              opacity:0; pointer-events:none; z-index:96;
+              transition:opacity 60ms ease; }
+  #ko-flash.on { opacity:.9; }
+  #ko-banner {
+    position:absolute; top:44%; left:50%;
+    transform:translate(-50%,-50%) scale(.4) rotate(-6deg);
+    font-weight:900; letter-spacing:-.05em;
+    font-size:clamp(90px, 16vw, 220px);
+    color: var(--cream);
+    text-shadow:
+      0 8px 0 var(--ink),
+      0 14px 40px rgba(28,42,58,.55);
+    opacity:0; z-index:97; pointer-events:none;
+    transition: opacity 200ms ease, transform 380ms cubic-bezier(.2,1.5,.3,1);
+    line-height:.9; text-align:center;
+  }
+  #ko-banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-4deg); }
+  #ko-banner .sub {
+    display:block; font-size:.14em; letter-spacing:.3em;
+    color: var(--hot); text-shadow: 0 4px 0 var(--ink);
+    margin-top:12px;
+  }
+  #confetti { position:absolute; inset:0; pointer-events:none; z-index:94; overflow:hidden; }
+  .confetti-piece {
+    position:absolute; top:-24px;
+    width:12px; height:16px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity:1; }
+    90%  { opacity:1; }
+    100% { transform: translate(var(--drift, 0), 110vh) rotate(720deg); opacity:.9; }
+  }
 </style>
 </head>
 <body>
@@ -257,12 +356,43 @@
 <div id="gesture"></div>
 <div id="vignette"></div>
 
+<div id="tutorial">
+  <div class="tut-card jab">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M8 26 L62 26"/>
+      <path d="M52 16 L66 26 L52 36"/>
+    </svg>
+    <div class="tut-glove">&#129354;</div>
+    <div class="name">Jab</div>
+  </div>
+  <div class="tut-card hook">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M10 42 Q 22 6 68 22"/>
+      <path d="M58 12 L70 22 L58 30"/>
+    </svg>
+    <div class="tut-glove">&#129354;</div>
+    <div class="name">Hook</div>
+  </div>
+  <div class="tut-card uppercut">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M39 46 L39 8"/>
+      <path d="M28 18 L39 6 L50 18"/>
+    </svg>
+    <div class="tut-glove">&#129354;</div>
+    <div class="name">Uppercut</div>
+  </div>
+</div>
+
 <div class="hit-confirm" id="hit-confirm">
   <div class="burst"></div>
   <div class="ring"></div>
   <div class="damage">0</div>
 </div>
 <div class="hit-flash" id="hit-flash"></div>
+<div id="sparks"></div>
+<div id="ko-flash"></div>
+<div id="confetti"></div>
+<div id="ko-banner">K.O.!<span class="sub">Soup wins</span></div>
 
 <div id="status">hub → not connected</div>
 <button id="connect" class="ss-btn">Connect hub</button>
@@ -282,15 +412,20 @@ import { openSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 
 // ══════════════════════════ Scene ══════════════════════════
-const SKY_HEX = 0x4fc0e3;
+const SKY_HEX = 0x7bd3ee;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(SKY_HEX);
-scene.fog = new THREE.Fog(SKY_HEX, 8, 30);
+// Push fog far back so the ring reads as an open-air bright stage, not a tunnel.
+scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.05, 100);
+const BASE_FOV = 55;
+const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth/innerHeight, 0.05, 100);
 const camHome = new THREE.Vector3(0, 1.6, 3.6);
 camera.position.copy(camHome);
 camera.lookAt(0, 1.55, 0);
+
+// Camera FOV punch state.
+const camFx = { fov: BASE_FOV, target: BASE_FOV, until: 0, phase: 'idle' };
 
 const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
 renderer.setPixelRatio(devicePixelRatio);
@@ -305,14 +440,18 @@ addEventListener('resize', () => {
 });
 
 // ── Lights: bright key + soft sky rim ──
-scene.add(new THREE.AmbientLight(0xbfe4f2, 0.65));
-const key = new THREE.DirectionalLight(0xfff0d0, 1.15);
+scene.add(new THREE.AmbientLight(0xd8ecf4, 0.95));
+const key = new THREE.DirectionalLight(0xfff4d8, 1.35);
 key.position.set(4, 8, 5); key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024);
 scene.add(key);
-const rim = new THREE.DirectionalLight(0x88c8ff, 0.55);
+const rim = new THREE.DirectionalLight(0xa8d8ff, 0.7);
 rim.position.set(-4, 3, -5);
 scene.add(rim);
+// Warm fill from the front so the mascot's face never falls to shadow.
+const fill = new THREE.DirectionalLight(0xfff2d8, 0.5);
+fill.position.set(0, 2, 6);
+scene.add(fill);
 
 // ── Ring floor: cream base w/ ink grid, vine/ruin-blue corners ──
 function makeRingFloor() {
@@ -345,44 +484,56 @@ function makeRingFloor() {
   pad(862, 62,  '#37628a'); pad(62, 62,  '#37628a');
   return new THREE.CanvasTexture(canvas);
 }
+const floorTex = makeRingFloor();
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(9, 9),
-  new THREE.MeshStandardMaterial({ map: makeRingFloor(), roughness: 0.9 })
+  new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.7, metalness: 0.0 })
 );
 floor.rotation.x = -Math.PI/2; floor.receiveShadow = true;
 scene.add(floor);
+
+// Bright grass apron around the ring so the horizon isn't dark.
+const apron = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.95 })
+);
+apron.rotation.x = -Math.PI/2;
+apron.position.y = -0.01;
+apron.receiveShadow = true;
+scene.add(apron);
 
 // ── Corner posts + pads (themed) ──
 const postMat  = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.8 });
 const padVine  = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.7 });
 const padRuin  = new THREE.MeshStandardMaterial({ color: 0x37628a, roughness: 0.7 });
-const postGeo  = new THREE.CylinderGeometry(0.1, 0.12, 1.8, 16);
-const padGeo   = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+const postGeo  = new THREE.CylinderGeometry(0.12, 0.14, 2.1, 16);
+const padGeo   = new THREE.BoxGeometry(0.34, 1.0, 0.34);
 const cornerXY = [[-3.8,-3.8],[3.8,3.8],[-3.8,3.8],[3.8,-3.8]];
 cornerXY.forEach(([x, z], idx) => {
   const post = new THREE.Mesh(postGeo, postMat);
-  post.position.set(x, 0.9, z); post.castShadow = true; scene.add(post);
+  post.position.set(x, 1.05, z); post.castShadow = true; scene.add(post);
   const pad  = new THREE.Mesh(padGeo, (idx === 1 || idx === 2) ? padVine : padRuin);
-  pad.position.set(x, 1.1, z); pad.castShadow = true; scene.add(pad);
+  pad.position.set(x, 1.3, z); pad.castShadow = true; scene.add(pad);
 });
 
-// ── Ropes: vine + cream alternating ──
-const ropeMatA = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.9 });
-const ropeMatB = new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.9 });
+// ── Ropes: chunky vine + cream alternating ──
+const ropeMatA = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.75 });
+const ropeMatB = new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.75 });
 const corners = [
   new THREE.Vector3(-3.8, 0, -3.8), new THREE.Vector3( 3.8, 0, -3.8),
   new THREE.Vector3( 3.8, 0,  3.8), new THREE.Vector3(-3.8, 0,  3.8),
   new THREE.Vector3(-3.8, 0, -3.8),
 ];
-[0.5, 0.9, 1.2, 1.5].forEach((h, i) => {
+[0.55, 0.95, 1.35, 1.75].forEach((h, i) => {
   const mat = (i % 2 === 0) ? ropeMatA : ropeMatB;
   for (let c = 0; c < 4; c++) {
     const a = corners[c].clone().setY(h), b = corners[c+1].clone().setY(h);
     const len = a.distanceTo(b);
-    const geo = new THREE.CylinderGeometry(0.03, 0.03, len, 8);
+    const geo = new THREE.CylinderGeometry(0.075, 0.075, len, 12);
     const rope = new THREE.Mesh(geo, mat);
     rope.position.copy(a).lerp(b, 0.5);
     rope.lookAt(b); rope.rotateX(Math.PI/2);
+    rope.castShadow = true;
     scene.add(rope);
   }
 });
@@ -412,7 +563,8 @@ for (let i = 0; i < 8; i++) {
 
 // ══════════════════════════ Opponent (Soup mascot) ══════════════════════════
 const opp = new THREE.Group();
-opp.position.set(0, 0, -0.5);
+// Slightly back but well inside the fog window — camera at z=3.6 looks at him.
+opp.position.set(0, 0, -0.2);
 scene.add(opp);
 
 const oppHome = opp.position.clone();
@@ -443,11 +595,10 @@ loader.load(
   'assets/mascot.glb',
   (gltf) => {
     const soup = gltf.scene;
-    // Y-up flip, face -Z (toward camera at +Z looking -Z)
+    // Y-up flip. Per soup/HANDOFF.md, after rot.x=-π/2 face points +Z (toward camera).
     soup.rotation.x = -Math.PI / 2;
-    soup.rotation.y = Math.PI;
-    // ~1m tall -> scale a little bigger so he reads as a boxer
-    soup.scale.setScalar(0.014);
+    // Bigger read so the opponent is clearly the star of the ring.
+    soup.scale.setScalar(0.020);
 
     // Clone materials so per-instance tints don't bleed
     soup.traverse(o => {
@@ -492,6 +643,68 @@ loader.load(
   }
 );
 
+// ══════════════════════════ Player arm (first-person glove) ══════════════════════════
+function makeArm(side) {
+  const g = new THREE.Group();
+  const forearmMat = new THREE.MeshStandardMaterial({ color: 0x37628a, roughness: 0.6 });
+  const gloveMat   = new THREE.MeshStandardMaterial({ color: 0xff9663, roughness: 0.55 });
+  const trimMat    = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.8 });
+
+  const forearm = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.11, 0.55, 18),
+    forearmMat
+  );
+  forearm.position.set(0, -0.05, 0);
+  forearm.rotation.x = Math.PI / 2;
+  g.add(forearm);
+
+  const cuff = new THREE.Mesh(
+    new THREE.TorusGeometry(0.115, 0.028, 10, 22),
+    trimMat
+  );
+  cuff.position.set(0, -0.05, 0.24);
+  cuff.rotation.y = Math.PI / 2;
+  g.add(cuff);
+
+  const glove = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 22, 18),
+    gloveMat
+  );
+  glove.position.set(0, -0.05, 0.42);
+  g.add(glove);
+
+  const thumb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 14, 12),
+    gloveMat
+  );
+  thumb.position.set(side * 0.10, -0.02, 0.45);
+  g.add(thumb);
+
+  return g;
+}
+const armGroup = new THREE.Group();
+const armR = makeArm(+1);
+const armL = makeArm(-1);
+armR.position.set( 0.55, -0.45, -1.15);
+armR.rotation.set(-0.15, -0.20, -0.05);
+armR.scale.setScalar(0.75);
+armL.position.set(-0.55, -0.45, -1.15);
+armL.rotation.set(-0.15,  0.20,  0.05);
+armL.scale.setScalar(0.75);
+armGroup.add(armR); armGroup.add(armL);
+camera.add(armGroup);
+scene.add(camera); // camera needs to be in the graph for its children to render.
+
+const armState = {
+  R: { base: armR.position.clone(), baseRot: armR.rotation.clone(), punchUntil: 0 },
+  L: { base: armL.position.clone(), baseRot: armL.rotation.clone(), punchUntil: 0 },
+};
+
+function punchArm(armId) {
+  const key = (armId === 1) ? 'L' : 'R';
+  armState[key].punchUntil = performance.now() + 220;
+}
+
 // ── Impact point light ──
 const impactLight = new THREE.PointLight(0xffcc66, 0, 8, 2);
 impactLight.position.set(0, 2.2, 1.0);
@@ -520,6 +733,84 @@ const $conf= document.getElementById('hit-confirm');
 const $flash= document.getElementById('hit-flash');
 const $stat= document.getElementById('status');
 const $log = document.getElementById('log');
+const $title = document.getElementById('title');
+const $tut  = document.getElementById('tutorial');
+const $sparks = document.getElementById('sparks');
+const $koFlash = document.getElementById('ko-flash');
+const $koBanner = document.getElementById('ko-banner');
+const $confetti = document.getElementById('confetti');
+
+// ── Tutorial + title lifecycle ────────────────────
+let hasGestured = false;
+// Fade the title out shortly after load so Soup is visible even without a hub.
+setTimeout(() => { if (!document.body.classList.contains('game-active')) $title.classList.add('hidden'); }, 2400);
+// Show the tutorial hint after a short delay if no gesture has come in.
+setTimeout(() => { if (!hasGestured) $tut.classList.add('show'); }, 2600);
+// Loop the tutorial in/out on a 6s cycle until the player commits.
+setInterval(() => {
+  if (hasGestured) return;
+  $tut.classList.toggle('show');
+}, 6000);
+
+function markGestured() {
+  if (hasGestured) return;
+  hasGestured = true;
+  $tut.classList.remove('show');
+  setTimeout(() => $tut.classList.add('gone'), 600);
+  $title.classList.add('hidden');
+  document.body.classList.add('game-active');
+}
+
+// ── Hit sparks (star particles bursting outward) ──
+function spawnSparks(x, y, power) {
+  const count = 6 + Math.floor(power * 3);
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = 70 + power * 140 + Math.random() * 40;
+    s.style.left = x + 'px';
+    s.style.top  = y + 'px';
+    s.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * dist - 30).toFixed(0) + 'px');
+    s.style.setProperty('--rot', ((Math.random() - 0.5) * 720).toFixed(0) + 'deg');
+    // alternate gold/cream/hot for variety
+    const palette = ['#f4c95d', '#fbf3e0', '#ff9663'];
+    s.style.background = palette[i % palette.length];
+    $sparks.appendChild(s);
+    setTimeout(() => s.remove(), 560);
+  }
+}
+
+// ── Camera FOV punch ──
+function fovPunch(power) {
+  camFx.target = 55 - (7 * Math.max(0.3, power));
+  camFx.phase  = 'in';
+  camFx.until  = performance.now() + 60;
+}
+
+// ── KO celebration ──
+function fireKO() {
+  // Freeze-frame flash
+  $koFlash.classList.add('on');
+  setTimeout(() => $koFlash.classList.remove('on'), 130);
+  // Banner pop
+  setTimeout(() => $koBanner.classList.add('pop'), 120);
+  // Confetti rain
+  const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3'];
+  for (let i = 0; i < 90; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.left = (Math.random() * 100) + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = (2.4 + Math.random() * 2.6) + 's';
+    c.style.animationDelay = (Math.random() * 0.6) + 's';
+    c.style.setProperty('--drift', ((Math.random() - 0.5) * 240).toFixed(0) + 'px');
+    c.style.transform = `rotate(${(Math.random()*360)|0}deg)`;
+    $confetti.appendChild(c);
+    setTimeout(() => c.remove(), 5200);
+  }
+}
 
 function refreshHud() {
   $hp1.style.width = state.p1.hp + '%';
@@ -559,6 +850,7 @@ function fireHitFlash(power) {
 
 function applyGesture(g, armId = 0) {
   if (state.koFired) return; // no more punches after KO
+  markGestured();
   popGesture(g.gesture, g.power);
   const dmgBase = DMG[g.gesture];
   if (!dmgBase) return;
@@ -584,10 +876,14 @@ function applyGesture(g, armId = 0) {
   const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
   fireHitConfirm(px, py, g.power, dmg);
   fireHitFlash(g.power);
+  spawnSparks(px, py, g.power);
+  fovPunch(g.power);
+  punchArm(armId);
 
   if (state.p2.hp <= 0 && !state.koFired) {
     state.koFired = true;
     mascot.koStartedAt = performance.now();
+    fireKO();
     log('KO!');
   }
 }
@@ -675,6 +971,43 @@ function tick() {
   camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
   camera.lookAt(0, 1.55, opp.position.z);
 
+  // ── FOV punch: zoom in fast (60ms), zoom back slow (200ms) ──
+  if (camFx.phase === 'in') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 60);
+    camera.fov = camFx.fov + (camFx.target - camFx.fov) * p;
+    if (p >= 1) { camFx.fov = camera.fov; camFx.phase = 'out'; camFx.until = now + 200; }
+    camera.updateProjectionMatrix();
+  } else if (camFx.phase === 'out') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 200);
+    camera.fov = camFx.fov + (BASE_FOV - camFx.fov) * p;
+    if (p >= 1) { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.phase = 'idle'; }
+    camera.updateProjectionMatrix();
+  }
+
+  // ── Player-arm idle sway + punch reaction ──
+  const swayY = Math.sin(tSec * 1.6) * 0.012;
+  const swayX = Math.sin(tSec * 1.1) * 0.006;
+  for (const key of ['R', 'L']) {
+    const arm = (key === 'R') ? armR : armL;
+    const st  = armState[key];
+    const punchLeft = st.punchUntil - now;
+    if (punchLeft > 0) {
+      // Punch-forward pop: shoots toward -z, then springs back.
+      const p = 1 - Math.min(1, punchLeft / 220);
+      // ease: quick out, slower return
+      const pop = (p < 0.35) ? (p / 0.35) : (1 - (p - 0.35) / 0.65);
+      arm.position.z = st.base.z - pop * 0.55;
+      arm.position.y = st.base.y + swayY + pop * 0.06;
+      arm.position.x = st.base.x + swayX * 0.5;
+      arm.rotation.x = st.baseRot.x - pop * 0.4;
+    } else {
+      arm.position.x = st.base.x + swayX * (key === 'R' ? 1 : -1);
+      arm.position.y = st.base.y + swayY;
+      arm.position.z = st.base.z;
+      arm.rotation.x = st.baseRot.x;
+    }
+  }
+
   // Light decay + stamina regen
   impactLight.intensity *= 0.88;
   state.p1.stamina = Math.min(100, state.p1.stamina + 18 * dt);
@@ -705,6 +1038,7 @@ document.getElementById('connect').addEventListener('click', async () => {
         $stat.textContent = 'hub → connected';
         $stat.classList.add('connected');
         document.body.classList.add('game-active');
+        $title.classList.add('hidden');
       },
       onClose: () => {
         $stat.textContent = 'hub → disconnected';

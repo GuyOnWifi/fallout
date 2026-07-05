@@ -38,23 +38,105 @@
   /* ── Score HUD ── */
   #hud { position:absolute; top:20px; left:0; right:0; text-align:center;
          pointer-events:none; z-index:100; }
-  #score { display:inline-flex; align-items:center; gap:16px;
-           padding:14px 28px; background: var(--cream);
-           border: 3px solid var(--ink); border-radius: 22px;
-           box-shadow: 0 5px 0 var(--ink), 0 10px 24px rgba(28,42,58,.25);
-           font-size:44px; font-weight:900; letter-spacing:-.02em; }
+  #score { display:inline-flex; align-items:center; gap:14px;
+           padding:8px 24px; background: var(--cream);
+           border: 3px solid var(--ink); border-radius: 18px;
+           box-shadow: 0 4px 0 var(--ink), 0 8px 20px rgba(28,42,58,.22);
+           font-size:36px; font-weight:900; letter-spacing:-.02em; }
   #score .you  { color: var(--hot);
                  text-shadow: 0 3px 0 #a5471d; }
   #score .cpu  { color: var(--ruin-blue);
                  text-shadow: 0 3px 0 #1c3350; }
   #score .dash { color: var(--ink-soft); font-weight: 800; }
-  #rally { margin-top:10px; display:inline-block;
-           padding:6px 16px; background: rgba(255,255,255,.75);
+  #rally-wrap { margin-top:16px; display:flex; justify-content:center; }
+  #rally { display:inline-flex; align-items:center; gap:6px;
+           padding:6px 16px; background: rgba(255,255,255,.85);
            border-radius: 999px;
            font-size:11px; letter-spacing:.28em; text-transform:uppercase;
            color: var(--ink); font-weight: 800;
-           border: 2px solid rgba(28,42,58,.1);
-           box-shadow: 0 3px 0 rgba(0,0,0,.06); }
+           border: 2px solid rgba(28,42,58,.12);
+           box-shadow: 0 3px 0 rgba(0,0,0,.08);
+           transition: background 240ms, color 240ms, transform 200ms,
+                       box-shadow 240ms, border-color 240ms; }
+  #rally.streak-1 { background: #fff2d6; border-color: rgba(244,201,93,.55);
+                    box-shadow: 0 3px 0 rgba(244,201,93,.35); }
+  #rally.streak-2 { background: #ffe3b8; color: #7a4a12;
+                    border-color: rgba(255,150,99,.65);
+                    box-shadow: 0 3px 0 rgba(255,150,99,.45); }
+  #rally.streak-3 { background: linear-gradient(180deg,#ffce7a,#ff9663);
+                    color: #fff; border-color: #a5471d;
+                    box-shadow: 0 4px 0 #a5471d, 0 0 22px rgba(255,150,99,.65);
+                    transform: scale(1.05); }
+  #rally .streak-flame { font-size: 14px; letter-spacing:0;
+                        display:inline-block; transform-origin: 50% 80%;
+                        animation: flame-flicker 480ms ease-in-out infinite alternate;
+                        filter: drop-shadow(0 0 6px rgba(255,150,99,.7)); }
+  @keyframes flame-flicker {
+    0%   { transform: scale(1) rotate(-3deg); }
+    100% { transform: scale(1.15) rotate(4deg); }
+  }
+
+  /* ── Gesture tutorial overlay (idle hint) ── */
+  #tutorial { position:absolute; left:50%; bottom:130px;
+              transform: translate(-50%,0);
+              padding: 10px 18px 10px;
+              background: rgba(251,243,224,.9);
+              border: 3px solid var(--ink); border-radius: 20px;
+              box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+              display:flex; flex-direction:column; align-items:center;
+              gap:6px; pointer-events:none; z-index:94;
+              opacity:0; transition: opacity 320ms;
+              min-width: 220px; }
+  #tutorial.show { opacity: 1; }
+  #tutorial .swing-scene { position:relative; width:150px; height:52px; }
+  #tutorial .arm {
+    position:absolute; left:12px; top:32px;
+    width:64px; height:10px; border-radius:6px;
+    background: linear-gradient(90deg, var(--hot), #ffbf94);
+    border: 2px solid var(--ink);
+    transform-origin: 6px 6px;
+    animation: swing-arm 1600ms ease-in-out infinite;
+  }
+  #tutorial .ball {
+    position:absolute; left:72px; top:22px;
+    font-size: 20px;
+    transform-origin: -60px 10px;
+    animation: swing-ball 1600ms ease-in-out infinite;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.2));
+  }
+  #tutorial .label { font-size:10px; letter-spacing:.28em;
+                     text-transform:uppercase; font-weight:800;
+                     color: var(--ink-soft); }
+  #tutorial .hint  { font-size:14px; font-weight:900;
+                     letter-spacing:.04em; color: var(--ink); }
+  @keyframes swing-arm {
+    0%   { transform: rotate(-42deg); }
+    38%  { transform: rotate(-42deg); }
+    55%  { transform: rotate(38deg); }
+    72%  { transform: rotate(38deg); }
+    100% { transform: rotate(-42deg); }
+  }
+  @keyframes swing-ball {
+    0%   { transform: rotate(-42deg) translate(0,0); opacity:.9; }
+    38%  { transform: rotate(-42deg) translate(0,0); opacity:1; }
+    55%  { transform: rotate(38deg)  translate(28px,-4px); opacity:.7; }
+    72%  { transform: rotate(38deg)  translate(28px,-4px); opacity:0; }
+    100% { transform: rotate(-42deg) translate(0,0); opacity:.9; }
+  }
+
+  /* ── Point sparkle shower ── */
+  #sparkles { position:absolute; inset:0; overflow:hidden;
+              pointer-events:none; z-index:93; }
+  .spark { position:absolute; font-size:22px;
+           animation: spark-fall 900ms ease-out forwards;
+           filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
+  @keyframes spark-fall {
+    0%   { opacity:0; transform: translate(0,0) rotate(0deg) scale(.3); }
+    25%  { opacity:1; }
+    100% { opacity:0;
+           transform: translate(var(--dx,0), var(--dy,140px))
+                      rotate(var(--rot,320deg)) scale(1); }
+  }
 
   /* ── Serve / status prompt ── */
   #prompt { position:absolute; bottom:60px; left:50%;
@@ -198,9 +280,19 @@
   <div id="score">
     <span class="you">YOU 0</span><span class="dash">—</span><span class="cpu">0 CPU</span>
   </div>
-  <div><span id="rally">RALLY 0</span></div>
+  <div id="rally-wrap"><span id="rally">RALLY 0</span></div>
 </div>
 
+<div id="tutorial">
+  <div class="label">Tennis Swing</div>
+  <div class="swing-scene">
+    <div class="arm"></div>
+    <div class="ball">🎾</div>
+  </div>
+  <div class="hint">Swing your arm across</div>
+</div>
+
+<div id="sparkles"></div>
 <div id="prompt">Swing to serve</div>
 <div id="gesture"></div>
 <div id="banner"></div>
@@ -264,7 +356,7 @@ const HALF_L  = COURT_L / 2;
 // Cream court plane
 const court = new THREE.Mesh(
   new THREE.PlaneGeometry(COURT_W + 3.0, COURT_L + 4.0),
-  new THREE.MeshStandardMaterial({ color: 0xf6e9c9, roughness: 0.9 })
+  new THREE.MeshStandardMaterial({ color: 0xebd9a8, roughness: 0.9 })
 );
 court.rotation.x = -Math.PI/2;
 court.position.y = 0;
@@ -325,7 +417,9 @@ scene.add(netGroup);
 
 // ── Clouds ──
 const clouds = [];
-const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, fog: false });
+// Cheerful puffy clouds — unlit white so they never take shadow tones
+// and never fade into the fog.
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
 for (let i = 0; i < 7; i++) {
   const cloud = new THREE.Group();
   const n = 3 + Math.floor(Math.random() * 3);
@@ -351,23 +445,25 @@ for (let i = 0; i < 7; i++) {
 // so the scene never looks empty and the game logic (which reads cpu.position)
 // keeps working. Once the mascot arrives, we swap it into the same Group.
 
+const CPU_SCALE = 0.014;
 const cpu = new THREE.Group();
-cpu.position.set(0, 0, -HALF_L + 1.5);
+cpu.position.set(0, 0, -HALF_L + 4.5);
 scene.add(cpu);
 
-// Cream placeholder — same silhouette-ish shape as soup
+// Cream placeholder — same silhouette-ish shape as soup, sized to match
+// the mascot so the framing doesn't shift when the GLB swaps in.
 const placeholder = new THREE.Group();
 const phBody = new THREE.Mesh(
-  new THREE.SphereGeometry(0.42, 20, 16),
-  new THREE.MeshStandardMaterial({ color: 0xf0dfb8, roughness: 0.85 })
+  new THREE.SphereGeometry(0.55, 20, 16),
+  new THREE.MeshStandardMaterial({ color: 0xb8d4e8, roughness: 0.85 })
 );
-phBody.position.y = 0.42;
+phBody.position.y = 0.55;
 placeholder.add(phBody);
 const phHead = new THREE.Mesh(
-  new THREE.SphereGeometry(0.34, 20, 16),
-  new THREE.MeshStandardMaterial({ color: 0xf0dfb8, roughness: 0.85 })
+  new THREE.SphereGeometry(0.42, 20, 16),
+  new THREE.MeshStandardMaterial({ color: 0xb8d4e8, roughness: 0.85 })
 );
-phHead.position.y = 0.9;
+phHead.position.y = 1.15;
 placeholder.add(phHead);
 cpu.add(placeholder);
 
@@ -380,6 +476,10 @@ let soupBaseY  = 0;
 const soupAnim = {
   swingStart: 0,   // 0 = not swinging
   missStart:  0,
+  hopStart:   0,   // celebratory hop
+};
+const playerAnim = {
+  hopStart: 0,
 };
 
 // Player-side soup — dropped below camera, visible if you tilt down.
@@ -391,7 +491,7 @@ loader.load('assets/mascot.glb', (gltf) => {
     // ── CPU mascot ──
     const soup = gltf.scene;
     soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
-    soup.scale.setScalar(0.008);
+    soup.scale.setScalar(CPU_SCALE);
     soup.rotation.x = -Math.PI / 2;
     soup.rotation.y = Math.PI;    // face -Z (toward player)
     // Retint body: soft blue-cream, distinct from player-side hot orange
@@ -447,16 +547,47 @@ ballShadow.rotation.x = -Math.PI/2;
 ballShadow.position.y = 0.02;
 scene.add(ballShadow);
 
-// ── Ball trail ──
+// ── Ball trail: thick + glowy via layered lines + a sprite sparkle trail ──
 const TRAIL_LEN = 40;
 const trailPositions = new Float32Array(TRAIL_LEN * 3);
 const trailGeom = new THREE.BufferGeometry();
 trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-const trailMat = new THREE.LineBasicMaterial({
-  color: 0xffffff, transparent: true, opacity: 0.55
+
+// Core bright line (yellow-green)
+const trailMatCore = new THREE.LineBasicMaterial({
+  color: 0xeaff70, transparent: true, opacity: 0.95,
 });
-const trail = new THREE.Line(trailGeom, trailMat);
+const trail = new THREE.Line(trailGeom, trailMatCore);
 scene.add(trail);
+
+// Sprite-based glow trail: growing/shrinking billboards per trail sample.
+// Sprite material is unlit, additive, so it reads as a warm ball glow.
+const trailSpriteCanvas = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0.00, 'rgba(255,255,220,1)');
+  grd.addColorStop(0.35, 'rgba(220,255,90,0.85)');
+  grd.addColorStop(0.75, 'rgba(180,220,60,0.25)');
+  grd.addColorStop(1.00, 'rgba(180,220,60,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  return c;
+})();
+const trailSpriteTex = new THREE.CanvasTexture(trailSpriteCanvas);
+const TRAIL_SPRITES = 10;
+const trailSprites = [];
+for (let i = 0; i < TRAIL_SPRITES; i++) {
+  const m = new THREE.SpriteMaterial({
+    map: trailSpriteTex, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, opacity: 0,
+  });
+  const s = new THREE.Sprite(m);
+  s.scale.setScalar(0.4);
+  scene.add(s);
+  trailSprites.push(s);
+}
+
 const trailBuf = [];
 function pushTrail(p) {
   trailBuf.push(p.clone());
@@ -468,6 +599,22 @@ function pushTrail(p) {
     trailPositions[i*3+2] = src.z;
   }
   trailGeom.attributes.position.needsUpdate = true;
+  // Position sprites along the trail buffer, newest = biggest+brightest.
+  const bufLen = trailBuf.length;
+  for (let i = 0; i < TRAIL_SPRITES; i++) {
+    // sample from the tail (newest) backward
+    const idx = bufLen - 1 - Math.floor(i * (bufLen - 1) / (TRAIL_SPRITES - 1 || 1));
+    const src = trailBuf[Math.max(0, idx)];
+    const s = trailSprites[i];
+    if (src) {
+      s.position.copy(src);
+      const t = 1 - i / TRAIL_SPRITES;         // 1 near head, ~0 at tail
+      s.scale.setScalar(0.18 + 0.42 * t);
+      s.material.opacity = 0.9 * t * t;
+    } else {
+      s.material.opacity = 0;
+    }
+  }
 }
 function clearTrail() {
   trailBuf.length = 0;
@@ -477,6 +624,7 @@ function clearTrail() {
     trailPositions[i*3+2] = ball.position.z;
   }
   trailGeom.attributes.position.needsUpdate = true;
+  for (const s of trailSprites) s.material.opacity = 0;
 }
 
 // ═══════════════════════ Game state ═══════════════════════
@@ -506,13 +654,70 @@ const $gest   = document.getElementById('gesture');
 const $banner = document.getElementById('banner');
 const $conf   = document.getElementById('hit-confirm');
 const $stat   = document.getElementById('status');
+const $tutorial = document.getElementById('tutorial');
+const $sparkles = document.getElementById('sparkles');
+
+// ── Tutorial overlay: show after 2s of no swing, hide once player swings. ──
+let lastSwingActivityAt = performance.now();
+let tutorialShown = false;
+function markSwingActivity() {
+  lastSwingActivityAt = performance.now();
+  if (tutorialShown) {
+    $tutorial.classList.remove('show');
+    tutorialShown = false;
+  }
+}
+function tutorialTick() {
+  const idleFor = performance.now() - lastSwingActivityAt;
+  const shouldShow = idleFor > 2000
+                  && state.mode === 'idle'
+                  && state.server === 'you'
+                  && state.ballFrom === 'you';
+  if (shouldShow && !tutorialShown) {
+    $tutorial.classList.add('show');
+    tutorialShown = true;
+  } else if (!shouldShow && tutorialShown) {
+    $tutorial.classList.remove('show');
+    tutorialShown = false;
+  }
+}
+
+// ── Sparkle shower on point win ──
+function sparkleShower(cx, cy, count = 18) {
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'spark';
+    el.textContent = Math.random() < 0.7 ? '🎾' : '✨';
+    const angle = (Math.random() - 0.5) * Math.PI * 1.1;   // spread outward
+    const dist  = 120 + Math.random() * 220;
+    const dx = Math.sin(angle) * dist;
+    const dy = 60 + Math.abs(Math.cos(angle)) * dist * 0.7;
+    const rot = (Math.random() - 0.5) * 720;
+    el.style.left = cx + 'px';
+    el.style.top  = cy + 'px';
+    el.style.setProperty('--dx', dx + 'px');
+    el.style.setProperty('--dy', dy + 'px');
+    el.style.setProperty('--rot', rot + 'deg');
+    el.style.animationDelay = (Math.random() * 120) + 'ms';
+    $sparkles.appendChild(el);
+    setTimeout(() => el.remove(), 1100);
+  }
+}
 
 function refreshScore() {
   $score.innerHTML =
     `<span class="you">YOU ${state.scoreYou}</span>` +
     `<span class="dash">—</span>` +
     `<span class="cpu">${state.scoreCpu} CPU</span>`;
-  $rally.textContent = `RALLY ${state.rally}`;
+  // Rally streak escalates visually at 3+.
+  const r = state.rally;
+  let streakClass = '';
+  let flame = '';
+  if (r >= 6)      { streakClass = 'streak-3'; flame = '<span class="streak-flame">🔥🔥</span>'; }
+  else if (r >= 4) { streakClass = 'streak-2'; flame = '<span class="streak-flame">🔥</span>'; }
+  else if (r >= 3) { streakClass = 'streak-1'; flame = '<span class="streak-flame">✨</span>'; }
+  $rally.className = streakClass;
+  $rally.innerHTML = `RALLY ${r}${flame ? ' ' + flame : ''}`;
 }
 
 function setPrompt(text, hidden = false) {
@@ -636,12 +841,19 @@ function cpuDecideReturn() {
 
 function scorePoint(winner, bannerText) {
   state.mode = 'point_end';
+  // Sparkle shower + winning-soup hop
+  const cx = innerWidth * 0.5;
+  const cy = innerHeight * 0.42;
+  sparkleShower(cx, cy, 22);
   if (winner === 'you') {
     state.scoreYou++;
     popBanner(bannerText || 'POINT YOU', '');
+    playerAnim.hopStart = performance.now();
+    shakeCamera(0.6);
   } else {
     state.scoreCpu++;
     popBanner(bannerText || 'POINT CPU', 'cpu');
+    soupAnim.hopStart = performance.now();
   }
   state.rally = 0;
   refreshScore();
@@ -793,6 +1005,7 @@ function onRawSample(armId, s) {
 
 // ═══════════════════════ Swing → game event ═══════════════════════
 function handleSwing({ power, roll, forehand }) {
+  markSwingActivity();
   const now = performance.now();
   const inWindow = now >= state.hittableStart && now <= state.hittableEnd + 80;
 
@@ -845,49 +1058,80 @@ function tick() {
     const t = now / 1000;
     // idle bob + subtle breathe squish (root scale y)
     const bob = Math.sin(t * 2) * 0.02;
-    soupMascot.position.y = soupBaseY + bob;
+    // hop bump — additive, driven by cpuHopStart
+    let hop = 0;
+    if (soupAnim.hopStart) {
+      const dth = now - soupAnim.hopStart;
+      const HOP_DUR = 480;
+      if (dth > HOP_DUR) soupAnim.hopStart = 0;
+      else {
+        const p = dth / HOP_DUR;
+        // parabolic hop
+        hop = Math.sin(p * Math.PI) * 0.35;
+      }
+    }
+    soupMascot.position.y = soupBaseY + bob + hop;
+    // squish on landing (last 20% of hop)
+    let squish = 1;
+    if (soupAnim.hopStart) {
+      const p = (now - soupAnim.hopStart) / 480;
+      if (p > 0.8) squish = 1 - (1 - (p - 0.8) / 0.2) * 0.15;
+    }
     const breathe = 1 + Math.sin(t * 2) * 0.02;
-    // preserve overall scale (0.008) — apply breathe multiplicatively
-    soupMascot.scale.set(0.008, 0.008, 0.008 * breathe);
+    soupMascot.scale.set(CPU_SCALE, CPU_SCALE, CPU_SCALE * breathe * squish);
 
-    // swing: rotate paws ±0.4 rad over 250ms
+    // swing: BIG whole-body tilt + paws swing over 320ms
+    // Body rotates around Z axis (world lean) while paws swing across.
+    let swingLean = 0;
     if (soupAnim.swingStart) {
       const dt2 = now - soupAnim.swingStart;
-      if (dt2 > 250) {
+      const DUR = 320;
+      if (dt2 > DUR) {
         soupAnim.swingStart = 0;
         if (soupPaws) soupPaws.rotation.set(0, 0, 0);
-      } else if (soupPaws) {
-        // sinusoid 0 → 0.4 → 0
-        const phase = dt2 / 250;   // 0..1
-        soupPaws.rotation.z = Math.sin(phase * Math.PI) * 0.4;
+      } else {
+        const phase = dt2 / DUR;    // 0..1
+        // paws: sinusoid 0 → 0.9 → 0
+        if (soupPaws) soupPaws.rotation.z = Math.sin(phase * Math.PI) * 0.9;
+        // body lean: quick tilt forward+across, spring back
+        swingLean = Math.sin(phase * Math.PI) * 0.28;
       }
     }
 
-    // miss: quick body tilt (rotation.z += 0.3 for 200ms, then springs back)
+    // miss: quick body tilt (bigger lean, springs back)
+    let missLean = 0;
     if (soupAnim.missStart) {
       const dt2 = now - soupAnim.missStart;
-      const dur = 400;
+      const dur = 500;
       if (dt2 > dur) {
         soupAnim.missStart = 0;
-        // reset extra tilt — model root Z (in world space that's a lean)
-        // We applied via extra offset; clear it via re-setting the base y-rot.
-        soupMascot.rotation.y = Math.PI;
-        soupMascot.rotation.z = 0;
       } else {
         const phase = dt2 / dur;
-        // spring: fast up, then damped back
-        const lean = phase < 0.4
-          ? (phase / 0.4) * 0.35
-          : (1 - (phase - 0.4) / 0.6) * 0.35;
-        soupMascot.rotation.z = lean;
+        missLean = phase < 0.35
+          ? (phase / 0.35) * 0.55
+          : (1 - (phase - 0.35) / 0.65) * 0.55;
       }
     }
+
+    // apply combined lean; keep base y-rotation (facing player)
+    soupMascot.rotation.y = Math.PI;
+    soupMascot.rotation.z = swingLean + missLean;
   }
 
-  // Player-side soup — gentle idle bob
+  // Player-side soup — gentle idle bob + celebratory hop
   if (playerSoup) {
-    playerSoup.position.y = Math.sin(now / 500) * 0.02;
+    let hop = 0;
+    if (playerAnim.hopStart) {
+      const dth = now - playerAnim.hopStart;
+      const HOP_DUR = 480;
+      if (dth > HOP_DUR) playerAnim.hopStart = 0;
+      else hop = Math.sin((dth / HOP_DUR) * Math.PI) * 0.35;
+    }
+    playerSoup.position.y = Math.sin(now / 500) * 0.02 + hop;
   }
+
+  // Tutorial overlay show/hide
+  tutorialTick();
 
   // Cloud drift
   for (const c of clouds) {

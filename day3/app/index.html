@@ -11,142 +11,101 @@
     --sky-mid:    #4fc0e3;
     --sky-deep:   #2a95c4;
     --water:      #37a7d0;
+    --water-lite: #6cc4de;
     --water-foam: #ffffff;
     --cream:      #fbf3e0;
     --cream-warm: #f6e9c9;
     --cream-deep: #ecdcb1;
     --ruin-blue:  #37628a;
     --ruin-teal:  #2f8fa3;
+    --ruin-dark:  #234163;
+    --ruin-mid:   #3a7597;
     --vine:       #6cb85a;
     --vine-deep:  #4a9440;
+    --vine-bright:#83cf69;
     --ink:        #1c2a3a;
     --ink-soft:   #476278;
     --hot:        #ff9663;
     --gold:       #f4c95d;
   }
-
   * { box-sizing: border-box; }
   html, body { margin:0; padding:0; height:100%; overflow:hidden;
                font-family: "Fredoka", "Nunito", -apple-system,
                             "SF Pro Rounded", "SF Pro Display", system-ui,
                             sans-serif;
-               color: var(--ink); }
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 55%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
 
-  body {
-    background: linear-gradient(180deg,
-                var(--sky-top) 0%,
-                var(--sky-mid) 45%,
-                var(--sky-deep) 78%,
-                var(--water) 100%);
-  }
+  /* ────────── SVG backdrop (full-screen scene) ────────── */
+  #backdrop { position:absolute; inset:0; width:100%; height:100%;
+              pointer-events:none; z-index:0; overflow:hidden; }
+  #backdrop svg { position:absolute; inset:0; width:100%; height:100%; }
 
-  /* ────────── background clouds (painterly-ish) ────────── */
+  /* Painterly clouds — puffier than before */
   .cloud {
-    position: absolute; pointer-events: none;
-    background: var(--water-foam);
-    border-radius: 60px;
-    opacity: 0.92;
-    filter: drop-shadow(0 6px 0 rgba(180,220,240,.35));
-    animation: drift 60s linear infinite;
+    position:absolute; pointer-events:none;
+    background: white;
+    border-radius: 200px;
+    opacity: .96;
+    filter: drop-shadow(0 8px 0 rgba(180,220,240,.3));
+    animation: drift 90s linear infinite;
   }
   .cloud::before, .cloud::after {
-    content: ""; position: absolute; background: inherit;
-    border-radius: 50%;
+    content:""; position:absolute; background: white; border-radius:50%;
   }
-  .cloud::before { width: 60%; height: 120%; top: -40%; left: 12%; }
-  .cloud::after  { width: 45%; height: 100%; top: -30%; right: 12%; }
-  .cloud.c1 { top: 8%;  left: -8%;  width: 260px; height: 90px; animation-duration: 90s; }
-  .cloud.c2 { top: 22%; right: -6%; width: 200px; height: 70px; animation-duration: 110s; animation-direction: reverse; }
-  .cloud.c3 { top: 5%;  left: 55%;  width: 180px; height: 60px; animation-duration: 130s; }
-  .cloud.c4 { top: 40%; left: 20%;  width: 160px; height: 55px; animation-duration: 150s; animation-direction: reverse; }
+  .cloud::before { width:70%; height:130%; top:-45%; left:8%; }
+  .cloud::after  { width:55%; height:110%; top:-38%; right:8%; }
+  .cloud.c1 { top: 4%;  left: -10%; width: 320px; height: 90px; animation-duration: 100s; }
+  .cloud.c2 { top: 12%; right: -12%; width: 280px; height: 84px; animation-duration: 130s; animation-direction: reverse; }
+  .cloud.c3 { top: 2%;  left: 44%;  width: 240px; height: 70px; animation-duration: 150s; }
+  .cloud.c4 { top: 18%; left: 22%;  width: 200px; height: 60px; animation-duration: 170s; animation-direction: reverse; }
+  .cloud.c5 { top: 22%; left: 58%;  width: 220px; height: 66px; animation-duration: 160s; }
   @keyframes drift {
     from { transform: translateX(-40vw); }
     to   { transform: translateX(140vw); }
   }
 
-  /* ────────── overgrown ruins along the horizon ────────── */
-  .ruins {
-    position: absolute; bottom: 22%; left: 0; right: 0; height: 30%;
-    pointer-events: none;
-    background:
-      /* right cluster */
-      radial-gradient(ellipse 8% 40% at 85% 100%, var(--vine-deep) 40%, transparent 41%),
-      radial-gradient(ellipse 10% 55% at 92% 100%, var(--ruin-blue) 55%, transparent 56%),
-      radial-gradient(ellipse 8%  70% at 88% 100%, var(--ruin-teal) 45%, transparent 46%),
-      /* left cluster */
-      radial-gradient(ellipse 8% 40% at 15% 100%, var(--vine-deep) 40%, transparent 41%),
-      radial-gradient(ellipse 10% 55% at 8%  100%, var(--ruin-blue) 55%, transparent 56%),
-      radial-gradient(ellipse 8%  70% at 12% 100%, var(--ruin-teal) 45%, transparent 46%),
-      /* center silhouette (further away, more transparent) */
-      radial-gradient(ellipse 25% 22% at 50% 100%, var(--ruin-blue) 65%, transparent 66%);
-    opacity: 0.75;
-  }
-
-  /* ────────── water surface at the bottom ────────── */
-  .water {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 22%;
-    pointer-events: none;
-    background:
-      linear-gradient(180deg, var(--water) 0%, var(--sky-deep) 100%);
-  }
-  .water::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 8px;
-    background:
-      repeating-linear-gradient(90deg,
-        var(--water-foam) 0 40px,
-        transparent 40px 90px);
-    opacity: 0.6;
-    filter: blur(1px);
-  }
-  .water::after {
-    content: ""; position: absolute; top: 20px; left: 0; right: 0; height: 6px;
-    background:
-      repeating-linear-gradient(90deg,
-        var(--water-foam) 0 22px,
-        transparent 22px 70px);
-    opacity: 0.4;
-    filter: blur(1px);
-  }
-
-  /* ────────── main layout ────────── */
+  /* ────────── layout ────────── */
   main {
-    position: relative; z-index: 2;
-    height: 100%; display: flex; flex-direction: column;
-    padding: min(5vh, 44px) min(6vw, 60px) min(4vh, 30px);
+    position:relative; z-index:2;
+    height:100%; display:flex; flex-direction:column;
+    padding: min(4vh, 30px) min(5vw, 50px) min(2vh, 20px);
   }
-
   header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 3vh;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom: 1vh;
   }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .logo-blob {
-    width: 54px; height: 54px; border-radius: 50%;
-    background: var(--cream);
-    box-shadow:
-      inset 4px -6px 0 var(--cream-deep),
-      0 4px 0 rgba(0,0,0,.15),
-      0 8px 20px rgba(0,0,0,.15);
-    position: relative;
-  }
-  .logo-blob::before, .logo-blob::after {
-    content: ""; position: absolute; top: 22px;
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--ink);
-  }
-  .logo-blob::before { left: 18px; }
-  .logo-blob::after  { right: 18px; }
-  .brand-text { display: flex; flex-direction: column; line-height: 1; }
+  .brand { display:flex; align-items:center; gap:14px; }
+  .brand-text { display:flex; flex-direction:column; line-height:1; }
   .brand-text b {
-    font-size: clamp(24px, 3vw, 34px);
-    font-weight: 800; letter-spacing: -.02em;
+    font-size: clamp(22px, 2.4vw, 30px);
+    font-weight: 900; letter-spacing:-.02em;
     color: var(--ink);
     text-shadow: 0 3px 0 rgba(255,255,255,.7);
   }
   .brand-text small {
-    font-size: 11px; letter-spacing: .32em; text-transform: uppercase;
+    font-size: 10px; letter-spacing: .32em; text-transform: uppercase;
     color: var(--ink-soft); font-weight: 700; margin-top: 4px;
   }
+  .brand-blob {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--cream);
+    box-shadow:
+      inset 4px -5px 0 var(--cream-deep),
+      0 4px 0 rgba(0,0,0,.15),
+      0 8px 20px rgba(0,0,0,.15);
+    position: relative; flex-shrink: 0;
+  }
+  .brand-blob::before, .brand-blob::after {
+    content:""; position:absolute; top:19px;
+    width:5px; height:5px; border-radius:50%; background: var(--ink);
+  }
+  .brand-blob::before { left:16px; }
+  .brand-blob::after  { right:16px; }
 
   .status-pill {
     display: flex; align-items: center; gap: 10px;
@@ -159,26 +118,16 @@
     box-shadow: 0 3px 0 rgba(0,0,0,.06);
   }
   .status-pill::before {
-    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    content:""; width:8px; height:8px; border-radius:50%;
     background: var(--gold); box-shadow: 0 0 12px var(--gold);
     animation: pulse 1.8s ease-in-out infinite;
   }
-  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.9); } }
+  @keyframes pulse { 50% { opacity:.4; transform:scale(.9); } }
 
-  /* ────────── hero mascot canvas (real 3D Soup) ────────── */
-  #hero {
-    position: relative;
-    height: clamp(160px, 22vh, 260px);
-    margin: -12px auto 8px;
-    max-width: 900px; width: 100%;
-    pointer-events: none;
-  }
-  #hero canvas { display: block; width: 100%; height: 100%; }
-
-  .title-block { text-align: center; margin-bottom: 2vh; }
+  .title-block { text-align:center; margin: 0.5vh 0 0.5vh; }
   h1 {
-    font-size: clamp(64px, 10vw, 140px);
-    font-weight: 900; letter-spacing: -.05em; margin: 0; line-height: 0.9;
+    font-size: clamp(48px, 7vw, 100px);
+    font-weight: 900; letter-spacing:-.05em; margin:0; line-height:.9;
     color: var(--cream);
     text-shadow:
       0 5px 0 var(--ruin-blue),
@@ -189,109 +138,336 @@
                  0 5px 0 #a5471d,
                  0 6px 24px rgba(28,42,58,.35); }
   .subhead {
-    margin-top: 16px; font-size: clamp(12px, 1.3vw, 16px);
+    margin-top: 12px; font-size: clamp(11px, 1.1vw, 14px);
     color: var(--ink); font-weight: 700; letter-spacing: .22em;
     text-transform: uppercase;
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
   }
 
+  /* ────────── hero mascot canvas ────────── */
+  #hero {
+    position:relative;
+    height: clamp(160px, 24vh, 260px);
+    margin: 0 auto 8px;
+    max-width: 800px; width:100%;
+    pointer-events:none;
+  }
+  #hero canvas { display:block; width:100%; height:100%; }
+  /* Placeholder shown before GLB loads */
+  #hero-placeholder {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+  }
+  #hero-placeholder .blob {
+    width:130px; height:130px; border-radius:50%;
+    background: var(--cream);
+    box-shadow:
+      inset 10px -14px 0 var(--cream-deep),
+      0 8px 0 rgba(28,42,58,.2),
+      0 22px 40px rgba(28,42,58,.22);
+    position:relative;
+    animation: hero-bob 2.6s ease-in-out infinite;
+  }
+  #hero-placeholder .blob::before,
+  #hero-placeholder .blob::after {
+    content:""; position:absolute; top: 46px;
+    width:13px; height:13px; border-radius:50%; background: var(--ink);
+  }
+  #hero-placeholder .blob::before { left: 36px; }
+  #hero-placeholder .blob::after  { right: 36px; }
+  #hero-placeholder.hidden { opacity:0; transition: opacity 350ms; }
+  @keyframes hero-bob {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    50%      { transform: translateY(-6px) scale(1.03, .97); }
+  }
+
   /* ────────── game cards ────────── */
   .games {
-    display: grid; gap: 22px;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    max-width: 1100px; width: 100%; margin: 0 auto;
+    display:grid; gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    max-width: 1050px; width:100%; margin: 0 auto;
   }
   .card {
-    position: relative; display: block; text-decoration: none;
-    padding: 26px 22px 24px;
+    position:relative; display:block; text-decoration:none;
+    padding: 22px 20px 20px;
     background: var(--cream);
     border: 3px solid var(--ink);
-    border-radius: 20px;
+    border-radius: 18px;
     color: var(--ink);
     box-shadow:
       0 6px 0 var(--ink),
       0 12px 24px rgba(28,42,58,.2);
-    transition: transform 180ms cubic-bezier(.3,.7,.3,1),
-                box-shadow 180ms;
+    transition: transform 180ms cubic-bezier(.3,.7,.3,1), box-shadow 180ms;
     overflow: hidden;
   }
   .card:hover {
     transform: translateY(-3px);
-    box-shadow:
-      0 9px 0 var(--ink),
-      0 18px 30px rgba(28,42,58,.28);
+    box-shadow: 0 9px 0 var(--ink), 0 18px 30px rgba(28,42,58,.28);
   }
-  .card:active { transform: translateY(0);
-                 box-shadow: 0 3px 0 var(--ink), 0 6px 16px rgba(28,42,58,.15); }
-
-  /* Painterly color chip in the corner */
   .card::before {
-    content: ""; position: absolute; top: -12px; right: -12px;
-    width: 90px; height: 90px; border-radius: 50%;
+    content:""; position:absolute; top:-12px; right:-12px;
+    width:90px; height:90px; border-radius:50%;
     background: var(--card-accent, var(--hot));
-    opacity: .18;
+    opacity:.18;
   }
   .card .icon {
-    font-size: 44px; line-height: 1; margin-bottom: 12px;
+    font-size: 40px; line-height:1; margin-bottom: 10px;
     filter: drop-shadow(0 4px 0 rgba(28,42,58,.15));
   }
   .card .name {
-    font-size: 24px; font-weight: 900; letter-spacing: -.02em;
-    margin-bottom: 6px;
+    font-size: 22px; font-weight: 900; letter-spacing:-.02em; margin-bottom: 4px;
   }
   .card .desc {
-    font-size: 12px; letter-spacing: .04em;
-    color: var(--ink-soft); line-height: 1.5;
-    font-weight: 600;
+    font-size: 11px; letter-spacing: .04em; color: var(--ink-soft);
+    line-height: 1.4; font-weight: 600;
   }
   .card .badge {
-    position: absolute; top: 14px; right: 14px;
-    padding: 4px 10px; border-radius: 999px;
-    font-size: 10px; font-weight: 800; letter-spacing: .12em;
-    text-transform: uppercase;
+    position:absolute; top:12px; right:12px;
+    padding: 3px 10px; border-radius: 999px;
+    font-size:10px; font-weight:800; letter-spacing:.12em;
+    text-transform:uppercase;
     background: var(--vine); color: white;
     box-shadow: 0 2px 0 var(--vine-deep);
   }
 
   footer {
-    margin-top: auto; padding-top: 3vh; text-align: center;
-    font-size: 11px; letter-spacing: .22em; text-transform: uppercase;
+    margin-top: auto; padding-top: 2vh; text-align:center;
+    font-size:10px; letter-spacing:.22em; text-transform:uppercase;
     color: var(--ink); font-weight: 700;
     text-shadow: 0 2px 0 rgba(255,255,255,.4);
   }
-  footer .steps { display: inline-flex; gap: 26px; margin-bottom: 8px; flex-wrap: wrap;
-                  justify-content: center; }
-  footer .step { display: inline-flex; align-items: center; gap: 8px; }
+  footer .steps { display:inline-flex; gap:22px; margin-bottom:6px; flex-wrap:wrap; justify-content:center; }
+  footer .step { display:inline-flex; align-items:center; gap:8px; }
   footer .step b {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 24px; height: 24px; border-radius: 50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%;
     background: var(--cream); color: var(--ink);
-    font-weight: 900; font-size: 12px;
+    font-weight: 900; font-size: 11px;
     border: 2px solid var(--ink);
     box-shadow: 0 2px 0 var(--ink);
   }
-  footer .version { opacity: 0.55; margin-top: 6px; }
-
-  @media (max-width: 640px) {
-    header { margin-bottom: 1.5vh; }
-    footer .steps { flex-direction: column; gap: 8px; }
-  }
+  footer .version { opacity: 0.5; margin-top: 4px; }
 </style>
 </head>
 <body>
 
-<!-- Painterly sky background -->
-<div class="cloud c1"></div>
-<div class="cloud c2"></div>
-<div class="cloud c3"></div>
-<div class="cloud c4"></div>
-<div class="ruins"></div>
-<div class="water"></div>
+<!-- ────────── Painterly ruined-city backdrop ────────── -->
+<div id="backdrop">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+  <div class="cloud c4"></div>
+  <div class="cloud c5"></div>
+
+  <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <!-- Building fills with gradient depth -->
+      <linearGradient id="grBldg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#4180a6"/>
+        <stop offset="1" stop-color="#234163"/>
+      </linearGradient>
+      <linearGradient id="grBldgTeal" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#3a99b0"/>
+        <stop offset="1" stop-color="#1f6b83"/>
+      </linearGradient>
+      <linearGradient id="grBldgFar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#6cb1d0"/>
+        <stop offset="1" stop-color="#3f7ea0"/>
+      </linearGradient>
+      <linearGradient id="grWater" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#6cc4de"/>
+        <stop offset="1" stop-color="#2a89b8"/>
+      </linearGradient>
+    </defs>
+
+    <!-- ── Far-away background city silhouette (small, hazy) ── -->
+    <g opacity=".82">
+      <rect x="620"  y="530" width="26" height="120" fill="url(#grBldgFar)"/>
+      <rect x="650"  y="480" width="34" height="170" fill="url(#grBldgFar)"/>
+      <rect x="688"  y="510" width="28" height="140" fill="url(#grBldgFar)"/>
+      <rect x="720"  y="470" width="46" height="180" fill="url(#grBldgFar)"/>
+      <polygon points="720,470 743,455 766,470" fill="#4986a8"/>
+      <rect x="770"  y="500" width="30" height="150" fill="url(#grBldgFar)"/>
+      <rect x="804"  y="490" width="42" height="160" fill="url(#grBldgFar)"/>
+      <rect x="850"  y="520" width="26" height="130" fill="url(#grBldgFar)"/>
+      <rect x="880"  y="475" width="38" height="175" fill="url(#grBldgFar)"/>
+      <polygon points="880,475 899,458 918,475" fill="#4986a8"/>
+      <rect x="922"  y="515" width="30" height="135" fill="url(#grBldgFar)"/>
+      <rect x="956"  y="500" width="40" height="150" fill="url(#grBldgFar)"/>
+      <!-- Faint far vines strip -->
+      <path d="M620,540 Q680,528 720,540 T820,538 T920,542 T996,540 L996,560 L620,560 Z" fill="#4a9440" opacity=".6"/>
+    </g>
+
+    <!-- ── LEFT ruined cluster ── -->
+    <g>
+      <!-- Chrome/highway arc curling behind -->
+      <path d="M 10,660 Q 50,300 250,320 Q 340,340 320,530"
+            fill="none" stroke="#c9d7dc" stroke-width="14"
+            stroke-linecap="round" opacity=".88"/>
+      <path d="M 10,660 Q 50,300 250,320 Q 340,340 320,530"
+            fill="none" stroke="#f0f4f5" stroke-width="4"
+            stroke-linecap="round" opacity=".9"/>
+
+      <!-- Big broken building -->
+      <path d="M 40,660 L 40,380 L 120,380 L 120,240 L 200,240 L 200,660 Z" fill="url(#grBldg)"/>
+      <!-- Window notches -->
+      <g fill="#1a3352" opacity=".85">
+        <rect x="55" y="410" width="14" height="20"/>
+        <rect x="75" y="410" width="14" height="20"/>
+        <rect x="95" y="410" width="14" height="20"/>
+        <rect x="55" y="450" width="14" height="20"/>
+        <rect x="75" y="450" width="14" height="20"/>
+        <rect x="95" y="450" width="14" height="20"/>
+        <rect x="55" y="490" width="14" height="20"/>
+        <rect x="75" y="490" width="14" height="20"/>
+        <rect x="95" y="490" width="14" height="20"/>
+        <rect x="55" y="530" width="14" height="20"/>
+        <rect x="75" y="530" width="14" height="20"/>
+        <rect x="95" y="530" width="14" height="20"/>
+        <rect x="135" y="280" width="14" height="20"/>
+        <rect x="155" y="280" width="14" height="20"/>
+        <rect x="175" y="280" width="14" height="20"/>
+        <rect x="135" y="320" width="14" height="20"/>
+        <rect x="155" y="320" width="14" height="20"/>
+        <rect x="175" y="320" width="14" height="20"/>
+      </g>
+      <!-- Big vine draping over top -->
+      <path d="M 40,380 Q 60,340 80,380 Q 100,350 120,390 Q 140,240 200,240 Q 180,290 200,330 Q 170,320 200,380 L 200,410 Q 150,395 100,420 Q 60,410 40,420 Z"
+            fill="#4a9440"/>
+      <path d="M 42,380 Q 62,342 82,380 Q 102,352 122,390"
+            fill="none" stroke="#83cf69" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="180" cy="248" r="8" fill="#6cb85a"/>
+      <circle cx="188" cy="260" r="6" fill="#83cf69"/>
+      <circle cx="150" cy="242" r="7" fill="#6cb85a"/>
+
+      <!-- Second building (shorter, teal) -->
+      <path d="M 210,660 L 210,320 L 300,320 L 300,660 Z" fill="url(#grBldgTeal)"/>
+      <g fill="#12495b" opacity=".85">
+        <rect x="222" y="350" width="14" height="20"/>
+        <rect x="244" y="350" width="14" height="20"/>
+        <rect x="266" y="350" width="14" height="20"/>
+        <rect x="222" y="390" width="14" height="20"/>
+        <rect x="244" y="390" width="14" height="20"/>
+        <rect x="266" y="390" width="14" height="20"/>
+        <rect x="222" y="430" width="14" height="20"/>
+        <rect x="244" y="430" width="14" height="20"/>
+        <rect x="266" y="430" width="14" height="20"/>
+        <rect x="222" y="470" width="14" height="20"/>
+        <rect x="244" y="470" width="14" height="20"/>
+        <rect x="266" y="470" width="14" height="20"/>
+      </g>
+      <!-- Vine draping down side -->
+      <path d="M 300,320 Q 320,360 310,400 Q 330,420 320,470 Q 340,500 315,540 Q 335,570 315,600 Q 335,635 310,660 L 300,660 Z"
+            fill="#4a9440"/>
+      <circle cx="325" cy="380" r="7" fill="#6cb85a"/>
+      <circle cx="330" cy="440" r="6" fill="#83cf69"/>
+      <circle cx="325" cy="510" r="7" fill="#6cb85a"/>
+
+      <!-- Small crumbly tower -->
+      <path d="M 310,660 L 310,500 L 360,500 L 360,660 Z" fill="url(#grBldg)"/>
+      <path d="M 310,500 Q 330,470 350,510 L 360,530 L 310,540 Z" fill="#4a9440"/>
+    </g>
+
+    <!-- ── RIGHT ruined cluster (mirrored idea) ── -->
+    <g>
+      <!-- Chrome/highway arc curling behind -->
+      <path d="M 1590,660 Q 1550,300 1350,320 Q 1260,340 1280,530"
+            fill="none" stroke="#c9d7dc" stroke-width="14"
+            stroke-linecap="round" opacity=".88"/>
+      <path d="M 1590,660 Q 1550,300 1350,320 Q 1260,340 1280,530"
+            fill="none" stroke="#f0f4f5" stroke-width="4"
+            stroke-linecap="round" opacity=".9"/>
+
+      <!-- Big broken building -->
+      <path d="M 1560,660 L 1560,380 L 1480,380 L 1480,220 L 1400,220 L 1400,660 Z" fill="url(#grBldg)"/>
+      <g fill="#1a3352" opacity=".85">
+        <rect x="1531" y="410" width="14" height="20"/>
+        <rect x="1511" y="410" width="14" height="20"/>
+        <rect x="1491" y="410" width="14" height="20"/>
+        <rect x="1531" y="450" width="14" height="20"/>
+        <rect x="1511" y="450" width="14" height="20"/>
+        <rect x="1491" y="450" width="14" height="20"/>
+        <rect x="1531" y="490" width="14" height="20"/>
+        <rect x="1511" y="490" width="14" height="20"/>
+        <rect x="1491" y="490" width="14" height="20"/>
+        <rect x="1531" y="530" width="14" height="20"/>
+        <rect x="1511" y="530" width="14" height="20"/>
+        <rect x="1491" y="530" width="14" height="20"/>
+        <rect x="1451" y="260" width="14" height="20"/>
+        <rect x="1431" y="260" width="14" height="20"/>
+        <rect x="1411" y="260" width="14" height="20"/>
+        <rect x="1451" y="300" width="14" height="20"/>
+        <rect x="1431" y="300" width="14" height="20"/>
+        <rect x="1411" y="300" width="14" height="20"/>
+      </g>
+      <path d="M 1560,380 Q 1540,340 1520,380 Q 1500,350 1480,390 Q 1460,220 1400,220 Q 1420,270 1400,320 Q 1430,300 1400,380 L 1400,410 Q 1450,395 1500,420 Q 1540,410 1560,420 Z"
+            fill="#4a9440"/>
+      <circle cx="1420" cy="228" r="8" fill="#6cb85a"/>
+      <circle cx="1412" cy="240" r="6" fill="#83cf69"/>
+      <circle cx="1450" cy="222" r="7" fill="#6cb85a"/>
+
+      <!-- Second (teal) -->
+      <path d="M 1390,660 L 1390,300 L 1300,300 L 1300,660 Z" fill="url(#grBldgTeal)"/>
+      <g fill="#12495b" opacity=".85">
+        <rect x="1364" y="330" width="14" height="20"/>
+        <rect x="1342" y="330" width="14" height="20"/>
+        <rect x="1320" y="330" width="14" height="20"/>
+        <rect x="1364" y="370" width="14" height="20"/>
+        <rect x="1342" y="370" width="14" height="20"/>
+        <rect x="1320" y="370" width="14" height="20"/>
+        <rect x="1364" y="410" width="14" height="20"/>
+        <rect x="1342" y="410" width="14" height="20"/>
+        <rect x="1320" y="410" width="14" height="20"/>
+        <rect x="1364" y="450" width="14" height="20"/>
+        <rect x="1342" y="450" width="14" height="20"/>
+        <rect x="1320" y="450" width="14" height="20"/>
+      </g>
+      <path d="M 1300,300 Q 1280,340 1290,380 Q 1270,400 1280,450 Q 1260,480 1285,520 Q 1265,550 1285,580 Q 1265,615 1290,660 L 1300,660 Z"
+            fill="#4a9440"/>
+      <circle cx="1275" cy="360" r="7" fill="#6cb85a"/>
+      <circle cx="1272" cy="420" r="6" fill="#83cf69"/>
+      <circle cx="1275" cy="490" r="7" fill="#6cb85a"/>
+
+      <!-- Small crumbly tower right -->
+      <path d="M 1290,660 L 1290,500 L 1240,500 L 1240,660 Z" fill="url(#grBldg)"/>
+      <path d="M 1290,500 Q 1270,470 1250,510 L 1240,530 L 1290,540 Z" fill="#4a9440"/>
+    </g>
+
+    <!-- ── Water level with foam lane crossings ── -->
+    <rect x="0" y="660" width="1600" height="240" fill="url(#grWater)"/>
+
+    <!-- Zebra-crossing lane markings that vanish under water -->
+    <g opacity=".95">
+      <polygon points="0,660  260,660  180,900  -80,900" fill="#f7f0dc"/>
+      <polygon points="330,660 490,660 470,900 260,900" fill="#f7f0dc"/>
+      <polygon points="560,660 720,660 780,900 540,900" fill="#f7f0dc"/>
+      <polygon points="800,660 960,660 1080,900 840,900" fill="#f7f0dc"/>
+      <polygon points="1050,660 1200,660 1360,900 1130,900" fill="#f7f0dc"/>
+      <polygon points="1300,660 1460,660 1680,900 1440,900" fill="#f7f0dc"/>
+    </g>
+
+    <!-- Foam accent lines rippling on water -->
+    <g fill="white" opacity=".75">
+      <ellipse cx="150"  cy="710" rx="80" ry="4"/>
+      <ellipse cx="420"  cy="740" rx="90" ry="4"/>
+      <ellipse cx="720"  cy="720" rx="70" ry="3"/>
+      <ellipse cx="1020" cy="740" rx="90" ry="4"/>
+      <ellipse cx="1350" cy="720" rx="80" ry="4"/>
+      <ellipse cx="240"  cy="790" rx="120" ry="4"/>
+      <ellipse cx="640"  cy="820" rx="140" ry="5"/>
+      <ellipse cx="1040" cy="820" rx="140" ry="5"/>
+      <ellipse cx="1400" cy="800" rx="120" ry="4"/>
+    </g>
+
+    <!-- Ink outline pane -->
+    <rect x="2" y="2" width="1596" height="896" fill="none" stroke="#1c2a3a" stroke-width="4" rx="16" ry="16" opacity=".55"/>
+  </svg>
+</div>
 
 <main>
   <header>
     <div class="brand">
-      <div class="logo-blob" aria-label="Soup"></div>
+      <div class="brand-blob" aria-label="Soup"></div>
       <div class="brand-text">
         <b>SOUP&nbsp;SPORTS</b>
         <small>Post-Apocalyptic Wii Sports</small>
@@ -305,7 +481,9 @@
     <div class="subhead">The world is flooded. Soup is ready to play.</div>
   </div>
 
-  <div id="hero"></div>
+  <div id="hero">
+    <div id="hero-placeholder"><div class="blob"></div></div>
+  </div>
 
   <div class="games">
     <a class="card" href="boxing.html" style="--card-accent: #ff9663;">
@@ -332,6 +510,12 @@
       <div class="name">Soup Baseball</div>
       <div class="desc">Home-run derby. Peak accel = exit velocity. Pitch = launch angle.</div>
     </a>
+    <a class="card" href="punch_bomb.html" style="--card-accent: #d84a4a;">
+      <div class="badge">Party</div>
+      <div class="icon">💣</div>
+      <div class="name">Soup Bomb</div>
+      <div class="desc">Punch Soup. Push your luck. Bank before you blow him up.</div>
+    </a>
   </div>
 
   <footer>
@@ -340,7 +524,7 @@
       <span class="step"><b>2</b> Strap on the wristbands</span>
       <span class="step"><b>3</b> Pick a sport &amp; play</span>
     </div>
-    <div class="version">Soup Sports · hackathon build · v0.4</div>
+    <div class="version">Soup Sports · hackathon build · v0.5</div>
   </footer>
 </main>
 
@@ -355,87 +539,78 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// ─── Hero mascot: real 3D Soup, transparent bg so the CSS sky shows through
 const host = document.getElementById('hero');
+const placeholder = document.getElementById('hero-placeholder');
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(
-  38, host.clientWidth / host.clientHeight, 0.1, 20);
-camera.position.set(0, 1.05, 3.2);
+// Ensure host has real dimensions before init.
+const initW = () => Math.max(host.clientWidth, 200);
+const initH = () => Math.max(host.clientHeight, 160);
+
+const camera = new THREE.PerspectiveCamera(36, initW() / initH(), 0.1, 20);
+camera.position.set(0, 1.05, 3.4);
 camera.lookAt(0, 0.85, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(devicePixelRatio);
-renderer.setSize(host.clientWidth, host.clientHeight);
-renderer.setClearColor(0x000000, 0);   // transparent — CSS background layers through
+renderer.setSize(initW(), initH());
+renderer.setClearColor(0x000000, 0);
 host.appendChild(renderer.domElement);
 
-// Cheerful lighting: warm cream key + cool sky fill
-scene.add(new THREE.HemisphereLight(0xbde5f4, 0xf4d9a0, 0.85));
-const key = new THREE.DirectionalLight(0xfff4c8, 1.0);
+scene.add(new THREE.HemisphereLight(0xbde5f4, 0xf4d9a0, 0.9));
+const key = new THREE.DirectionalLight(0xfff4c8, 1.1);
 key.position.set(2, 3, 3);
 scene.add(key);
 
-const soup = new THREE.Group();
-scene.add(soup);
+const soupHolder = new THREE.Group();
+scene.add(soupHolder);
 
 let paws = null;
-let bodyY = 0;
 let loaded = false;
+let lastWave = 0;
 
 const loader = new GLTFLoader();
 loader.load('assets/mascot.glb',
   (gltf) => {
     const m = gltf.scene;
-    // Clone materials so we can retint without affecting other pages (defensive).
     m.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
-    // Y-up + face camera
     m.rotation.x = -Math.PI / 2;
     m.rotation.y = Math.PI;
     m.scale.setScalar(0.014);
-    soup.add(m);
+    soupHolder.add(m);
     paws = m.getObjectByName('paws') || null;
-    bodyY = soup.position.y;
     loaded = true;
+    placeholder.classList.add('hidden');
+    setTimeout(() => placeholder.remove(), 400);
   },
   undefined,
   (err) => {
     console.warn('mascot load failed:', err);
-    // Fallback: a cream sphere so the hero area isn't empty.
+    // Keep the placeholder as visible fallback; also spawn a cream sphere in-scene
     const fallback = new THREE.Mesh(
       new THREE.SphereGeometry(0.55, 24, 18),
-      new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.85 })
     );
     fallback.position.y = 0.75;
-    soup.add(fallback);
-    bodyY = soup.position.y;
+    soupHolder.add(fallback);
     loaded = true;
   });
 
-// Cheerful animation: idle bob + squish, periodic wave
 const start = performance.now();
-let lastWave = 0;
 function tick() {
   const now = performance.now();
   const t = (now - start) / 1000;
 
   if (loaded) {
-    // Idle bob
-    soup.position.y = bodyY + Math.sin(t * 2.0) * 0.03;
-    // Gentle squish-breathe (careful — scale.y is under a rotated child, so we
-    // scale the whole soup group vertically instead of the model)
+    soupHolder.position.y = Math.sin(t * 2.0) * 0.03;
     const squish = 1 + Math.sin(t * 2.0) * 0.025;
-    soup.scale.set(1, squish, 1);
-    // Slow head sway (rotate the whole soup around Y a hair)
-    soup.rotation.y = Math.sin(t * 0.7) * 0.15;
+    soupHolder.scale.set(1, squish, 1);
+    soupHolder.rotation.y = Math.sin(t * 0.7) * 0.18;
 
-    // Wave every ~5s: rotate paws forward and back
     const waveCycle = 5.5;
     const wavePhase = (now - lastWave) / 1000;
     if (paws && wavePhase < 0.9) {
-      const p = wavePhase / 0.9;
-      // half-sine bump — up, over, back
-      paws.rotation.z = Math.sin(p * Math.PI) * 0.6;
+      paws.rotation.z = Math.sin((wavePhase / 0.9) * Math.PI) * 0.7;
     } else if (paws) {
       paws.rotation.z = 0;
     }
@@ -447,11 +622,10 @@ function tick() {
 }
 requestAnimationFrame(tick);
 
-// Responsive
 addEventListener('resize', () => {
-  camera.aspect = host.clientWidth / host.clientHeight;
+  camera.aspect = initW() / initH();
   camera.updateProjectionMatrix();
-  renderer.setSize(host.clientWidth, host.clientHeight);
+  renderer.setSize(initW(), initH());
 });
 </script>
 </body>
