@@ -222,3 +222,133 @@ real punch magnitude.
 - **Follow the "ugly but complete" plan.** The wrist → ESP-NOW → dongle →
   serial path is still not tested; that's the biggest lurking risk and
   should be next before more polish.
+
+---
+
+## Day 3+ — the pivot to Soup Sports
+
+Day 3 opened with the "wireless + polish" plan and closed on a completely
+different project. Documenting every wrong turn so future us doesn't retrace
+them.
+
+### The wireless cut worked
+
+`day1/firmware/*` was tethered USB CSV. Ported into `day3/firmware/src/` with
+Mark's `esp_now_broadcast` pattern, split into three PIO envs
+(`wrist_right`, `wrist_left`, `dongle`) sharing one src tree via
+`build_src_filter`. Broadcast (`FF:FF:FF:FF:FF:FF`) — no MAC configuration.
+Wire format got a leading `arm,` field so both bands multiplex through one
+dongle to one serial port. `ArmDispatcher` on the browser side routes
+per-arm samples to per-arm `Classifier` instances. Backwards-compat: 9-field
+day1 lines are treated as arm 0. Everything's still one line of ASCII CSV
+so `pio device monitor` remains a useful diagnostic.
+
+**Payoff:** the day1 browser code kept working unchanged. The classifier
+tuning inherited from day1's replay harness. Cost: ~2 hours.
+
+### The "add SpaceEngine gesture navigation" trap
+
+Mark had a sibling project driving SpaceEngine via wrist gestures. Ostensibly
+themed to the hackathon prompt ("world is ending → explore the universe").
+The conversation this morning circled that direction for an embarrassing
+number of hours. It failed for reasons worth remembering:
+
+1. **SpaceEngine is paid, Steam-only, Windows-only, closed-source.** Every
+   demo pivot became "and it also depends on this one specific software
+   nobody on the team owns."
+2. **Gesture-as-command feels gimmicky.** Sweep-left = "prev waypoint" is a
+   worse keyboard, not a physical experience. VR feels immersive because
+   your hand IS the thing; a gesture-remote is just a remote.
+3. **The user correctly identified this each time.** I kept proposing
+   variants — cinematic overlay, cockpit build, joystick emulation for
+   free-fly mode, wristband-as-Wii-remote — and each got rejected for the
+   same underlying reason: it's dressing on a fundamentally passive demo.
+
+Also considered and rejected: **open-source SpaceEngine alternatives**
+(Gaia Sky, OpenSpace, Celestia). Any of them are technically workable — Gaia
+Sky in particular has documented gamepad + Python-scripting APIs — but the
+core gesture-as-remote problem is unchanged by swapping the software behind
+the visuals.
+
+**Lesson: propose direction pivots, don't dress up an existing direction as
+a new one.** Every SpaceEngine variant I proposed was the same demo with a
+different wrapper. The user's frustration was warranted.
+
+### The pivot that landed: Wii Sports (Soup Sports)
+
+The correct pivot was to a demo where **movement IS the mechanic**, not the
+control layer. Boxing was the anchor (already 80% done in `day1/`). Then
+bowling, tennis, baseball — each with a distinct swing/timing gesture,
+each fun in 30 seconds, each cardboard-cabinet-with-phone-mount ready.
+
+The user rebranded it "**Soup Sports**" once he had a mascot design he
+liked. The mascot is Soup — a chubby cream cat-shape built from stacked
+spheres, based on an emoji he liked. Post-apocalyptic Wii Sports vibe.
+Every character in every game is Soup: opponent boxer is Soup, bowling
+pins are 10 tiny Soups, tennis CPU is Soup, baseball pitcher is Soup.
+
+**Lesson: the mascot became the pitch.** Before Soup, this was "wristband
+boxing." After Soup, it's a memorable brand judges will recognize on a
+poster. The mascot itself was 90 minutes of work in `soup/` (OpenSCAD
+first, then Python spheres+PBR materials via trimesh). Enormous ROI.
+
+### Four minigames in one afternoon (parallel agents)
+
+Once the direction was locked, delivery was fast. I spun up **three
+parallel general-purpose agents** to finish bowling, build tennis, and
+build baseball simultaneously. Each was scoped to a single HTML file so
+no merge conflicts. Then a second parallel pass — **four agents at once** —
+did the Soup Sports re-skin: cyan sky background, cream+ink HUD panels,
+chunky pill buttons, and the mascot loaded via `GLTFLoader` per-game with
+procedural per-frame animation.
+
+**Lesson: parallel agents are worth it when the boundaries are file-level.**
+Each agent had a clear "read A/B/C, write only D" contract. No shared
+mutable state, no cross-agent merges. Both passes (game-build + Soup pass)
+finished inside 15 minutes wall-clock.
+
+### The "no undo undo WHAT HAVE YOU DONE" moment
+
+A follow-up agent added tall bat ears, eye sparkles, blush cheeks, a smile,
+and feet to the mascot. User said "no undo undo WHAT HAVE YOU DONE" and it
+got reverted. Current sober Soup is intentional. **Do not add facial
+detail or limbs to Soup unless explicitly asked.**
+
+Also worth remembering: the user was told the game agents could use
+animation clip names like `idle`, `hit_light`, `hit_heavy`, `ko`,
+`cheer`, `wave`, `walk`, `bowling_pin_fall`. **None of these exist as
+actual `AnimationClip`s in the GLB.** Soup has no rig. Every animation
+is procedural per-frame math in the game files — position bobs,
+rotation.z tweens, material color flashes. Cheaper than a rig and looks
+fine on a limbless character. HANDOFF.md has the recipes.
+
+### JAB-ONLY MODE and what's still open
+
+The classifier was tuned on day1 data collected with a specific arm mount.
+When the wireless firmware moved the sensor, thresholds drifted. Instead of
+retuning discriminators without fresh data, I short-circuited `_classify()`
+so any valid trigger fires `jab`. Bowling/tennis/baseball don't use the
+Classifier (they consume raw samples), so this only affects boxing's hook
+vs uppercut discrimination. To restore multi-class: collect fresh reps for
+each label on the current mount, run `replay.mjs`, re-enable the multi-class
+branch in `_classify()`.
+
+### Things worth remembering from day 3
+
+- **Direction pivots need to be real pivots, not resurfaced versions of
+  the rejected direction.** Wristband-as-joystick was a resurface. Cardboard
+  cabinet was a resurface. Cockpit was a resurface. Wii Sports was a real
+  pivot.
+- **Brand is the demo.** Soup Sports became memorable the moment the
+  mascot showed up in every game with a consistent palette. Before that,
+  it was four decent minigames with no through-line.
+- **Parallel agents at file-level scope work.** ~15 min for four polish
+  passes across four game files. Would have been ~2 hours sequentially.
+- **The "cardboard cabinet with phone mount" hardware bit is still
+  unbuilt.** All demo polish is web-side. The physical build (cabinet, CAD,
+  wristband strap, LiPo, vibration motor) is the biggest remaining risk.
+  Software floor is ready; hardware floor is not.
+- **Repo hygiene:** committed via `.gitignore` early. `.pio/` and
+  `managed_components/` never entered the tree; final push was 1.6MB / 40
+  files. Mark's separate repo was `rm -rf`'d out of the tree with his
+  training-tools sibling folder preserved separately.

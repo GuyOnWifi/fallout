@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — Tennis</title>
+<style>
+  /* ── Soup Sports palette (from index.html) ── */
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                            var(--sky-top) 0%,
+                            var(--sky-mid) 45%,
+                            var(--sky-deep) 78%,
+                            var(--water) 100%); }
+  canvas { display:block; }
+
+  /* ── Score HUD ── */
+  #hud { position:absolute; top:20px; left:0; right:0; text-align:center;
+         pointer-events:none; z-index:100; }
+  #score { display:inline-flex; align-items:center; gap:16px;
+           padding:14px 28px; background: var(--cream);
+           border: 3px solid var(--ink); border-radius: 22px;
+           box-shadow: 0 5px 0 var(--ink), 0 10px 24px rgba(28,42,58,.25);
+           font-size:44px; font-weight:900; letter-spacing:-.02em; }
+  #score .you  { color: var(--hot);
+                 text-shadow: 0 3px 0 #a5471d; }
+  #score .cpu  { color: var(--ruin-blue);
+                 text-shadow: 0 3px 0 #1c3350; }
+  #score .dash { color: var(--ink-soft); font-weight: 800; }
+  #rally { margin-top:10px; display:inline-block;
+           padding:6px 16px; background: rgba(255,255,255,.75);
+           border-radius: 999px;
+           font-size:11px; letter-spacing:.28em; text-transform:uppercase;
+           color: var(--ink); font-weight: 800;
+           border: 2px solid rgba(28,42,58,.1);
+           box-shadow: 0 3px 0 rgba(0,0,0,.06); }
+
+  /* ── Serve / status prompt ── */
+  #prompt { position:absolute; bottom:60px; left:50%;
+            transform:translateX(-50%);
+            padding:14px 26px; background: var(--cream);
+            border: 3px solid var(--ink); border-radius: 18px;
+            box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+            font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+            font-size:14px; text-align:center; z-index:100;
+            color: var(--ink);
+            transition: opacity 220ms; }
+  #prompt.hidden { opacity: 0; }
+
+  /* ── Center gesture flash ── */
+  #gesture { position:absolute; top:38%; left:50%;
+             transform:translate(-50%,-50%) scale(1);
+             font-size:64px; font-weight:900; letter-spacing:-.02em;
+             text-transform:uppercase;
+             text-shadow:0 5px 0 var(--ink), 0 8px 24px rgba(28,42,58,.4);
+             opacity:0; transition:opacity 90ms, transform 140ms;
+             pointer-events:none; z-index:95; color: var(--hot); }
+  #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+
+  /* ── Hit confirm ── */
+  .hit-confirm { position:absolute; inset:0;
+                 pointer-events:none; z-index:91; overflow:hidden; }
+  .hit-confirm .burst, .hit-confirm .ring {
+    position:absolute; left:var(--hit-x, 50%); top:var(--hit-y, 50%);
+    opacity:0; will-change:transform, opacity;
+  }
+  .hit-confirm .burst {
+    width:  calc(120px + 260px * var(--hit-power, .4));
+    height: calc(120px + 260px * var(--hit-power, .4));
+    margin-left: calc(-1 * (120px + 260px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (120px + 260px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(255,243,224,.95) 0%,
+      rgba(244,201,93,.75) 30%,
+      rgba(255,150,99,.4) 60%,
+      rgba(255,150,99,0) 75%);
+    mix-blend-mode:screen; filter:blur(2px);
+  }
+  .hit-confirm .ring {
+    width:  calc(90px + 320px * var(--hit-power, .4));
+    height: calc(90px + 320px * var(--hit-power, .4));
+    margin-left: calc(-1 * (90px + 320px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (90px + 320px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    border: calc(3px + 5px * var(--hit-power, .4)) solid rgba(255,220,130,.85);
+    mix-blend-mode:screen;
+  }
+  .hit-confirm.active .burst  { animation: burst 440ms ease-out forwards; }
+  .hit-confirm.active .ring   { animation: ring  520ms ease-out forwards; }
+  @keyframes burst {
+    0%   { opacity:0; transform:scale(.3); }
+    30%  { opacity:1; transform:scale(1.05); }
+    100% { opacity:0; transform:scale(1.3); }
+  }
+  @keyframes ring {
+    0%   { opacity:0; transform:scale(.4); }
+    25%  { opacity:1; }
+    100% { opacity:0; transform:scale(1.7); }
+  }
+
+  /* ── Point banner (POINT / OUT / GAME) ── */
+  #banner { position:absolute; top:42%; left:50%;
+            transform:translate(-50%,-50%) scale(1);
+            font-size:88px; font-weight:900; letter-spacing:-.03em;
+            text-transform:uppercase; opacity:0;
+            text-shadow:0 6px 0 var(--ink), 0 10px 32px rgba(28,42,58,.4);
+            transition:opacity 120ms, transform 200ms; pointer-events:none;
+            color: var(--hot); z-index:96; }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+  #banner.cpu { color: var(--ruin-blue); }
+  #banner.miss{ color: var(--gold); }
+
+  /* ── Chrome ── */
+  #connect { position:absolute; top:18px; right:18px;
+             padding:12px 20px; background: var(--cream);
+             color: var(--ink);
+             border: 3px solid var(--ink); border-radius: 999px;
+             text-transform:uppercase; font-weight:800;
+             letter-spacing:.14em; cursor:pointer;
+             z-index:110; font-size:12px;
+             font-family: inherit;
+             box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.2);
+             transition: transform 140ms, box-shadow 140ms; }
+  #connect:hover { transform: translateY(-2px);
+                   box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25); }
+  #connect:active { transform: translateY(0);
+                    box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.15); }
+
+  #status { position:absolute; bottom:18px; right:18px;
+            display:flex; align-items:center; gap:10px;
+            padding:9px 16px; border-radius: 999px;
+            background: rgba(255,255,255,.75);
+            border: 2px solid rgba(28,42,58,.1);
+            font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+            color: var(--ink); font-weight:800;
+            box-shadow: 0 3px 0 rgba(0,0,0,.06);
+            z-index:110;
+            backdrop-filter: blur(6px); }
+  #status::before {
+    content:""; width:8px; height:8px; border-radius:50%;
+    background: var(--gold); box-shadow: 0 0 12px var(--gold);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  #status.connected::before {
+    background: var(--vine); box-shadow: 0 0 12px var(--vine);
+    animation: none;
+  }
+  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.9); } }
+
+  #back { position:absolute; bottom:18px; left:18px;
+          padding:10px 18px; background: var(--cream);
+          color: var(--ink); text-decoration:none;
+          border: 3px solid var(--ink); border-radius: 999px;
+          text-transform:uppercase; font-weight:800;
+          letter-spacing:.14em; font-size:11px;
+          z-index:110;
+          box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.2);
+          transition: transform 140ms, box-shadow 140ms; }
+  #back:hover { transform: translateY(-2px);
+                box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25); }
+  #back:active { transform: translateY(0);
+                 box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.15); }
+
+  #devhint { position:absolute; top:18px; left:18px; font-size:10px;
+             padding: 8px 14px; border-radius: 999px;
+             background: rgba(255,255,255,.5);
+             color: var(--ink); font-weight: 700;
+             letter-spacing: .16em; text-transform:uppercase;
+             z-index:110; pointer-events:none;
+             border: 2px solid rgba(28,42,58,.08); }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="score">
+    <span class="you">YOU 0</span><span class="dash">—</span><span class="cpu">0 CPU</span>
+  </div>
+  <div><span id="rally">RALLY 0</span></div>
+</div>
+
+<div id="prompt">Swing to serve</div>
+<div id="gesture"></div>
+<div id="banner"></div>
+<div class="hit-confirm" id="hit-confirm">
+  <div class="burst"></div>
+  <div class="ring"></div>
+</div>
+
+<div id="devhint">SPACE hit · A miss · N advance ball</div>
+<div id="status">not connected</div>
+<button id="connect">Connect hub</button>
+<a id="back" href="index.html">← menu</a>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+
+// ═══════════════════════ Three.js scene ═══════════════════════
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x4fc0e3);   // sky-mid
+scene.fog = new THREE.Fog(0x4fc0e3, 24, 70);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
+const camHome = new THREE.Vector3(0, 3.4, 12.5);
+camera.position.copy(camHome);
+camera.lookAt(0, 0.5, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Lights
+scene.add(new THREE.AmbientLight(0xcfe6f2, 0.75));
+const key = new THREE.DirectionalLight(0xfff2d0, 1.05);
+key.position.set(5, 12, 6);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x99ccee, 0.45);
+rim.position.set(-4, 6, -6);
+scene.add(rim);
+
+// ── Court dimensions ──
+const COURT_W = 8.0;
+const COURT_L = 22.0;
+const HALF_L  = COURT_L / 2;
+
+// Cream court plane
+const court = new THREE.Mesh(
+  new THREE.PlaneGeometry(COURT_W + 3.0, COURT_L + 4.0),
+  new THREE.MeshStandardMaterial({ color: 0xf6e9c9, roughness: 0.9 })
+);
+court.rotation.x = -Math.PI/2;
+court.position.y = 0;
+scene.add(court);
+
+// Outer water surround
+const outer = new THREE.Mesh(
+  new THREE.PlaneGeometry(120, 120),
+  new THREE.MeshStandardMaterial({ color: 0x37a7d0, roughness: 0.95 })
+);
+outer.rotation.x = -Math.PI/2;
+outer.position.y = -0.02;
+scene.add(outer);
+
+// Court lines helper
+function addLine(x1, z1, x2, z2, thickness = 0.08) {
+  const dx = x2 - x1, dz = z2 - z1;
+  const len = Math.hypot(dx, dz);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(len, thickness),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })
+  );
+  mesh.rotation.x = -Math.PI/2;
+  mesh.position.set((x1+x2)/2, 0.01, (z1+z2)/2);
+  mesh.rotation.z = -Math.atan2(dz, dx);
+  scene.add(mesh);
+}
+const halfW = COURT_W/2;
+addLine(-halfW, -HALF_L, -halfW,  HALF_L);
+addLine( halfW, -HALF_L,  halfW,  HALF_L);
+addLine(-halfW, -HALF_L,  halfW, -HALF_L);
+addLine(-halfW,  HALF_L,  halfW,  HALF_L);
+addLine(-halfW, -HALF_L/2, halfW, -HALF_L/2);
+addLine(-halfW,  HALF_L/2, halfW,  HALF_L/2);
+addLine(0, -HALF_L/2, 0, HALF_L/2);
+
+// ── Net (cream w/ ink top) ──
+const netGroup = new THREE.Group();
+const netMat = new THREE.MeshStandardMaterial({
+  color: 0xfbf3e0, roughness: 0.9, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+const net = new THREE.Mesh(new THREE.PlaneGeometry(COURT_W + 1.5, 0.9), netMat);
+net.position.set(0, 0.45, 0);
+netGroup.add(net);
+const netTop = new THREE.Mesh(
+  new THREE.BoxGeometry(COURT_W + 1.6, 0.06, 0.06),
+  new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.6 })
+);
+netTop.position.set(0, 0.9, 0);
+netGroup.add(netTop);
+const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.0, 12);
+const postMat = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.7 });
+[-1, 1].forEach(s => {
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.position.set(s * (COURT_W/2 + 0.75), 0.5, 0);
+  netGroup.add(post);
+});
+scene.add(netGroup);
+
+// ── Clouds ──
+const clouds = [];
+const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, fog: false });
+for (let i = 0; i < 7; i++) {
+  const cloud = new THREE.Group();
+  const n = 3 + Math.floor(Math.random() * 3);
+  for (let j = 0; j < n; j++) {
+    const r = 0.9 + Math.random() * 0.9;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), cloudMat);
+    s.position.set((j - n/2) * 1.1, Math.random() * 0.4, Math.random() * 0.5);
+    cloud.add(s);
+  }
+  cloud.position.set(
+    (Math.random() - 0.5) * 60,
+    8 + Math.random() * 5,
+    -20 - Math.random() * 25
+  );
+  cloud.userData.driftSpeed = 0.15 + Math.random() * 0.2;
+  clouds.push(cloud);
+  scene.add(cloud);
+}
+
+// ═══════════════════════ CPU opponent (mascot) ═══════════════════════
+//
+// The GLB loads async. Until it lands, we render a chunky cream placeholder
+// so the scene never looks empty and the game logic (which reads cpu.position)
+// keeps working. Once the mascot arrives, we swap it into the same Group.
+
+const cpu = new THREE.Group();
+cpu.position.set(0, 0, -HALF_L + 1.5);
+scene.add(cpu);
+
+// Cream placeholder — same silhouette-ish shape as soup
+const placeholder = new THREE.Group();
+const phBody = new THREE.Mesh(
+  new THREE.SphereGeometry(0.42, 20, 16),
+  new THREE.MeshStandardMaterial({ color: 0xf0dfb8, roughness: 0.85 })
+);
+phBody.position.y = 0.42;
+placeholder.add(phBody);
+const phHead = new THREE.Mesh(
+  new THREE.SphereGeometry(0.34, 20, 16),
+  new THREE.MeshStandardMaterial({ color: 0xf0dfb8, roughness: 0.85 })
+);
+phHead.position.y = 0.9;
+placeholder.add(phHead);
+cpu.add(placeholder);
+
+// Handles for procedural animation. Populated when GLB loads.
+let soupMascot = null;
+let soupPaws   = null;
+let soupBaseY  = 0;
+
+// Swing / miss animation state
+const soupAnim = {
+  swingStart: 0,   // 0 = not swinging
+  missStart:  0,
+};
+
+// Player-side soup — dropped below camera, visible if you tilt down.
+let playerSoup = null;
+
+const loader = new GLTFLoader();
+loader.load('assets/mascot.glb', (gltf) => {
+  try {
+    // ── CPU mascot ──
+    const soup = gltf.scene;
+    soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    soup.scale.setScalar(0.008);
+    soup.rotation.x = -Math.PI / 2;
+    soup.rotation.y = Math.PI;    // face -Z (toward player)
+    // Retint body: soft blue-cream, distinct from player-side hot orange
+    const body = soup.getObjectByName('body');
+    if (body) body.material.color.setHex(0xb8d4e8);
+    const ears = soup.getObjectByName('ears');
+    if (ears) ears.material.color.setHex(0x9cbdd6);
+    soupPaws = soup.getObjectByName('paws');
+
+    // Remove placeholder, add mascot
+    cpu.remove(placeholder);
+    cpu.add(soup);
+    soupMascot = soup;
+    soupBaseY = 0;
+
+    // ── Player-side soup (out of primary view) ──
+    const ps = gltf.scene.clone(true);
+    ps.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    ps.scale.setScalar(0.008);
+    ps.rotation.x = -Math.PI / 2;
+    // Faces +Z by default → toward net after clone (no y flip)
+    const pBody = ps.getObjectByName('body');
+    if (pBody) pBody.material.color.setHex(0xffbfa0);   // warm hot-adjacent
+    const pPaws = ps.getObjectByName('paws');
+    if (pPaws) pPaws.material.color.setHex(0xffbfa0);
+    // Position: on the near baseline, off to the side so camera catches him
+    // if the player tilts down. Below primary framing.
+    ps.position.set(-1.6, 0, HALF_L - 0.6);
+    playerSoup = ps;
+    scene.add(ps);
+  } catch (err) {
+    console.warn('mascot setup failed, keeping placeholder:', err);
+  }
+}, undefined, (err) => {
+  console.warn('mascot.glb load failed — placeholder stays:', err);
+});
+
+// ── Ball ──
+const ball = new THREE.Mesh(
+  new THREE.SphereGeometry(0.11, 20, 14),
+  new THREE.MeshStandardMaterial({
+    color: 0xdaff5a, roughness: 0.4,
+    emissive: 0x556600, emissiveIntensity: 0.35 })
+);
+ball.position.set(0, 1.0, 10.5);
+scene.add(ball);
+
+const ballShadow = new THREE.Mesh(
+  new THREE.CircleGeometry(0.15, 16),
+  new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true, opacity: 0.28 })
+);
+ballShadow.rotation.x = -Math.PI/2;
+ballShadow.position.y = 0.02;
+scene.add(ballShadow);
+
+// ── Ball trail ──
+const TRAIL_LEN = 40;
+const trailPositions = new Float32Array(TRAIL_LEN * 3);
+const trailGeom = new THREE.BufferGeometry();
+trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+const trailMat = new THREE.LineBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.55
+});
+const trail = new THREE.Line(trailGeom, trailMat);
+scene.add(trail);
+const trailBuf = [];
+function pushTrail(p) {
+  trailBuf.push(p.clone());
+  while (trailBuf.length > TRAIL_LEN) trailBuf.shift();
+  for (let i = 0; i < TRAIL_LEN; i++) {
+    const src = trailBuf[i] || trailBuf[trailBuf.length - 1] || p;
+    trailPositions[i*3]   = src.x;
+    trailPositions[i*3+1] = src.y;
+    trailPositions[i*3+2] = src.z;
+  }
+  trailGeom.attributes.position.needsUpdate = true;
+}
+function clearTrail() {
+  trailBuf.length = 0;
+  for (let i = 0; i < TRAIL_LEN; i++) {
+    trailPositions[i*3] = ball.position.x;
+    trailPositions[i*3+1] = ball.position.y;
+    trailPositions[i*3+2] = ball.position.z;
+  }
+  trailGeom.attributes.position.needsUpdate = true;
+}
+
+// ═══════════════════════ Game state ═══════════════════════
+const PLAYER_BASE_Z = HALF_L - 0.8;
+const HIT_Z         = HALF_L - 1.2;
+const HITTABLE_MS   = 250;
+const AI_RETURN_RATE = 0.85;
+
+const state = {
+  mode: 'idle',
+  server: 'you',
+  ballVel: new THREE.Vector3(),
+  ballFrom: 'you',
+  rally: 0,
+  scoreYou: 0,
+  scoreCpu: 0,
+  arriveTime: 0,
+  hittableStart: 0,
+  hittableEnd: 0,
+  camShake: { until: 0, amp: 0 },
+};
+
+const $score  = document.getElementById('score');
+const $rally  = document.getElementById('rally');
+const $prompt = document.getElementById('prompt');
+const $gest   = document.getElementById('gesture');
+const $banner = document.getElementById('banner');
+const $conf   = document.getElementById('hit-confirm');
+const $stat   = document.getElementById('status');
+
+function refreshScore() {
+  $score.innerHTML =
+    `<span class="you">YOU ${state.scoreYou}</span>` +
+    `<span class="dash">—</span>` +
+    `<span class="cpu">${state.scoreCpu} CPU</span>`;
+  $rally.textContent = `RALLY ${state.rally}`;
+}
+
+function setPrompt(text, hidden = false) {
+  $prompt.textContent = text;
+  $prompt.classList.toggle('hidden', hidden);
+}
+
+function popGesture(text, color) {
+  $gest.textContent = text;
+  $gest.style.color = color || 'var(--hot)';
+  $gest.classList.remove('pop'); void $gest.offsetWidth;
+  $gest.classList.add('pop');
+  setTimeout(() => $gest.classList.remove('pop'), 420);
+}
+
+function popBanner(text, kind) {
+  $banner.className = '';
+  if (kind) $banner.classList.add(kind);
+  $banner.textContent = text;
+  void $banner.offsetWidth;
+  $banner.classList.add('pop');
+  setTimeout(() => $banner.classList.remove('pop'), 900);
+}
+
+function fireHitConfirm(worldPos, power) {
+  const p = worldPos.clone().project(camera);
+  const px = (p.x *  0.5 + 0.5) * innerWidth;
+  const py = (p.y * -0.5 + 0.5) * innerHeight;
+  $conf.style.setProperty('--hit-x', px + 'px');
+  $conf.style.setProperty('--hit-y', py + 'px');
+  $conf.style.setProperty('--hit-power', power.toFixed(2));
+  $conf.classList.remove('active'); void $conf.offsetWidth;
+  $conf.classList.add('active');
+}
+
+function shakeCamera(power) {
+  state.camShake.until = performance.now() + 260;
+  state.camShake.amp = 0.06 + 0.18 * power;
+}
+
+// ═══════════════════════ Ball flight ═══════════════════════
+const GRAVITY = 9.8;
+
+function launchArc(from, to, flightMs) {
+  const t = flightMs / 1000;
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const dy = to.y - from.y;
+  ball.position.copy(from);
+  const vx = dx / t;
+  const vz = dz / t;
+  const vy = (dy + 0.5 * GRAVITY * t * t) / t;
+  state.ballVel.set(vx, vy, vz);
+  state.mode = 'in_flight';
+  state.arriveTime = performance.now() + flightMs;
+  clearTrail();
+}
+
+function serveFromYou() {
+  state.server = 'you';
+  state.ballFrom = 'you';
+  state.mode = 'idle';
+  ball.position.set(0.4, 1.2, PLAYER_BASE_Z);
+  clearTrail();
+  setPrompt('Swing to serve');
+}
+
+function serveFromCpu() {
+  state.server = 'cpu';
+  state.ballFrom = 'cpu';
+  ball.position.set(0, 1.4, cpu.position.z + 0.3);
+  clearTrail();
+  setPrompt('Incoming! Swing to return', true);
+  setTimeout(() => {
+    if (state.mode !== 'idle') return;
+    cpuHitBall(true);
+  }, 700);
+}
+
+function cpuHitBall(isServe = false) {
+  const from = ball.position.clone();
+  const targetX = (Math.random() - 0.5) * (COURT_W - 1.4);
+  const targetZ = HIT_Z - (Math.random() * 1.5);
+  const to = new THREE.Vector3(targetX, 1.0, targetZ);
+  const flight = 900 + Math.random() * 350;
+  state.ballFrom = 'cpu';
+  launchArc(from, to, flight);
+  state.hittableEnd = performance.now() + flight;
+  state.hittableStart = state.hittableEnd - HITTABLE_MS;
+  setPrompt('Incoming! Swing to return', false);
+  // CPU swing animation
+  soupAnim.swingStart = performance.now();
+}
+
+function playerHitBall(power, rollDeg) {
+  const from = ball.position.clone();
+  const aim = THREE.MathUtils.clamp(rollDeg / 45, -1, 1);
+  const targetX = aim * (COURT_W/2 - 0.6);
+  const targetZ = -HALF_L + 2.5 + (1 - power) * 3.0;
+  const to = new THREE.Vector3(targetX, 1.0, targetZ);
+  const flight = 1100 - power * 400;
+  state.ballFrom = 'you';
+  launchArc(from, to, flight);
+  state.hittableEnd = performance.now() + flight;
+  state.hittableStart = state.hittableEnd - HITTABLE_MS;
+  fireHitConfirm(from, power);
+  shakeCamera(power);
+  setPrompt('Returned!', true);
+}
+
+function cpuDecideReturn() {
+  const returns = Math.random() < AI_RETURN_RATE;
+  if (returns) {
+    setTimeout(() => cpuHitBall(false), 180);
+  } else {
+    // CPU misses → trigger miss anim
+    soupAnim.missStart = performance.now();
+    scorePoint('you', 'CPU MISSED');
+  }
+}
+
+function scorePoint(winner, bannerText) {
+  state.mode = 'point_end';
+  if (winner === 'you') {
+    state.scoreYou++;
+    popBanner(bannerText || 'POINT YOU', '');
+  } else {
+    state.scoreCpu++;
+    popBanner(bannerText || 'POINT CPU', 'cpu');
+  }
+  state.rally = 0;
+  refreshScore();
+  if (state.scoreYou >= 5 || state.scoreCpu >= 5) {
+    const winMsg = state.scoreYou > state.scoreCpu ? 'GAME — YOU WIN' : 'GAME — CPU WINS';
+    setTimeout(() => {
+      popBanner(winMsg, state.scoreYou > state.scoreCpu ? '' : 'cpu');
+      state.scoreYou = 0; state.scoreCpu = 0;
+      setTimeout(() => { refreshScore(); nextServe(); }, 2400);
+    }, 1200);
+    return;
+  }
+  setTimeout(nextServe, 1400);
+}
+
+function nextServe() {
+  const next = state.server === 'you' ? 'cpu' : 'you';
+  if (next === 'you') serveFromYou();
+  else                serveFromCpu();
+}
+
+// ═══════════════════════ Physics tick ═══════════════════════
+function updateBall(dt) {
+  if (state.mode !== 'in_flight') return;
+  state.ballVel.y -= GRAVITY * dt;
+  ball.position.addScaledVector(state.ballVel, dt);
+  ball.rotation.x += 6 * dt;
+  pushTrail(ball.position);
+  ballShadow.position.x = ball.position.x;
+  ballShadow.position.z = ball.position.z;
+  const s = THREE.MathUtils.clamp(1.0 - ball.position.y * 0.3, 0.2, 1.0);
+  ballShadow.scale.setScalar(s);
+  ballShadow.material.opacity = 0.28 * s;
+
+  if (ball.position.y <= 0.11 && state.ballVel.y < 0) {
+    ball.position.y = 0.11;
+    state.ballVel.y = -state.ballVel.y * 0.55;
+    state.ballVel.x *= 0.9;
+    state.ballVel.z *= 0.9;
+  }
+
+  const now = performance.now();
+  if (state.ballFrom === 'cpu') {
+    if (ball.position.z > PLAYER_BASE_Z + 1.5 || now > state.hittableEnd + 250) {
+      scorePoint('cpu', 'YOU MISSED');
+    }
+  } else {
+    if (Math.abs(ball.position.x) > halfW + 0.8) {
+      scorePoint('cpu', 'OUT');
+      return;
+    }
+    if (ball.position.z < -HALF_L - 0.5) {
+      scorePoint('cpu', 'OUT');
+      return;
+    }
+    if (now >= state.arriveTime && state.mode === 'in_flight') {
+      if (ball.position.z < 0) {
+        state.mode = 'idle';
+        state.rally++;
+        refreshScore();
+        cpuDecideReturn();
+      }
+    }
+  }
+}
+
+// ═══════════════════════ Swing detector ═══════════════════════
+const GYRO_ARM_DPS  = 250;
+const GYRO_QUIET_DPS = 90;
+const QUIET_MS      = 80;
+const MAX_ACTIVE_MS = 500;
+const REFRACTORY_MS = 500;
+const ACCEL_MIN     = 10;
+const ACCEL_MAX     = 40;
+
+const swing = {
+  phase: 'IDLE',
+  startedAt: 0,
+  refractoryUntil: 0,
+  peakAccel: 0,
+  peakGyro: 0,
+  rollAtPeak: 0,
+  yawSignAtPeak: 0,
+  lastAboveT: 0,
+};
+
+function resetSwing() {
+  swing.phase = 'IDLE';
+  swing.peakAccel = 0;
+  swing.peakGyro = 0;
+  swing.rollAtPeak = 0;
+  swing.yawSignAtPeak = 0;
+}
+
+function fireSwing() {
+  const power = THREE.MathUtils.clamp(
+    (swing.peakAccel - ACCEL_MIN) / (ACCEL_MAX - ACCEL_MIN), 0.15, 1.0);
+  const roll = swing.rollAtPeak;
+  const isForehand = swing.yawSignAtPeak >= 0;
+  handleSwing({ power, roll, forehand: isForehand });
+  swing.phase = 'REFRACTORY';
+  swing.refractoryUntil = performance.now() + REFRACTORY_MS;
+}
+
+function onRawSample(armId, s) {
+  if (armId !== 0) return;
+  const now = performance.now();
+  if (swing.phase === 'REFRACTORY') {
+    if (now >= swing.refractoryUntil) resetSwing();
+    else return;
+  }
+  const accelMag = Math.hypot(s.ax, s.ay, s.az);
+  const dynA = Math.abs(accelMag - 9.8);
+  const gyroMag = Math.hypot(s.gx, s.gy, s.gz);
+
+  if (swing.phase === 'IDLE') {
+    if (gyroMag > GYRO_ARM_DPS) {
+      swing.phase = 'ACTIVE';
+      swing.startedAt = now;
+      swing.peakAccel = dynA;
+      swing.peakGyro = gyroMag;
+      swing.rollAtPeak = s.roll;
+      swing.yawSignAtPeak = Math.sign(s.gz || 0);
+      swing.lastAboveT = now;
+    }
+    return;
+  }
+
+  if (dynA > swing.peakAccel) {
+    swing.peakAccel = dynA;
+    swing.rollAtPeak = s.roll;
+    swing.yawSignAtPeak = Math.sign(s.gz || swing.yawSignAtPeak);
+  }
+  if (gyroMag > swing.peakGyro) swing.peakGyro = gyroMag;
+  if (gyroMag > GYRO_QUIET_DPS) swing.lastAboveT = now;
+
+  const quietFor = now - swing.lastAboveT;
+  const activeFor = now - swing.startedAt;
+
+  if (activeFor > MAX_ACTIVE_MS || quietFor > QUIET_MS) {
+    if (swing.peakAccel > ACCEL_MIN * 0.4) {
+      fireSwing();
+    } else {
+      swing.phase = 'REFRACTORY';
+      swing.refractoryUntil = now + REFRACTORY_MS;
+    }
+  }
+}
+
+// ═══════════════════════ Swing → game event ═══════════════════════
+function handleSwing({ power, roll, forehand }) {
+  const now = performance.now();
+  const inWindow = now >= state.hittableStart && now <= state.hittableEnd + 80;
+
+  if (state.mode === 'idle' && state.server === 'you' && state.ballFrom === 'you') {
+    popGesture(`SERVE ${Math.round(power*100)}`, '#ff9663');
+    const from = ball.position.clone();
+    const aim = THREE.MathUtils.clamp(roll / 45, -0.7, 0.7);
+    const to = new THREE.Vector3(aim * (COURT_W/2 - 1.0), 1.0, -HALF_L + 3.0);
+    launchArc(from, to, 1000 - power * 300);
+    state.hittableEnd = performance.now() + (1000 - power * 300);
+    state.hittableStart = state.hittableEnd - HITTABLE_MS;
+    setPrompt('...', true);
+    fireHitConfirm(from, power * 0.7);
+    return;
+  }
+
+  if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
+    if (inWindow) {
+      popGesture(`${forehand ? 'FOREHAND' : 'BACKHAND'} ${Math.round(power*100)}`,
+                 forehand ? '#ff9663' : '#37628a');
+      playerHitBall(power, roll);
+    } else {
+      popGesture('MISS', '#f4c95d');
+    }
+    return;
+  }
+
+  popGesture('SWING', '#476278');
+}
+
+// ═══════════════════════ Main tick ═══════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  updateBall(dt);
+
+  // CPU tracks the ball's x when incoming (moves the whole cpu group)
+  if (state.mode === 'in_flight' && state.ballFrom === 'you') {
+    const targetX = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.5, halfW - 0.5);
+    cpu.position.x += (targetX - cpu.position.x) * 3 * dt;
+  } else {
+    cpu.position.x += (0 - cpu.position.x) * 1.5 * dt;
+  }
+
+  // ─── Mascot procedural animation ───
+  if (soupMascot) {
+    const t = now / 1000;
+    // idle bob + subtle breathe squish (root scale y)
+    const bob = Math.sin(t * 2) * 0.02;
+    soupMascot.position.y = soupBaseY + bob;
+    const breathe = 1 + Math.sin(t * 2) * 0.02;
+    // preserve overall scale (0.008) — apply breathe multiplicatively
+    soupMascot.scale.set(0.008, 0.008, 0.008 * breathe);
+
+    // swing: rotate paws ±0.4 rad over 250ms
+    if (soupAnim.swingStart) {
+      const dt2 = now - soupAnim.swingStart;
+      if (dt2 > 250) {
+        soupAnim.swingStart = 0;
+        if (soupPaws) soupPaws.rotation.set(0, 0, 0);
+      } else if (soupPaws) {
+        // sinusoid 0 → 0.4 → 0
+        const phase = dt2 / 250;   // 0..1
+        soupPaws.rotation.z = Math.sin(phase * Math.PI) * 0.4;
+      }
+    }
+
+    // miss: quick body tilt (rotation.z += 0.3 for 200ms, then springs back)
+    if (soupAnim.missStart) {
+      const dt2 = now - soupAnim.missStart;
+      const dur = 400;
+      if (dt2 > dur) {
+        soupAnim.missStart = 0;
+        // reset extra tilt — model root Z (in world space that's a lean)
+        // We applied via extra offset; clear it via re-setting the base y-rot.
+        soupMascot.rotation.y = Math.PI;
+        soupMascot.rotation.z = 0;
+      } else {
+        const phase = dt2 / dur;
+        // spring: fast up, then damped back
+        const lean = phase < 0.4
+          ? (phase / 0.4) * 0.35
+          : (1 - (phase - 0.4) / 0.6) * 0.35;
+        soupMascot.rotation.z = lean;
+      }
+    }
+  }
+
+  // Player-side soup — gentle idle bob
+  if (playerSoup) {
+    playerSoup.position.y = Math.sin(now / 500) * 0.02;
+  }
+
+  // Cloud drift
+  for (const c of clouds) {
+    c.position.x += c.userData.driftSpeed * dt;
+    if (c.position.x > 40) c.position.x = -40;
+  }
+
+  // Camera shake
+  const shake = state.camShake.until > now ? (state.camShake.until - now) / 260 : 0;
+  camera.position.x = camHome.x + (Math.random() - 0.5) * state.camShake.amp * shake;
+  camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.7;
+  camera.lookAt(0, 0.6, 0);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ═══════════════════════ Serial wire-up ═══════════════════════
+const dispatcher = new ArmDispatcher(() => {});
+const origOnLine = dispatcher.onLine.bind(dispatcher);
+dispatcher.onLine = (line) => {
+  origOnLine(line);
+  if (!line || line[0] === '#' || line.startsWith('ERR')) return;
+  const parts = line.split(',');
+  let armId = 0, offset = 0;
+  if (parts.length === 10) { armId = +parts[0]; offset = 1; }
+  else if (parts.length !== 9) return;
+  const s = {
+    t_us: +parts[offset],
+    ax: +parts[offset + 1], ay: +parts[offset + 2], az: +parts[offset + 3],
+    gx: +parts[offset + 4], gy: +parts[offset + 5], gz: +parts[offset + 6],
+    roll: +parts[offset + 7], pitch: +parts[offset + 8],
+  };
+  if (!Number.isNaN(s.ax)) onRawSample(armId, s);
+};
+
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $stat.textContent = 'requesting port…';
+    await openSerial({
+      baud: 115200,
+      onLine: (line) => dispatcher.onLine(line),
+      onOpen:  () => { $stat.textContent = 'connected — game on';
+                       $stat.classList.add('connected'); },
+      onClose: () => { $stat.textContent = 'disconnected';
+                       $stat.classList.remove('connected'); },
+      onError: (e) => { $stat.textContent = 'serial error: ' + e.message;
+                        $stat.classList.remove('connected'); },
+    });
+  } catch (e) { $stat.textContent = 'connect failed: ' + e.message; }
+});
+
+// ═══════════════════════ Dev shortcuts ═══════════════════════
+addEventListener('keydown', (e) => {
+  if (e.key === ' ') {
+    e.preventDefault();
+    handleSwing({ power: 0.7 + Math.random() * 0.3,
+                  roll: (Math.random() - 0.5) * 30,
+                  forehand: true });
+  } else if (e.key === 'a' || e.key === 'A') {
+    popGesture('MISS', '#f4c95d');
+    if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
+      state.hittableStart = -Infinity;
+      state.hittableEnd = performance.now() - 500;
+    }
+  } else if (e.key === 'n' || e.key === 'N') {
+    if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
+      ball.position.set(0, 1.0, HIT_Z);
+      state.arriveTime = performance.now() + 100;
+      state.hittableEnd = performance.now() + 100;
+      state.hittableStart = state.hittableEnd - HITTABLE_MS;
+    }
+  }
+});
+
+// ═══════════════════════ Kick off ═══════════════════════
+refreshScore();
+clearTrail();
+serveFromYou();
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>soup viewer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fdf6e3; }
+  canvas { display: block; }
+  #status { position: fixed; top: 8px; left: 8px; font: 12px monospace; color: #6b4a3e; }
+</style>
+</head>
+<body>
+<div id="status">loading…</div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const status = document.getElementById('status');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xfdf6e3);
+
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 2000);
+camera.position.set(0, 60, 260);
+camera.lookAt(0, 55, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+// soft even lighting so the pastel colors read true
+scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+const key = new THREE.DirectionalLight(0xffffff, 0.7);
+key.position.set(80, 150, 120);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffe8d2, 0.4);
+fill.position.set(-100, 40, 80);
+scene.add(fill);
+
+const loader = new GLTFLoader();
+loader.load('./soup.glb', (gltf) => {
+  const model = gltf.scene;
+  // GLB vertex colors need materials configured to show them
+  model.traverse((obj) => {
+    if (obj.isMesh) {
+      obj.material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.75,
+        metalness: 0.0,
+      });
+    }
+  });
+  // rotate so we see his front (Y is up in three.js; STL had Z-up)
+  model.rotation.x = -Math.PI / 2;
+  scene.add(model);
+  status.textContent = 'ready';
+  window.__soupReady = true;
+}, undefined, (err) => {
+  status.textContent = 'error: ' + err;
+  console.error(err);
+});
+
+function tick() {
+  requestAnimationFrame(tick);
+  renderer.render(scene, camera);
+}
+tick();
+</script>
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — Bowling</title>
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; }
+
+  /* Status pill — cream capsule w/ pulsing dot */
+  #status { position:absolute; top:16px; left:16px;
+            display:flex; align-items:center; gap:10px;
+            padding:10px 16px; border-radius: 999px;
+            background: var(--cream);
+            border: 3px solid var(--ink);
+            font-size: 11px; letter-spacing: .16em; text-transform: uppercase;
+            color: var(--ink); font-weight: 800;
+            box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.18); }
+  #status::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--gold); box-shadow: 0 0 12px var(--gold);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  #status.connected::before {
+    background: var(--vine); box-shadow: 0 0 12px var(--vine);
+    animation: none;
+  }
+  @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  /* Connect button — chunky cream pill */
+  #connect { position:absolute; top:16px; right:16px;
+             padding:12px 20px; border-radius: 999px;
+             background: var(--cream); color: var(--ink);
+             border: 3px solid var(--ink);
+             font-family: inherit; font-size: 13px; font-weight: 800;
+             letter-spacing: .14em; text-transform: uppercase; cursor: pointer;
+             box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.18);
+             transition: transform 120ms, box-shadow 120ms; }
+  #connect:hover { background: var(--cream-warm);
+                   transform: translateY(-2px);
+                   box-shadow: 0 7px 0 var(--ink), 0 12px 22px rgba(28,42,58,.22); }
+  #connect:active { transform: translateY(2px);
+                    box-shadow: 0 3px 0 var(--ink), 0 4px 12px rgba(28,42,58,.15); }
+
+  /* Menu link — matching cream pill */
+  #back { position:absolute; bottom:20px; left:20px;
+          padding:10px 18px; border-radius:999px;
+          background: var(--cream); color: var(--ink);
+          border: 3px solid var(--ink);
+          text-decoration: none; font-size:12px; font-weight:800;
+          letter-spacing:.16em; text-transform:uppercase;
+          box-shadow: 0 4px 0 var(--ink), 0 8px 16px rgba(28,42,58,.18);
+          transition: transform 120ms, box-shadow 120ms; }
+  #back:hover { background: var(--cream-warm); transform: translateY(-2px);
+                box-shadow: 0 6px 0 var(--ink), 0 10px 20px rgba(28,42,58,.22); }
+
+  #hud { position:absolute; top:80px; left:0; right:0; text-align:center;
+         font-weight:900; letter-spacing:-.02em;
+         pointer-events:none; }
+  #score { font-size:72px; color: var(--cream);
+           text-shadow: 0 5px 0 var(--ruin-blue), 0 6px 24px rgba(28,42,58,.35); }
+  #frame { font-size:13px; letter-spacing:.24em; text-transform: uppercase;
+           color: var(--ink); font-weight:800; margin-top:6px;
+           text-shadow: 0 2px 0 rgba(255,255,255,.5); }
+
+  #prompt { position:absolute; bottom:70px; left:50%; transform:translateX(-50%);
+            padding:14px 24px; background: var(--cream);
+            border: 3px solid var(--ink); border-radius: 999px;
+            font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+            font-size:13px; color: var(--ink);
+            box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.18); }
+
+  /* Peak-charge HUD */
+  #charge-wrap { position:absolute; top:200px; left:50%; transform:translateX(-50%);
+                 width:300px; text-align:center; pointer-events:none;
+                 font-size:11px; letter-spacing:.22em; font-weight:800;
+                 text-transform:uppercase; }
+  #charge-label { color: var(--ink); margin-bottom:8px;
+                  text-shadow: 0 2px 0 rgba(255,255,255,.5); }
+  #charge-bar-container { height:16px; width:100%;
+                          background: var(--cream);
+                          border: 3px solid var(--ink); border-radius: 999px;
+                          overflow:hidden;
+                          box-shadow: 0 4px 0 var(--ink); }
+  #charge-bar { height:100%; width:0%;
+                background: linear-gradient(90deg, var(--gold), var(--hot));
+                transition: width 60ms linear, opacity 220ms; }
+  #charge-wrap.armed #charge-label { color: var(--hot); }
+
+  /* Scorecard */
+  #scorecard { position:absolute; top:20px; left:50%; transform:translateX(-50%);
+               display:flex; gap:6px; pointer-events:none; }
+  .frame-cell { min-width:44px;
+                border: 3px solid var(--ink);
+                background: var(--cream);
+                padding:4px 6px; text-align:center;
+                border-radius: 8px;
+                box-shadow: 0 3px 0 var(--ink);
+                font-size:11px; letter-spacing:.06em; font-weight:800; }
+  .frame-cell.current { background: var(--cream-warm);
+                        border-color: var(--hot);
+                        box-shadow: 0 3px 0 var(--hot), 0 0 0 2px var(--cream) inset; }
+  .frame-cell .rolls { color: var(--ink); height:16px; }
+  .frame-cell .total { color: var(--ink-soft); font-weight: 700; }
+
+  #banner { position:absolute; top:44%; left:50%;
+            transform:translate(-50%,-50%) scale(1);
+            font-size:88px; font-weight:900; letter-spacing:-.02em;
+            text-transform:uppercase; opacity:0;
+            color: var(--cream);
+            text-shadow: 0 6px 0 var(--ruin-blue), 0 8px 32px rgba(28,42,58,.35);
+            transition: opacity 100ms, transform 160ms; pointer-events:none; }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.14); }
+</style>
+</head>
+<body>
+<div id="status">hub → not connected</div>
+<button id="connect">Connect hub</button>
+<a id="back" href="index.html">← menu</a>
+
+<div id="hud">
+  <div id="score">0</div>
+  <div id="frame">FRAME 1 / 10  —  BALL 1</div>
+</div>
+<div id="prompt">Swing your arm forward to bowl</div>
+
+<div id="charge-wrap">
+  <div id="charge-label">Peak Charge</div>
+  <div id="charge-bar-container"><div id="charge-bar"></div></div>
+</div>
+
+<div id="scorecard"></div>
+<div id="banner"></div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+
+// ═══════════════════════ Three.js scene ═══════════════════════
+const SKY_MID = 0x4fc0e3;
+const CREAM   = 0xfbf3e0;
+const CREAM_DEEP = 0xecdcb1;
+const RUIN_BLUE = 0x37628a;
+const INK     = 0x1c2a3a;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_MID);
+scene.fog = new THREE.Fog(SKY_MID, 18, 60);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 1.7, 2.5);
+camera.lookAt(0, 1.0, -15);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+scene.add(new THREE.AmbientLight(0xbfe4f3, 0.7));
+const key = new THREE.DirectionalLight(0xfff2d0, 1.1);
+key.position.set(4, 8, 5);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x9ecbe5, 0.5);
+fill.position.set(-4, 5, -6);
+scene.add(fill);
+
+// ── Lane (cream planks) ──
+const lane = new THREE.Mesh(
+  new THREE.BoxGeometry(2.5, 0.05, 30),
+  new THREE.MeshStandardMaterial({ color: CREAM, roughness: 0.85 })
+);
+lane.position.set(0, 0, -13);
+scene.add(lane);
+
+// Faint wood-grain lines using thin darker strips
+const grainMat = new THREE.MeshStandardMaterial({ color: CREAM_DEEP, roughness: 0.95, transparent: true, opacity: 0.55 });
+for (let i = -1.0; i <= 1.0; i += 0.5) {
+  const g = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.052, 30), grainMat);
+  g.position.set(i, 0.001, -13);
+  scene.add(g);
+}
+
+// Gutter rails (ruin-blue)
+const gutterMat = new THREE.MeshStandardMaterial({ color: RUIN_BLUE, roughness: 0.9 });
+const gL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 30), gutterMat);
+gL.position.set(-1.5, 0.005, -13); scene.add(gL);
+const gR = gL.clone(); gR.position.x = 1.5; scene.add(gR);
+
+// Foul line
+const foulMat = new THREE.MeshStandardMaterial({ color: 0xff9663, roughness: 0.5 });
+const foul = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.055, 0.06), foulMat);
+foul.position.set(0, 0.03, 0.5);
+scene.add(foul);
+
+// ── Floating clouds ──
+const clouds = [];
+function makeCloud(x, y, z, r) {
+  const cloud = new THREE.Group();
+  const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const s1 = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cMat);
+  const s2 = new THREE.Mesh(new THREE.SphereGeometry(r*0.75, 12, 10), cMat);
+  s2.position.set(r*0.85, -r*0.1, 0);
+  const s3 = new THREE.Mesh(new THREE.SphereGeometry(r*0.7, 12, 10), cMat);
+  s3.position.set(-r*0.8, -r*0.05, 0);
+  const s4 = new THREE.Mesh(new THREE.SphereGeometry(r*0.55, 12, 10), cMat);
+  s4.position.set(r*0.2, r*0.4, 0);
+  cloud.add(s1); cloud.add(s2); cloud.add(s3); cloud.add(s4);
+  cloud.position.set(x, y, z);
+  cloud.userData.drift = 0.3 + Math.random() * 0.4;
+  scene.add(cloud);
+  clouds.push(cloud);
+}
+makeCloud(-8,  10, -20, 1.1);
+makeCloud( 9,   9, -24, 0.9);
+makeCloud(-4,  11, -30, 1.2);
+makeCloud( 5,  12, -14, 0.7);
+makeCloud(-11, 12, -8,  0.85);
+makeCloud( 12,  9, -35, 1.0);
+
+// ── Pins (10-pin triangle). Start as cylinder placeholders,
+//    replaced with soup mascots when the GLB loads. ──
+const pinPlaceholderMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.5 });
+const pins = [];
+const pinRows = [
+  [-0.6, -0.2, 0.2, 0.6],  // back row (4 pins)
+  [-0.4, 0, 0.4],          // (3 pins)
+  [-0.2, 0.2],             // (2 pins)
+  [0],                     // (1 pin, head pin)
+];
+pinRows.forEach((row, rowI) => {
+  row.forEach(x => {
+    // The "pin" is a Group. It has a placeholder cylinder child at first;
+    // once the mascot GLB loads, we swap in a soup clone. userData stays.
+    const pin = new THREE.Group();
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.35, 12), pinPlaceholderMat);
+    pin.add(cyl);
+    pin.position.set(x, 0.2, -25 + rowI * 0.35);
+    pin.userData.standing = true;
+    pin.userData.vel = new THREE.Vector3();
+    pin.userData.angVel = 0;                // rad/s around fall axis
+    pin.userData.fallAxis = new THREE.Vector3(1, 0, 0);
+    pin.userData.home = pin.position.clone();
+    pin.userData.phase = Math.random() * Math.PI * 2;
+    pin.userData.isSoup = false;
+    scene.add(pin);
+    pins.push(pin);
+  });
+});
+
+// ── Ball ──
+const ball = new THREE.Mesh(
+  new THREE.SphereGeometry(0.2, 24, 18),
+  new THREE.MeshStandardMaterial({ color: 0xff9663, roughness: 0.4, metalness: 0.15 })
+);
+ball.position.set(0, 0.2, 1);
+scene.add(ball);
+
+// ── Bowler soup (optional, big one at near end) ──
+let bowlerSoup = null;
+let bowlerBaseY = 0;
+
+// ── Async load mascot and replace pin visuals. ──
+let mascotTemplate = null;
+async function loadMascot() {
+  const loader = new GLTFLoader();
+  try {
+    const gltf = await loader.loadAsync('assets/mascot.glb');
+    mascotTemplate = gltf.scene;
+
+    // Replace each pin's visual with a soup clone
+    pins.forEach((pin, idx) => {
+      // remove placeholder cylinder
+      while (pin.children.length) pin.remove(pin.children[0]);
+
+      const soup = mascotTemplate.clone(true);
+      // Per-instance materials
+      soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+
+      // slight hue randomization on body + paws
+      const bodyNode = soup.getObjectByName('body');
+      const pawsNode = soup.getObjectByName('paws');
+      if (bodyNode) {
+        const c = bodyNode.material.color.clone();
+        const hsl = {}; c.getHSL(hsl);
+        hsl.h = (hsl.h + (Math.random() - 0.5) * (10/360)) % 1;
+        if (hsl.h < 0) hsl.h += 1;
+        bodyNode.material.color.setHSL(hsl.h, hsl.l > 0.3 ? hsl.s : hsl.s, hsl.l);
+        pin.userData.bodyMat = bodyNode.material;
+        pin.userData.origBodyColor = bodyNode.material.color.clone();
+      }
+      if (pawsNode) {
+        pawsNode.material.color.copy(bodyNode ? bodyNode.material.color : pawsNode.material.color);
+      }
+
+      // Y-up conversion (model is z-up)
+      soup.rotation.x = -Math.PI / 2;
+      soup.scale.setScalar(0.0025);
+      // Feet at pin's local origin — but pin.position.y = 0.2 (legacy).
+      // Bring soup down so its feet land on the lane (y=0.05 lane top).
+      soup.position.y = -0.2 + 0.025;
+      pin.add(soup);
+      pin.userData.soup = soup;
+      pin.userData.isSoup = true;
+    });
+
+    // Add a bigger bowler soup at the near end
+    bowlerSoup = mascotTemplate.clone(true);
+    bowlerSoup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    // Optional retint: leave default cream. Slightly warmer body.
+    const bBody = bowlerSoup.getObjectByName('body');
+    if (bBody) bBody.material.color.setHex(0xf6e9c9);
+    bowlerSoup.rotation.x = -Math.PI / 2;
+    bowlerSoup.rotation.y = Math.PI;  // face down the lane (-Z)
+    bowlerSoup.scale.setScalar(0.008);
+    bowlerSoup.position.set(-1.0, 0.05, 2.2);
+    bowlerBaseY = bowlerSoup.position.y;
+    scene.add(bowlerSoup);
+  } catch (err) {
+    console.error('[bowling] mascot load failed — keeping placeholder cylinders', err);
+  }
+}
+loadMascot();
+
+let ballState = 'ready';  // 'ready' | 'rolling' | 'settling'
+let ballVel = new THREE.Vector3();
+const scoreEl = document.getElementById('score');
+const promptEl = document.getElementById('prompt');
+const statusEl = document.getElementById('status');
+const bannerEl = document.getElementById('banner');
+const frameEl = document.getElementById('frame');
+const scorecardEl = document.getElementById('scorecard');
+
+// ── Frame / scoring state ──
+const game = {
+  frames: [], currentFrame: 0, rollInFrame: 0,
+  pinsThisFrame: 0, gameOver: false,
+};
+for (let i = 0; i < 10; i++) game.frames.push({ rolls: [], score: null });
+
+function popBanner(text, color = '#f4c95d') {
+  bannerEl.textContent = text;
+  bannerEl.style.color = color;
+  bannerEl.classList.remove('pop'); void bannerEl.offsetWidth;
+  bannerEl.classList.add('pop');
+  setTimeout(() => bannerEl.classList.remove('pop'), 1400);
+}
+
+function rollLabel(frameIdx, rollIdx, n) {
+  const isTenth = frameIdx === 9;
+  const isFirst = rollIdx === 0;
+  if (n === 10 && (isFirst || isTenth)) return 'X';
+  if (!isFirst) {
+    const prev = game.frames[frameIdx].rolls[rollIdx - 1] || 0;
+    if (prev + n === 10 && prev !== 10) return '/';
+  }
+  return String(n);
+}
+
+function computeCumulativeScores() {
+  const flat = [];
+  const frameStarts = [];
+  for (let f = 0; f < 10; f++) {
+    frameStarts.push(flat.length);
+    for (const r of game.frames[f].rolls) flat.push(r);
+  }
+  let total = 0;
+  for (let f = 0; f < 10; f++) {
+    const s = frameStarts[f];
+    const rolls = game.frames[f].rolls;
+    if (rolls.length === 0) { game.frames[f].score = null; continue; }
+    const r0 = flat[s] ?? 0;
+    const r1 = flat[s + 1];
+    if (f < 9) {
+      if (r0 === 10) {
+        if (r1 == null || flat[s + 2] == null) { game.frames[f].score = null; continue; }
+        total += 10 + r1 + flat[s + 2];
+      } else if ((r0 + (r1 ?? 0)) === 10 && rolls.length >= 2) {
+        if (flat[s + 2] == null) { game.frames[f].score = null; continue; }
+        total += 10 + flat[s + 2];
+      } else if (rolls.length >= 2) {
+        total += r0 + r1;
+      } else { game.frames[f].score = null; continue; }
+      game.frames[f].score = total;
+    } else {
+      let sum = 0; for (const r of rolls) sum += r;
+      total += sum;
+      const done = rolls.length === 3 ||
+                   (rolls.length === 2 && r0 !== 10 && (r0 + r1) < 10);
+      game.frames[f].score = done ? total : null;
+    }
+  }
+  return total;
+}
+
+function renderScorecard() {
+  const running = computeCumulativeScores();
+  scoreEl.textContent = running;
+  scorecardEl.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'frame-cell' + (i === game.currentFrame && !game.gameOver ? ' current' : '');
+    const rolls = game.frames[i].rolls;
+    const parts = rolls.map((n, ri) => rollLabel(i, ri, n));
+    const rollsRow = document.createElement('div');
+    rollsRow.className = 'rolls';
+    rollsRow.textContent = parts.join(' ') || '·';
+    const totalRow = document.createElement('div');
+    totalRow.className = 'total';
+    totalRow.textContent = game.frames[i].score == null ? '' : String(game.frames[i].score);
+    cell.appendChild(rollsRow); cell.appendChild(totalRow);
+    scorecardEl.appendChild(cell);
+  }
+  if (!game.gameOver) {
+    frameEl.textContent = `FRAME ${game.currentFrame + 1} / 10  —  BALL ${game.rollInFrame + 1}`;
+  } else {
+    frameEl.textContent = `GAME OVER  —  FINAL ${running}`;
+  }
+}
+renderScorecard();
+
+function launchBall(speed, angle) {
+  if (ballState !== 'ready' || game.gameOver) return;
+  const MAX_SPEED = 18;
+  ballVel.set(angle * 3, 0, -MAX_SPEED * Math.max(0.3, speed));
+  ballState = 'rolling';
+  promptEl.textContent = `Ball rolling  ${(speed * 100).toFixed(0)}%`;
+
+  // Bowler soup: quick lean forward + arm swing
+  if (bowlerSoup) {
+    bowlerAnim.releasing = true;
+    bowlerAnim.releaseT = 0;
+  }
+}
+
+function standUpAllPins() {
+  pins.forEach(p => {
+    p.userData.standing = true;
+    p.userData.vel.set(0, 0, 0);
+    p.userData.angVel = 0;
+    p.position.copy(p.userData.home);
+    p.rotation.set(0, 0, 0);
+    // reset body color if we have a stored original
+    if (p.userData.bodyMat && p.userData.origBodyColor) {
+      p.userData.bodyMat.color.copy(p.userData.origBodyColor);
+    }
+  });
+}
+
+function resetBall() {
+  ball.position.set(0, 0.2, 1);
+  ballVel.set(0, 0, 0);
+
+  const knocked = game.pinsThisFrame;
+  const frame = game.frames[game.currentFrame];
+  frame.rolls.push(knocked);
+  game.pinsThisFrame = 0;
+
+  const isTenth = game.currentFrame === 9;
+  const total = frame.rolls.reduce((a, b) => a + b, 0);
+
+  if (knocked === 10 && game.rollInFrame === 0) popBanner('STRIKE!', '#ff9663');
+  else if (!isTenth && game.rollInFrame === 1 && total === 10) popBanner('SPARE', '#f4c95d');
+  else if (knocked === 0) popBanner('Gutter', '#37628a');
+
+  let advance = false;
+  if (isTenth) {
+    const rolls = frame.rolls;
+    if (rolls.length === 1) {
+      if (rolls[0] === 10) { standUpAllPins(); game.rollInFrame = 1; }
+      else game.rollInFrame = 1;
+    } else if (rolls.length === 2) {
+      const bonus = rolls[0] === 10 || (rolls[0] + rolls[1]) === 10;
+      if (bonus) {
+        if (rolls[1] === 10 || (rolls[0] + rolls[1]) === 10) standUpAllPins();
+        game.rollInFrame = 2;
+      } else { advance = true; }
+    } else advance = true;
+  } else {
+    if (game.rollInFrame === 0 && knocked < 10) {
+      game.rollInFrame = 1;
+    } else {
+      advance = true;
+    }
+  }
+  if (advance) {
+    game.currentFrame++;
+    game.rollInFrame = 0;
+    if (game.currentFrame >= 10) {
+      game.gameOver = true;
+    } else {
+      standUpAllPins();
+    }
+  }
+
+  ballState = 'ready';
+  promptEl.textContent = game.gameOver
+    ? 'Press R to play again'
+    : 'Swing your arm forward to bowl';
+  renderScorecard();
+}
+
+const PIN_FALL_Y = 0.05;
+const PIN_STAND_Y = 0.2;
+
+function knockPin(pin, impactVel, hitStrength) {
+  if (!pin.userData.standing) return;
+  pin.userData.standing = false;
+
+  // Kickback in XZ
+  pin.userData.vel.copy(impactVel).multiplyScalar(0.35 * hitStrength);
+  pin.userData.vel.x += (Math.random() - 0.5) * 1.2;
+  pin.userData.vel.y = 0;
+
+  // Fall axis: perpendicular to impact horizontal direction.
+  const horiz = new THREE.Vector3(impactVel.x, 0, impactVel.z);
+  if (horiz.lengthSq() < 1e-4) horiz.set(0, 0, -1);
+  horiz.normalize();
+  // Perpendicular (rotate 90° in XZ plane): axis = (-z, 0, x)
+  pin.userData.fallAxis.set(-horiz.z, 0, horiz.x);
+  pin.userData.angVel = 2.0 + Math.random() * 1.5;   // rad/s
+  pin.userData.fallProgress = 0;                      // 0..1
+
+  // Flash red
+  if (pin.userData.bodyMat) {
+    pin.userData.bodyMat.color.setHex(0xff5a3c);
+    pin.userData.flashUntil = performance.now() + 100;
+  }
+
+  game.pinsThisFrame += 1;
+}
+
+// Bowler animation state
+const bowlerAnim = {
+  releasing: false,
+  releaseT: 0,
+};
+
+function updatePhysics(dt) {
+  const t = performance.now() * 0.001;
+
+  // Clouds drift
+  for (const c of clouds) {
+    c.position.x += c.userData.drift * dt * 0.4;
+    if (c.position.x > 18) c.position.x = -18;
+  }
+
+  // Ball rolls
+  if (ballState === 'rolling') {
+    ball.position.addScaledVector(ballVel, dt);
+    ball.rotation.x -= ballVel.length() * dt * 3;
+
+    for (const pin of pins) {
+      if (!pin.userData.standing) continue;
+      const dx = ball.position.x - pin.position.x;
+      const dz = ball.position.z - pin.position.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < 0.28 * 0.28) {
+        const d = Math.sqrt(d2) || 1e-4;
+        const normal = new THREE.Vector3(dx / d, 0, dz / d);
+        const impact = ballVel.clone().multiplyScalar(0.15)
+                          .add(normal.multiplyScalar(-2.0));
+        const strength = Math.min(1.4, ballVel.length() / 12 + 0.5);
+        knockPin(pin, impact, strength);
+        ballVel.x += -normal.x * 0.4;
+        ballVel.z *= 0.94;
+      }
+    }
+
+    if (Math.abs(ball.position.x) > 1.3) {
+      ballVel.x *= 0.4;
+      ball.position.x = Math.sign(ball.position.x) * Math.min(1.35, Math.abs(ball.position.x));
+    }
+    if (ball.position.z < -28 && ballState === 'rolling') {
+      ballState = 'settling';
+      setTimeout(() => { if (!game.gameOver) resetBall(); else resetBall(); }, 1400);
+    }
+  }
+
+  // Pin update: idle bob for standing, fall animation for knocked.
+  const nowMs = performance.now();
+  for (const pin of pins) {
+    if (pin.userData.standing) {
+      // Idle bob — subtle, per-pin phase
+      pin.position.y = pin.userData.home.y + Math.sin((t + pin.userData.phase) * 2) * 0.005;
+    } else {
+      const v = pin.userData.vel;
+      if (v.lengthSq() > 1e-4) {
+        pin.position.addScaledVector(v, dt);
+        v.multiplyScalar(0.90);
+      }
+
+      // Angular fall: rotate around fallAxis until near horizontal.
+      if (pin.userData.angVel > 0.01 && pin.userData.fallProgress < 1) {
+        const step = pin.userData.angVel * dt;
+        pin.userData.fallProgress = Math.min(1, pin.userData.fallProgress + step / (Math.PI / 2));
+        // Apply rotation around fallAxis by step radians
+        const axis = pin.userData.fallAxis;
+        pin.rotateOnWorldAxis(axis, step);
+        if (pin.userData.fallProgress >= 1) {
+          pin.userData.angVel = 0;
+          pin.position.y = PIN_FALL_Y;
+        } else {
+          // Sink toward floor as it rotates
+          pin.position.y = pin.userData.home.y +
+              (PIN_FALL_Y - pin.userData.home.y) * pin.userData.fallProgress;
+        }
+      }
+
+      // Chain reactions
+      if (v.length() > 0.6) {
+        for (const other of pins) {
+          if (other === pin || !other.userData.standing) continue;
+          const dx = pin.position.x - other.position.x;
+          const dz = pin.position.z - other.position.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 < 0.30 * 0.30) {
+            const d = Math.sqrt(d2) || 1e-4;
+            const n = new THREE.Vector3(-dx / d, 0, -dz / d);
+            const kick = v.clone().multiplyScalar(0.55)
+                          .add(n.multiplyScalar(-0.8));
+            knockPin(other, kick, Math.min(1, v.length() / 3 + 0.4));
+          }
+        }
+      }
+
+      // Restore body color after flash
+      if (pin.userData.flashUntil && nowMs > pin.userData.flashUntil) {
+        if (pin.userData.bodyMat && pin.userData.origBodyColor) {
+          pin.userData.bodyMat.color.copy(pin.userData.origBodyColor);
+        }
+        pin.userData.flashUntil = 0;
+      }
+    }
+  }
+
+  // Bowler soup animation
+  if (bowlerSoup) {
+    // Idle bob
+    bowlerSoup.position.y = bowlerBaseY + Math.sin(t * 2) * 0.015;
+    // Release lean + paw swing
+    if (bowlerAnim.releasing) {
+      bowlerAnim.releaseT += dt;
+      const p = Math.min(1, bowlerAnim.releaseT / 0.5);
+      // Since soup is x=-PI/2 rotated (z-up), forward lean happens on rotation.z of the child
+      // Simpler: tilt bowlerSoup.rotation.z (world lean) — small amount.
+      bowlerSoup.rotation.z = Math.sin(p * Math.PI) * -0.35;
+      const paws = bowlerSoup.getObjectByName('paws');
+      if (paws) {
+        paws.rotation.x = Math.sin(p * Math.PI * 2) * 0.6;
+      }
+      if (bowlerAnim.releaseT > 0.7) {
+        bowlerAnim.releasing = false;
+        bowlerSoup.rotation.z = 0;
+        if (paws) paws.rotation.x = 0;
+      }
+    }
+  }
+}
+
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  updatePhysics(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ═══════════════════════ Serial + swing detection ═══════════════════════
+const rawSampleBuffer = { 0: [], 1: [] };
+const BUF_MS = 800;
+
+const SWING_ARM_DPS       = 300;
+const SWING_RELEASE_FRAC  = 0.30;
+const SWING_MIN_PEAK_DPS  = 300;
+const SWING_GYRO_MAX      = 800;
+const SWING_ROLL_MAX_DEG  = 45;
+const SWING_REFRACTORY_MS = 1500;
+const SWING_MAX_ACTIVE_MS = 1200;
+const SWING_MIN_ACTIVE_MS = 80;
+
+const swing = {
+  0: { phase: 'IDLE', peakGyro: 0, peakAccel: 0, releaseRoll: 0,
+       activeStart: 0, lockUntil: 0 },
+  1: { phase: 'IDLE', peakGyro: 0, peakAccel: 0, releaseRoll: 0,
+       activeStart: 0, lockUntil: 0 },
+};
+
+const chargeWrap = document.getElementById('charge-wrap');
+const chargeBar  = document.getElementById('charge-bar');
+let chargeDisplay = 0;
+
+function onRawSample(armId, sample) {
+  const buf = rawSampleBuffer[armId];
+  const nowMs = performance.now();
+  buf.push({ t: nowMs, ...sample });
+  while (buf.length && nowMs - buf[0].t > BUF_MS) buf.shift();
+
+  const st = swing[armId];
+  if (nowMs < st.lockUntil) return;
+
+  const gyroMag  = Math.hypot(sample.gx, sample.gy, sample.gz);
+  const accelMag = Math.hypot(sample.ax, sample.ay, sample.az);
+
+  switch (st.phase) {
+    case 'IDLE': {
+      if (gyroMag > SWING_ARM_DPS) {
+        st.phase = 'ACTIVE';
+        st.peakGyro = gyroMag;
+        st.peakAccel = accelMag;
+        st.releaseRoll = sample.roll;
+        st.activeStart = nowMs;
+      }
+      break;
+    }
+    case 'ACTIVE': {
+      if (gyroMag > st.peakGyro) {
+        st.peakGyro = gyroMag;
+        st.releaseRoll = sample.roll;
+      }
+      if (accelMag > st.peakAccel) st.peakAccel = accelMag;
+
+      const dtActive = nowMs - st.activeStart;
+      const releasing = gyroMag < st.peakGyro * SWING_RELEASE_FRAC
+                     && dtActive > SWING_MIN_ACTIVE_MS
+                     && st.peakGyro > SWING_MIN_PEAK_DPS;
+
+      if (releasing) {
+        const speed = Math.max(0.15, Math.min(1.0, st.peakGyro / SWING_GYRO_MAX));
+        const angle = Math.max(-1, Math.min(1, sample.roll / SWING_ROLL_MAX_DEG));
+        if (ballState === 'ready' && !game.gameOver) {
+          launchBall(speed, angle);
+        }
+        st.phase = 'IDLE';
+        st.lockUntil = nowMs + SWING_REFRACTORY_MS;
+        chargeDisplay = 0;
+        st.peakGyro = 0; st.peakAccel = 0;
+      } else if (dtActive > SWING_MAX_ACTIVE_MS) {
+        st.phase = 'IDLE';
+        st.peakGyro = 0; st.peakAccel = 0;
+        chargeDisplay = 0;
+      }
+      break;
+    }
+  }
+
+  if (armId === 0 && st.phase === 'ACTIVE') {
+    const cur = Math.min(1, st.peakGyro / SWING_GYRO_MAX);
+    chargeDisplay = Math.max(chargeDisplay, cur);
+    chargeWrap.classList.add('armed');
+  }
+}
+
+setInterval(() => {
+  if (swing[0].phase !== 'ACTIVE') {
+    chargeDisplay *= 0.85;
+    if (chargeDisplay < 0.01) chargeDisplay = 0;
+    chargeWrap.classList.remove('armed');
+  }
+  chargeBar.style.width = (chargeDisplay * 100).toFixed(1) + '%';
+}, 40);
+
+const dispatcher = new ArmDispatcher(() => {});
+const origOnLine = dispatcher.onLine.bind(dispatcher);
+dispatcher.onLine = (line) => {
+  origOnLine(line);
+  if (!line || line[0] === '#' || line.startsWith('ERR')) return;
+  const parts = line.split(',');
+  let armId = 0, offset = 0;
+  if (parts.length === 10) { armId = +parts[0]; offset = 1; }
+  else if (parts.length !== 9) return;
+  const s = {
+    t_us: +parts[offset],
+    ax: +parts[offset + 1], ay: +parts[offset + 2], az: +parts[offset + 3],
+    gx: +parts[offset + 4], gy: +parts[offset + 5], gz: +parts[offset + 6],
+    roll: +parts[offset + 7], pitch: +parts[offset + 8],
+  };
+  if (!Number.isNaN(s.ax)) onRawSample(armId, s);
+};
+
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    statusEl.textContent = 'hub → requesting port…';
+    await openSerial({
+      baud: 115200,
+      onLine: (line) => dispatcher.onLine(line),
+      onOpen: () => { statusEl.textContent = 'hub → connected'; statusEl.classList.add('connected'); },
+      onClose: () => { statusEl.textContent = 'hub → disconnected'; statusEl.classList.remove('connected'); },
+      onError: (e) => { statusEl.textContent = 'hub → error: ' + e.message; statusEl.classList.remove('connected'); },
+    });
+  } catch (e) { statusEl.textContent = 'hub → connect failed: ' + e.message; }
+});
+
+// Dev shortcuts
+addEventListener('keydown', (e) => {
+  if (e.key === ' ' && ballState === 'ready' && !game.gameOver) {
+    const power = 0.55 + Math.random() * 0.4;
+    const angle = (Math.random() - 0.5) * 0.4;
+    launchBall(power, angle);
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    game.frames.length = 0;
+    for (let i = 0; i < 10; i++) game.frames.push({ rolls: [], score: null });
+    game.currentFrame = 0; game.rollInFrame = 0;
+    game.pinsThisFrame = 0; game.gameOver = false;
+    standUpAllPins();
+    ball.position.set(0, 0.2, 1); ballVel.set(0, 0, 0);
+    ballState = 'ready';
+    promptEl.textContent = 'Swing your arm forward to bowl';
+    renderScorecard();
+  }
+});
+</script>
+</body>
+</html>

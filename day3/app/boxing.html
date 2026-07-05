@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — Boxing</title>
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+
+    /* legacy HUD accents, remapped */
+    --p1: var(--ruin-blue);
+    --p2: var(--hot);
+    --hp-good: var(--vine);
+    --stam:    var(--gold);
+    --combo:   var(--hot);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
+
+  /* ── HUD ───────────────────────────────────────────── */
+  #hud { position:absolute; top:24px; width:100%;
+         display:flex; justify-content:space-around;
+         z-index:100; pointer-events:none;
+         opacity:0; transition:opacity 400ms ease; }
+  body.game-active #hud { opacity:1; }
+  .hud-panel {
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+    padding: 12px 18px 14px;
+    min-width: 240px;
+    text-align: center;
+    letter-spacing: -.01em;
+  }
+  .hud-panel .label {
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .hud-p1 .label { color: var(--ruin-blue); }
+  .hud-p2 .label { color: var(--hot); }
+
+  .bar-container { width:100%; background: var(--cream-deep);
+                   border: 2px solid var(--ink); border-radius: 999px;
+                   margin-top:8px; overflow:hidden; height:14px; }
+  .stamina-bar-container, .combo-bar-container { height:8px; }
+  .health-bar, .stamina-bar, .combo-bar {
+    height:100%; width:100%; border-radius:999px;
+    background:var(--hp-good);
+    transition:width .2s ease-out, background .3s;
+  }
+  .stamina-bar { background: var(--stam); width:100%; transition:width .16s ease-out; }
+  .combo-bar   { background: var(--combo); width:0%; transition:width .16s ease-out; }
+
+  /* ── Center gesture flash ──────────────────────────── */
+  #gesture { position:absolute; top:38%; left:50%;
+             transform:translate(-50%,-50%) scale(1);
+             font-size:80px; font-weight:900; letter-spacing:-.03em;
+             color: var(--cream);
+             text-shadow:
+               0 5px 0 var(--ink),
+               0 8px 24px rgba(28,42,58,.5);
+             opacity:0; transition:opacity 90ms, transform 120ms;
+             pointer-events:none; z-index:95; }
+  #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+
+  /* ── Hit confirm (burst + ring + damage) ───────────── */
+  .hit-confirm { position:absolute; top:0; bottom:0; left:0; right:0;
+                 pointer-events:none; z-index:91; overflow:hidden; }
+  .hit-confirm .burst, .hit-confirm .ring, .hit-confirm .damage {
+    position:absolute; left:var(--hit-x, 50%); top:var(--hit-y, 50%);
+    opacity:0; will-change:transform, opacity;
+  }
+  .hit-confirm .burst {
+    width:  calc(140px + 320px * var(--hit-power, .4));
+    height: calc(140px + 320px * var(--hit-power, .4));
+    margin-left: calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(255,245,200,.95) 0%,
+      rgba(255,180,60,.75) 30%,
+      rgba(255,80,20,.35) 60%,
+      rgba(255,60,20,0) 75%);
+    mix-blend-mode:screen; filter:blur(2px);
+  }
+  .hit-confirm .ring {
+    width:  calc(110px + 360px * var(--hit-power, .4));
+    height: calc(110px + 360px * var(--hit-power, .4));
+    margin-left: calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    border: calc(3px + 5px * var(--hit-power, .4)) solid rgba(255,220,130,.95);
+    mix-blend-mode:screen;
+  }
+  .hit-confirm .damage {
+    font-weight:900;
+    font-size: calc(28px + 60px * var(--hit-power, .4));
+    color: var(--cream);
+    text-shadow: 0 4px 0 var(--ink), 0 0 18px rgba(255,180,60,.6);
+    transform:translate(-50%,-50%);
+    letter-spacing:-.02em;
+  }
+  .hit-confirm.active .burst  { animation: burst 480ms ease-out forwards; }
+  .hit-confirm.active .ring   { animation: ring  520ms ease-out forwards; }
+  .hit-confirm.active .damage { animation: dmg   700ms ease-out forwards; }
+  @keyframes burst {
+    0%   { opacity:0; transform:scale(.3); }
+    30%  { opacity:1; transform:scale(1.05); }
+    100% { opacity:0; transform:scale(1.25); }
+  }
+  @keyframes ring {
+    0%   { opacity:0; transform:scale(.4); }
+    25%  { opacity:1; }
+    100% { opacity:0; transform:scale(1.6); }
+  }
+  @keyframes dmg {
+    0%   { opacity:0; transform:translate(-50%,-40%) scale(.4); }
+    20%  { opacity:1; transform:translate(-50%,-60%) scale(1.1); }
+    100% { opacity:0; transform:translate(-50%,-110%) scale(1); }
+  }
+
+  /* ── Screen-wide hit flash (warm now, not red) ─────── */
+  .hit-flash { position:absolute; inset:0; background:rgba(255,150,99,.35);
+               opacity:0; pointer-events:none; z-index:90;
+               transition:opacity 100ms; }
+
+  /* ── Vignette (softer) ────────────────────────────── */
+  #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
+              background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
+
+  /* ────────── Soup Sports styled buttons ────────── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 22px;
+    background: var(--cream);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 4px 0 var(--ink), 0 8px 18px rgba(28,42,58,.18);
+    transition: transform 140ms cubic-bezier(.3,.7,.3,1), box-shadow 140ms;
+  }
+  .ss-btn:hover {
+    transform: translateY(-2px);
+    background: var(--cream-warm);
+    box-shadow: 0 6px 0 var(--ink), 0 12px 22px rgba(28,42,58,.25);
+  }
+  .ss-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 var(--ink), 0 4px 10px rgba(28,42,58,.12);
+  }
+
+  #back { position:absolute; top:20px; left:20px; z-index:110; }
+  #connect { position:absolute; bottom:20px; right:20px; z-index:110;
+             border-width:3px; }
+  body.game-active #connect { display:none; }
+
+  /* ── Status pill ─────────────────────────────────── */
+  #status {
+    position:absolute; bottom:22px; left:20px; z-index:110;
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 18px; border-radius: 999px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    box-shadow: 0 4px 0 var(--ink);
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink); font-weight: 800;
+  }
+  #status::before {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--gold); box-shadow: 0 0 10px var(--gold);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  #status.connected::before {
+    background: var(--vine); box-shadow: 0 0 10px var(--vine);
+    animation: none;
+  }
+  @keyframes pulse { 50% { opacity: 0.4; transform: scale(0.85); } }
+
+  #log { position:absolute; bottom:60px; left:20px; font-size:10px; opacity:.45;
+         font-family: ui-monospace, Menlo, monospace; white-space:pre;
+         pointer-events:none; z-index:105; color: var(--ink); }
+
+  /* Title on the pre-game screen */
+  #title { position:absolute; top:44%; left:50%;
+           transform:translate(-50%,-50%); text-align:center;
+           font-weight:900; letter-spacing:-.04em; font-size:clamp(64px, 11vw, 140px);
+           color: var(--cream);
+           text-shadow:
+             0 6px 0 var(--ruin-blue),
+             0 10px 30px rgba(28,42,58,.4);
+           z-index:70; transition:opacity 400ms;
+           line-height: 0.9; }
+  body.game-active #title { opacity:0; pointer-events:none; }
+  #title small { display:block; font-size:14px; letter-spacing:.32em;
+                 color: var(--ink); font-weight: 800;
+                 margin-top: 22px;
+                 text-shadow: 0 2px 0 rgba(255,255,255,.5); }
+  #title .accent { color: var(--hot);
+                   text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4); }
+</style>
+</head>
+<body>
+
+<a id="back" class="ss-btn" href="index.html">← Menu</a>
+
+<div id="title">SOUP <span class="accent">BOXING</span><small>SWING TO PUNCH</small></div>
+
+<div id="hud">
+  <div class="hud-panel hud-p1">
+    <div class="label">YOU</div>
+    <div class="bar-container"><div class="health-bar" id="p1-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p1-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p1-combo"></div></div>
+  </div>
+  <div class="hud-panel hud-p2">
+    <div class="label">OPPONENT</div>
+    <div class="bar-container"><div class="health-bar" id="p2-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p2-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p2-combo"></div></div>
+  </div>
+</div>
+
+<div id="gesture"></div>
+<div id="vignette"></div>
+
+<div class="hit-confirm" id="hit-confirm">
+  <div class="burst"></div>
+  <div class="ring"></div>
+  <div class="damage">0</div>
+</div>
+<div class="hit-flash" id="hit-flash"></div>
+
+<div id="status">hub → not connected</div>
+<button id="connect" class="ss-btn">Connect hub</button>
+<div id="log"></div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+
+// ══════════════════════════ Scene ══════════════════════════
+const SKY_HEX = 0x4fc0e3;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_HEX);
+scene.fog = new THREE.Fog(SKY_HEX, 8, 30);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.05, 100);
+const camHome = new THREE.Vector3(0, 1.6, 3.6);
+camera.position.copy(camHome);
+camera.lookAt(0, 1.55, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Lights: bright key + soft sky rim ──
+scene.add(new THREE.AmbientLight(0xbfe4f2, 0.65));
+const key = new THREE.DirectionalLight(0xfff0d0, 1.15);
+key.position.set(4, 8, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x88c8ff, 0.55);
+rim.position.set(-4, 3, -5);
+scene.add(rim);
+
+// ── Ring floor: cream base w/ ink grid, vine/ruin-blue corners ──
+function makeRingFloor() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024; canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  // cream base
+  ctx.fillStyle = '#fbf3e0'; ctx.fillRect(0, 0, 1024, 1024);
+  // subtle grid lines (ink @ low alpha)
+  ctx.strokeStyle = 'rgba(28,42,58,0.12)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 1024; i += 64) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1024); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1024, i); ctx.stroke();
+  }
+  // outer border
+  ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 12;
+  ctx.strokeRect(8, 8, 1008, 1008);
+  // center circle
+  ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(512, 512, 260, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(28,42,58,0.3)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(512, 512, 450, 0, Math.PI * 2); ctx.stroke();
+  // corner pads — vine (near) + ruin-blue (far)
+  function pad(x, y, fill) {
+    ctx.fillStyle = fill; ctx.fillRect(x, y, 100, 100);
+    ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 6;
+    ctx.strokeRect(x, y, 100, 100);
+  }
+  pad(862, 862, '#6cb85a'); pad(62, 862, '#6cb85a');
+  pad(862, 62,  '#37628a'); pad(62, 62,  '#37628a');
+  return new THREE.CanvasTexture(canvas);
+}
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(9, 9),
+  new THREE.MeshStandardMaterial({ map: makeRingFloor(), roughness: 0.9 })
+);
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true;
+scene.add(floor);
+
+// ── Corner posts + pads (themed) ──
+const postMat  = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.8 });
+const padVine  = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.7 });
+const padRuin  = new THREE.MeshStandardMaterial({ color: 0x37628a, roughness: 0.7 });
+const postGeo  = new THREE.CylinderGeometry(0.1, 0.12, 1.8, 16);
+const padGeo   = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+const cornerXY = [[-3.8,-3.8],[3.8,3.8],[-3.8,3.8],[3.8,-3.8]];
+cornerXY.forEach(([x, z], idx) => {
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.position.set(x, 0.9, z); post.castShadow = true; scene.add(post);
+  const pad  = new THREE.Mesh(padGeo, (idx === 1 || idx === 2) ? padVine : padRuin);
+  pad.position.set(x, 1.1, z); pad.castShadow = true; scene.add(pad);
+});
+
+// ── Ropes: vine + cream alternating ──
+const ropeMatA = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.9 });
+const ropeMatB = new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.9 });
+const corners = [
+  new THREE.Vector3(-3.8, 0, -3.8), new THREE.Vector3( 3.8, 0, -3.8),
+  new THREE.Vector3( 3.8, 0,  3.8), new THREE.Vector3(-3.8, 0,  3.8),
+  new THREE.Vector3(-3.8, 0, -3.8),
+];
+[0.5, 0.9, 1.2, 1.5].forEach((h, i) => {
+  const mat = (i % 2 === 0) ? ropeMatA : ropeMatB;
+  for (let c = 0; c < 4; c++) {
+    const a = corners[c].clone().setY(h), b = corners[c+1].clone().setY(h);
+    const len = a.distanceTo(b);
+    const geo = new THREE.CylinderGeometry(0.03, 0.03, len, 8);
+    const rope = new THREE.Mesh(geo, mat);
+    rope.position.copy(a).lerp(b, 0.5);
+    rope.lookAt(b); rope.rotateX(Math.PI/2);
+    scene.add(rope);
+  }
+});
+
+// ── Sky clouds (three sphere puffs drifting high) ──
+const clouds = [];
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+for (let i = 0; i < 8; i++) {
+  const r = 0.6 + Math.random() * 0.7;
+  const cloud = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cloudMat);
+  cloud.position.set(
+    -14 + Math.random() * 28,
+    8 + Math.random() * 4,
+    -8 + Math.random() * 4
+  );
+  // add a couple bump siblings for a puffy silhouette
+  const bump1 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.7, 10, 8), cloudMat);
+  bump1.position.set(r * 0.9, -r * 0.2, 0);
+  cloud.add(bump1);
+  const bump2 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.6, 10, 8), cloudMat);
+  bump2.position.set(-r * 0.9, -r * 0.1, 0);
+  cloud.add(bump2);
+  cloud.userData.driftSpeed = 0.2 + Math.random() * 0.3;
+  scene.add(cloud);
+  clouds.push(cloud);
+}
+
+// ══════════════════════════ Opponent (Soup mascot) ══════════════════════════
+const opp = new THREE.Group();
+opp.position.set(0, 0, -0.5);
+scene.add(opp);
+
+const oppHome = opp.position.clone();
+let oppVel = new THREE.Vector3();
+
+// Placeholder while GLB loads (also fallback if it fails)
+const placeholder = new THREE.Mesh(
+  new THREE.BoxGeometry(0.9, 1.6, 0.5),
+  new THREE.MeshStandardMaterial({ color: 0xecdcb1, roughness: 0.8 })
+);
+placeholder.position.y = 0.8;
+placeholder.castShadow = true;
+opp.add(placeholder);
+
+// Mascot state we'll wire into the tick loop
+const mascot = {
+  root: null,          // the loaded soup THREE.Object3D
+  bodyMat: null,       // cloned body material for red-flash
+  bodyBaseHex: 0xecdcb1,
+  hitUntil: 0,         // performance.now() while shake+flash lasts
+  koStartedAt: 0,      // 0 until KO plays
+  koProgress: 0,       // 0..1
+  baseY: 0,            // resting y (feet on floor)
+};
+
+const loader = new GLTFLoader();
+loader.load(
+  'assets/mascot.glb',
+  (gltf) => {
+    const soup = gltf.scene;
+    // Y-up flip, face -Z (toward camera at +Z looking -Z)
+    soup.rotation.x = -Math.PI / 2;
+    soup.rotation.y = Math.PI;
+    // ~1m tall -> scale a little bigger so he reads as a boxer
+    soup.scale.setScalar(0.014);
+
+    // Clone materials so per-instance tints don't bleed
+    soup.traverse(o => {
+      if (o.isMesh) {
+        o.material = o.material.clone();
+        o.castShadow = true;
+        o.receiveShadow = false;
+      }
+    });
+
+    // Warm taupe/earthier tint for the opponent
+    const body = soup.getObjectByName('body');
+    const paws = soup.getObjectByName('paws');
+    const ears = soup.getObjectByName('ears');
+    const tail = soup.getObjectByName('tail');
+    const OPP_BODY = 0xecdcb1; // cream-deep — warmer than default
+    const OPP_TRIM = 0xc9a878; // deeper taupe
+    if (body) body.material.color.setHex(OPP_BODY);
+    if (paws) paws.material.color.setHex(OPP_TRIM);
+    if (ears) ears.material.color.setHex(OPP_TRIM);
+    if (tail) tail.material.color.setHex(OPP_TRIM);
+
+    mascot.root = soup;
+    mascot.bodyMat = body ? body.material : null;
+    mascot.bodyBaseHex = OPP_BODY;
+    mascot.baseY = 0;
+
+    // Swap in
+    opp.remove(placeholder);
+    opp.add(soup);
+    log('mascot loaded');
+  },
+  undefined,
+  (err) => {
+    console.error('mascot load failed', err);
+    log('mascot load FAILED — using placeholder');
+    // Keep the placeholder as the opponent; give it a bodyMat so hits still flash
+    mascot.root = placeholder;
+    mascot.bodyMat = placeholder.material;
+    mascot.bodyBaseHex = 0xecdcb1;
+    mascot.baseY = 0.8;
+  }
+);
+
+// ── Impact point light ──
+const impactLight = new THREE.PointLight(0xffcc66, 0, 8, 2);
+impactLight.position.set(0, 2.2, 1.0);
+scene.add(impactLight);
+
+// ══════════════════════════ Game state ══════════════════════════
+const state = {
+  p1: { hp:100, stamina:100, combo:0 },
+  p2: { hp:100, stamina:100, combo:0 },
+  lastHitAt: 0,
+  camShake: { x:0, y:0, until:0, amp:0 },
+  koFired: false,
+};
+
+const DMG = { jab: 6, hook: 10, uppercut: 14 };
+const STAM_COST = { jab: 8, hook: 14, uppercut: 20 };
+
+const $hp1 = document.getElementById('p1-hp');
+const $st1 = document.getElementById('p1-stam');
+const $cb1 = document.getElementById('p1-combo');
+const $hp2 = document.getElementById('p2-hp');
+const $st2 = document.getElementById('p2-stam');
+const $cb2 = document.getElementById('p2-combo');
+const $gest= document.getElementById('gesture');
+const $conf= document.getElementById('hit-confirm');
+const $flash= document.getElementById('hit-flash');
+const $stat= document.getElementById('status');
+const $log = document.getElementById('log');
+
+function refreshHud() {
+  $hp1.style.width = state.p1.hp + '%';
+  $hp1.style.background = state.p1.hp > 40 ? 'var(--hp-good)' : 'var(--hot)';
+  $st1.style.width = state.p1.stamina + '%';
+  $cb1.style.width = state.p1.combo + '%';
+  $hp2.style.width = state.p2.hp + '%';
+  $hp2.style.background = state.p2.hp > 40 ? 'var(--hp-good)' : 'var(--hot)';
+  $st2.style.width = state.p2.stamina + '%';
+  $cb2.style.width = state.p2.combo + '%';
+}
+refreshHud();
+
+const GEST_COLOR = { jab:'#f4c95d', hook:'#ff9663', uppercut:'#6cb85a', block:'#4fc0e3' };
+function popGesture(name, power) {
+  $gest.textContent = `${name.toUpperCase()}  ${Math.round(power*100)}`;
+  $gest.style.color = GEST_COLOR[name] || '#fbf3e0';
+  $gest.classList.remove('pop'); void $gest.offsetWidth;
+  $gest.classList.add('pop');
+  setTimeout(() => $gest.classList.remove('pop'), 420);
+}
+
+function fireHitConfirm(x, y, power, dmg) {
+  $conf.style.setProperty('--hit-x', x + 'px');
+  $conf.style.setProperty('--hit-y', y + 'px');
+  $conf.style.setProperty('--hit-power', power.toFixed(2));
+  $conf.querySelector('.damage').textContent = dmg;
+  $conf.classList.remove('active'); void $conf.offsetWidth;
+  $conf.classList.add('active');
+}
+
+function fireHitFlash(power) {
+  $flash.style.background = `rgba(255, ${Math.round(150 - 40*power)}, ${Math.round(99 - 60*power)}, ${0.25 + 0.35*power})`;
+  $flash.style.opacity = 1;
+  setTimeout(() => { $flash.style.opacity = 0; }, 90);
+}
+
+function applyGesture(g, armId = 0) {
+  if (state.koFired) return; // no more punches after KO
+  popGesture(g.gesture, g.power);
+  const dmgBase = DMG[g.gesture];
+  if (!dmgBase) return;
+
+  const staminaMul = state.p1.stamina > 20 ? 1.0 : 0.5;
+  const dmg = Math.round(dmgBase * (0.5 + 0.9 * g.power) * staminaMul);
+
+  state.p2.hp = Math.max(0, state.p2.hp - dmg);
+  state.p1.stamina = Math.max(0, state.p1.stamina - STAM_COST[g.gesture]);
+
+  const now = performance.now();
+  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
+  else                              state.p1.combo = 15;
+  state.lastHitAt = now;
+
+  refreshHud();
+  triggerHit(g.power);
+
+  const sideBias = (armId === 1) ? -0.45 : 0.45;
+  const headWorld = new THREE.Vector3(sideBias, 2.2, opp.position.z);
+  headWorld.project(camera);
+  const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
+  const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
+  fireHitConfirm(px, py, g.power, dmg);
+  fireHitFlash(g.power);
+
+  if (state.p2.hp <= 0 && !state.koFired) {
+    state.koFired = true;
+    mascot.koStartedAt = performance.now();
+    log('KO!');
+  }
+}
+
+function triggerHit(power) {
+  const now = performance.now();
+  state.camShake.until = now + 280;
+  state.camShake.amp = 0.05 + 0.14 * power;
+  impactLight.intensity = 3 + 8 * power;
+  // Shove the opponent group backward.
+  oppVel.z += -1.2 * power;
+  oppVel.y +=  0.6 * power;
+  // Mascot hit reaction: shake window + red flash
+  mascot.hitUntil = now + 260;
+}
+
+function log(line) {
+  const t = new Date().toLocaleTimeString();
+  const txt = `[${t}] ${line}\n` + ($log.textContent || '');
+  $log.textContent = txt.split('\n').slice(0, 6).join('\n');
+}
+
+// ══════════════════════════ Tick ══════════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  const tSec = now / 1000;
+
+  // Opponent spring back to home + idle sway (group-level, unchanged)
+  const target = new THREE.Vector3(oppHome.x, oppHome.y, oppHome.z);
+  oppVel.x += (target.x - opp.position.x) * 40 * dt;
+  oppVel.y += (target.y - opp.position.y) * 45 * dt;
+  oppVel.z += (target.z - opp.position.z) * 40 * dt;
+  oppVel.multiplyScalar(0.86);
+  opp.position.addScaledVector(oppVel, dt);
+  opp.rotation.y = Math.sin(now / 1200) * 0.1;
+
+  // ── Mascot procedural animation ───────────────────
+  if (mascot.root) {
+    const m = mascot.root;
+
+    // KO: play once, then hold pose.
+    if (state.koFired) {
+      const koDur = 400;
+      const p = Math.min(1, (now - mascot.koStartedAt) / koDur);
+      mascot.koProgress = p;
+      // ease-out
+      const e = 1 - Math.pow(1 - p, 2);
+      m.rotation.z = e * (Math.PI / 2);
+      // Drop toward floor (mascot pivot is at feet; sink slightly for visual "down")
+      m.position.y = mascot.baseY - e * 0.15;
+      // Also freeze idle by falling through
+    } else {
+      // Idle: bob + squish
+      const bob = Math.sin(tSec * 2) * 0.02;
+      const squish = 1 + Math.sin(tSec * 2) * 0.03;
+      m.position.y = mascot.baseY + bob;
+      m.scale.y = (m.userData.baseScaleY ?? (m.userData.baseScaleY = m.scale.y || 1)) * squish;
+
+      // Hit: brief x-shake + body red-flash
+      if (now < mascot.hitUntil) {
+        m.position.x = (Math.random() - 0.5) * 0.08;
+        if (mascot.bodyMat) {
+          mascot.bodyMat.color.setHex(0xff4444);
+        }
+      } else {
+        m.position.x = 0;
+        if (mascot.bodyMat) {
+          mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+        }
+      }
+    }
+  }
+
+  // ── Drift clouds ──
+  for (const cloud of clouds) {
+    cloud.position.x += cloud.userData.driftSpeed * dt;
+    if (cloud.position.x > 16) cloud.position.x = -16;
+  }
+
+  // Camera shake
+  const shake = state.camShake.until > now ? (state.camShake.until - now) / 280 : 0;
+  camera.position.x = camHome.x + (Math.random() - 0.5) * state.camShake.amp * shake;
+  camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
+  camera.lookAt(0, 1.55, opp.position.z);
+
+  // Light decay + stamina regen
+  impactLight.intensity *= 0.88;
+  state.p1.stamina = Math.min(100, state.p1.stamina + 18 * dt);
+  state.p2.stamina = Math.min(100, state.p2.stamina + 18 * dt);
+  if (now - state.lastHitAt > 900) state.p1.combo = Math.max(0, state.p1.combo - 60 * dt);
+  refreshHud();
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ══════════════════════════ Serial wire-up ══════════════════════════
+const ARM_NAME = { 0: 'R', 1: 'L' };
+const dispatcher = new ArmDispatcher((armId, g) => {
+  const f = g.features || {};
+  log(`↯ [${ARM_NAME[armId] ?? armId}] ${g.gesture} pwr=${g.power.toFixed(2)} dynA=${(f.dynA||0).toFixed(1)} wmag=${(f.wmag||0).toFixed(0)}`);
+  applyGesture(g, armId);
+});
+
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $stat.textContent = 'hub → requesting port…';
+    await openSerial({
+      baud: 115200,
+      onLine: (line) => dispatcher.onLine(line),
+      onOpen: () => {
+        $stat.textContent = 'hub → connected';
+        $stat.classList.add('connected');
+        document.body.classList.add('game-active');
+      },
+      onClose: () => {
+        $stat.textContent = 'hub → disconnected';
+        $stat.classList.remove('connected');
+      },
+      onError: (e) => {
+        $stat.textContent = 'hub → error: ' + e.message;
+        $stat.classList.remove('connected');
+      },
+    });
+  } catch (e) {
+    $stat.textContent = 'hub → failed: ' + e.message;
+    $stat.classList.remove('connected');
+  }
+});
+
+// Dev shortcut: j/h/u = right; J/H/U (shift) = left.
+addEventListener('keydown', (e) => {
+  const map = { j:'jab', h:'hook', u:'uppercut' };
+  const key = e.key.toLowerCase();
+  if (map[key]) {
+    const armId = (e.key === e.key.toUpperCase() && e.key !== e.key.toLowerCase()) ? 1 : 0;
+    document.body.classList.add('game-active');
+    applyGesture({ gesture: map[key], power: 0.7 + Math.random()*0.3 }, armId);
+  }
+});
+</script>
+</body>
+</html>
