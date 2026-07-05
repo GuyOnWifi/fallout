@@ -29,8 +29,15 @@ const ARM_GYRO        = 260.0;  // deg/s
 const RELAX_DYN_ACCEL = 3.0;
 const RELAX_GYRO      = 90.0;
 const QUIET_MS        = 100;
-const REFRACT_MS      = 500;
-const MAX_ACTIVE_MS   = 700;
+const REFRACT_MS      = 850;   // longer, so the retraction of a jab cannot re-fire
+// Two failsafes on when to classify:
+//   MAX_ACTIVE_MS      hard timeout, in case dynA never decays cleanly
+//   POST_PEAK_DROP     classify the moment dynA has dropped this fraction
+//                      below its running max after having been high. That
+//                      catches the extension peak and ignores the retraction.
+const MAX_ACTIVE_MS   = 220;
+const POST_PEAK_DROP  = 0.55;  // fire when dynA falls to this fraction of peak
+const POST_PEAK_MIN   = 22.0;  // ... but only after peak has cleared this floor
 
 // Sanity gate: don't classify unless the ACTIVE window's peak actually
 // looks like a punch. Blocks classifier from firing on brief noise spikes
@@ -38,12 +45,13 @@ const MAX_ACTIVE_MS   = 700;
 const MIN_PEAK_DYNA  = 18.0;
 const MIN_PEAK_GYRO  = 300.0;
 
-// Discriminators (tuned to recorded data — see day1/tools/replay.mjs).
-// Vertical thresholds set well above any residual jab down-tilt (jab max down ≈ 18).
+// Discriminators (tuned to recorded reps in day3/tools/data — see comment
+// in _classify() for the peak-signature stats that back these numbers).
+// Vertical thresholds set well above any residual jab down-tilt.
 const UPPERCUT_UP_MIN   = 15.0;
 const OVERHAND_DOWN_MIN = 20.0;
 const OVERHAND_DOMINATE = 1.4;  // down must clearly dominate horiz too
-const JAB_HORIZ_MIN     = 15.0;
+const JAB_HORIZ_MIN     = 12.0;   // loosened so softer jabs still clear the floor
 // jab   w_horiz median 314, w_mag median 340
 // hook  w_horiz median 381, w_mag median 383  (from prior collection)
 const HOOK_ROT_SCORE_MIN = 500.0;
@@ -55,9 +63,17 @@ export class Classifier {
   constructor() {
     this.onGesture = () => {};
     this.state = 'IDLE';
-    // Gravity estimate — seeded to +Y (chip flat, sensible default).
-    // The LPF will pull it to the real direction within a second or so.
+    // Gravity estimate seeded to nothing. The first ~20 quasi-static samples
+    // will snap it to the actual sensor-frame gravity direction. Until then
+    // the classifier refuses to fire, because gravity-aligned features are
+    // meaningless when the gravity axis is wrong.
     this.gx_ = 0; this.gy_ = 0; this.gz_ = G;
+    this.calibrated = false;
+    this._calibN = 0; this._calibSumX = 0; this._calibSumY = 0; this._calibSumZ = 0;
+    // Once a classification fires, we refuse to arm the next one until the
+    // arm has actually reached rest at least briefly. Stops the retraction
+    // of a slow hook from being counted as a second hook after COOLDOWN.
+    this.hasRestedSinceLast = true;
     this._resetPeaks();
   }
 
@@ -70,6 +86,9 @@ export class Classifier {
       wmag: 0,          // peak gyro magnitude
       wYaw: 0,          // peak |ω · up|  — rotation about gravity
       wHoriz: 0,        // peak |ω - up*(ω·up)| — rotation in horiz plane
+      pgx: 0,           // peak |gx| — forearm roll rate
+      pgy: 0,           // peak |gy| — forearm pitch rate (uppercut giveaway)
+      pgz: 0,           // peak |gz| — forearm yaw rate (jab vs hook)
     };
     this.tStartMs = 0;
     this.tQuietFromMs = 0;
@@ -84,9 +103,31 @@ export class Classifier {
     const gxr = +parts[4], gyr = +parts[5], gzr = +parts[6];
     if (Number.isNaN(ax) || Number.isNaN(gxr)) return;
 
-    // --- Gravity estimate: LPF the accel, but only when magnitude is roughly
-    // 1 g, so a punch doesn't drag the estimate around.
     const amag = Math.hypot(ax, ay, az);
+
+    // --- Fast initial calibration: accumulate ~100ms of quasi-static samples
+    // then snap gravity to their mean. Prevents the 4-5 second LPF warmup
+    // from producing garbage classifications right after connect.
+    if (!this.calibrated) {
+      if (Math.abs(amag - G) < 2.5) {
+        this._calibSumX += ax; this._calibSumY += ay; this._calibSumZ += az;
+        this._calibN++;
+        if (this._calibN >= 20) {
+          this.gx_ = this._calibSumX / this._calibN;
+          this.gy_ = this._calibSumY / this._calibN;
+          this.gz_ = this._calibSumZ / this._calibN;
+          this.calibrated = true;
+        }
+      } else {
+        // Not quiet, reset accumulator so we only converge on real rest.
+        this._calibN = 0;
+        this._calibSumX = this._calibSumY = this._calibSumZ = 0;
+      }
+      return;   // do not classify until we have a real gravity vector
+    }
+
+    // Ongoing drift correction: LPF the accel toward gravity, but only when
+    // magnitude is roughly 1 g so a punch doesn't pull the estimate around.
     if (Math.abs(amag - G) < 4.0) {
       this.gx_ = GRAV_ALPHA * this.gx_ + (1 - GRAV_ALPHA) * ax;
       this.gy_ = GRAV_ALPHA * this.gy_ + (1 - GRAV_ALPHA) * ay;
@@ -121,16 +162,29 @@ export class Classifier {
     const quiet  = dynA <= RELAX_DYN_ACCEL && wmag <= RELAX_GYRO;
 
     if (this.state === 'IDLE') {
-      if (moving) {
+      // Latch "arm has reached rest" the moment we see a quiet sample after
+      // classification. Blocks the retraction of the previous throw from
+      // re-arming as soon as COOLDOWN expires.
+      if (quiet) this.hasRestedSinceLast = true;
+      if (moving && this.hasRestedSinceLast) {
         this.state = 'ACTIVE';
         this._resetPeaks();
         this.tStartMs = nowMs;
-        this._trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz);
+        this._trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz, gxr, gyr, gzr);
       }
       return;
     }
 
-    this._trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz);
+    this._trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz, gxr, gyr, gzr);
+
+    // Post-peak detection. Once we've seen a serious dyn peak, the moment
+    // the current dynA drops to POST_PEAK_DROP × peak, the extension is
+    // over and we lock in classification before retraction pollutes it.
+    if (this.peak.dynA >= POST_PEAK_MIN &&
+        dynA < this.peak.dynA * POST_PEAK_DROP) {
+      this._classify(nowMs);
+      return;
+    }
 
     if (quiet) {
       if (this.tQuietFromMs === 0) this.tQuietFromMs = nowMs;
@@ -141,7 +195,7 @@ export class Classifier {
     if (nowMs - this.tStartMs > MAX_ACTIVE_MS) this._classify(nowMs);
   }
 
-  _trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz) {
+  _trackPeak(dynA, aUpDyn, aHoriz, wmag, wYaw, wHoriz, gx, gy, gz) {
     const p = this.peak;
     if (dynA > p.dynA) p.dynA = dynA;
     if (aUpDyn > p.up) p.up = aUpDyn;
@@ -150,18 +204,29 @@ export class Classifier {
     if (wmag > p.wmag) p.wmag = wmag;
     if (Math.abs(wYaw) > p.wYaw) p.wYaw = Math.abs(wYaw);
     if (wHoriz > p.wHoriz) p.wHoriz = wHoriz;
+    if (Math.abs(gx) > p.pgx) p.pgx = Math.abs(gx);
+    if (Math.abs(gy) > p.pgy) p.pgy = Math.abs(gy);
+    if (Math.abs(gz) > p.pgz) p.pgz = Math.abs(gz);
   }
 
   _classify(nowMs) {
     const p = this.peak;
     let gesture = null;
 
-    // JAB-ONLY MODE: a jab is a *translational* punch. Require real linear
-    // acceleration in the horizontal plane — pure wrist rotation (high wmag,
-    // low horiz) must NOT fire. This mirrors the reference project, which
-    // classifies on gravity-subtracted linear accel, not raw accel or gyro.
+    // Discriminator learned from LIVE debug-log dumps on the user's mount.
+    // Ratio wYaw / wHoriz splits jab from hook cleanly:
+    //   jab   wY/wH  0.32..0.64 (one outlier at 1.02 out of 25 throws)
+    //   hook  wY/wH  0.88..2.47 (nearly always above 1.0)
+    // Physical read: jab is a straight push, rotation lives in the
+    // horizontal plane (wH), yaw about vertical stays small. Hook is a
+    // shoulder swing around vertical, so wY dominates.
+    // Uppercut: high vertical accel + high dynA. From live data all your
+    // uppercuts had up >= 28 and dynA >= 39. Not perfectly separable from
+    // hooks that swing upward, but this catches the clean cases.
     if (p.horiz >= JAB_HORIZ_MIN && p.dynA >= MIN_PEAK_DYNA) {
-      gesture = 'jab';
+      if (p.up >= 28 && p.dynA >= 38)             gesture = 'uppercut';
+      else if (p.wYaw >= 0.85 * p.wHoriz)         gesture = 'hook';
+      else                                         gesture = 'jab';
     }
 
     if (gesture) {
@@ -174,6 +239,7 @@ export class Classifier {
 
     this.state = 'COOLDOWN';
     this.tCooldownUntil = nowMs + REFRACT_MS;
+    this.hasRestedSinceLast = false;
     this._resetPeaks();
   }
 }

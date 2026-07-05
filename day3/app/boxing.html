@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Boxing</title>
+<title>Soup Games — Boxing</title>
 <style>
   :root {
     --sky-top:    #7bd3ee;
@@ -157,7 +157,7 @@
   #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
               background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
 
-  /* ────────── Soup Sports chrome (shared treatment across pages) ────────── */
+  /* ────────── Soup Games chrome (shared treatment across pages) ────────── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -221,6 +221,57 @@
                  text-shadow: 0 2px 0 rgba(255,255,255,.5); }
   #title .accent { color: var(--hot);
                    text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4); }
+
+  /* ── Debug pill (bottom-right, features of last hit) ─── */
+  #debug-feats {
+    position:absolute; bottom:16px; right:16px;
+    padding: 8px 14px;
+    background: rgba(28,42,58,.75); color: #f7f3e6;
+    border-radius: 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; letter-spacing: .01em;
+    line-height: 1.4;
+    pointer-events: none; z-index: 130;
+    opacity: 0.85;
+    max-width: 320px;
+  }
+  #debug-feats b { color:#ffbf94; font-weight:700; }
+  @media (max-width: 640px) { #debug-feats { display:none; } }
+
+  /* ── Live log (top-left) with copy button ─────────── */
+  #tune-log-wrap {
+    position:absolute; top:16px; left:120px;
+    display:flex; flex-direction:column; gap:6px;
+    z-index: 131; max-width: 42vw;
+  }
+  #tune-log-controls { display:flex; gap:6px; align-items:center; }
+  #tune-log-controls button {
+    padding: 6px 12px; border-radius: 8px;
+    background: var(--cream); color: var(--ink);
+    border: 2px solid var(--ink);
+    box-shadow: 0 2px 0 var(--ink);
+    font-family: inherit; font-size: 11px;
+    letter-spacing: .04em; font-weight: 700;
+    text-transform: uppercase; cursor: pointer;
+  }
+  #tune-log-controls button:hover { background: var(--cream-warm); }
+  #tune-log-controls #tune-log-count {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px; color: var(--cream);
+    text-shadow: 0 1px 0 rgba(0,0,0,.4);
+    background: rgba(28,42,58,.65);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  #tune-log {
+    width: 100%; height: 220px;
+    padding: 10px 12px;
+    background: rgba(28,42,58,.85); color: #f7f3e6;
+    border: none; border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; line-height: 1.5;
+    resize: none;
+  }
+  @media (max-width: 640px) { #tune-log-wrap { display:none; } }
 
   /* ── Gesture tutorial (bottom-center) ─────────────── */
   #tutorial {
@@ -386,6 +437,16 @@
 <div id="ko-banner">K.O.<span class="sub">down goes Soup</span></div>
 
 <button id="connect" class="ss-btn">connect hub</button>
+<div id="debug-feats">waiting for a punch</div>
+
+<div id="tune-log-wrap">
+  <div id="tune-log-controls">
+    <button id="tune-log-copy" type="button">copy</button>
+    <button id="tune-log-clear" type="button">clear</button>
+    <span id="tune-log-count">0 rows</span>
+  </div>
+  <textarea id="tune-log" readonly placeholder="each detected punch appends one line here. throw a bunch of one type, click copy, paste back to claude."></textarea>
+</div>
 <div id="log"></div>
 <div id="devhint">keys · j h u to punch</div>
 
@@ -399,7 +460,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { openSerial } from './serial.js';
+import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 
 // ══════════════════════════ Scene ══════════════════════════
@@ -847,7 +908,9 @@ function landImpact(imp) {
   if (state.koFired) return;
   const { gesture, power, dmg, dir, spec } = imp;
 
-  state.p2.hp = Math.max(0, state.p2.hp - dmg);
+  // HP capped at 100 while tuning the classifier — opponent never KOs.
+  // Restore `state.p2.hp = Math.max(0, state.p2.hp - dmg);` when ready.
+  state.p2.hp = 100;
   const now = performance.now();
   if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
   else                             state.p1.combo = 15;
@@ -1145,38 +1208,73 @@ requestAnimationFrame(tick);
 
 // ══════════════════════════ Serial wire-up ══════════════════════════
 const ARM_NAME = { 0: 'R', 1: 'L' };
+const $dbg = document.getElementById('debug-feats');
+const $tuneLog = document.getElementById('tune-log');
+const $tuneCount = document.getElementById('tune-log-count');
+let tuneRowCount = 0;
+
 const dispatcher = new ArmDispatcher((armId, g) => {
   const f = g.features || {};
-  log(`↯ [${ARM_NAME[armId] ?? armId}] ${g.gesture} pwr=${g.power.toFixed(2)} dynA=${(f.dynA||0).toFixed(1)} wmag=${(f.wmag||0).toFixed(0)}`);
+  const arm = ARM_NAME[armId] ?? armId;
+  if ($dbg) {
+    $dbg.innerHTML =
+      `<b>${g.gesture}</b> · pwr ${g.power.toFixed(2)} · arm ${arm}<br>` +
+      `a_h ${(f.horiz||0).toFixed(1)} · up ${(f.up||0).toFixed(1)} · dynA ${(f.dynA||0).toFixed(1)}<br>` +
+      `wH ${(f.wHoriz||0).toFixed(0)} · wY ${(f.wYaw||0).toFixed(0)} · |w| ${(f.wmag||0).toFixed(0)}`;
+  }
+  if ($tuneLog) {
+    const row = `${g.gesture.padEnd(9)} a_h=${(f.horiz||0).toFixed(1).padStart(5)} up=${(f.up||0).toFixed(1).padStart(5)} down=${(f.down||0).toFixed(1).padStart(5)} dynA=${(f.dynA||0).toFixed(1).padStart(5)} wH=${(f.wHoriz||0).toFixed(0).padStart(4)} wY=${(f.wYaw||0).toFixed(0).padStart(4)} |w|=${(f.wmag||0).toFixed(0).padStart(4)}\n`;
+    $tuneLog.value += row;
+    $tuneLog.scrollTop = $tuneLog.scrollHeight;
+    tuneRowCount++;
+    if ($tuneCount) $tuneCount.textContent = `${tuneRowCount} row${tuneRowCount === 1 ? '' : 's'}`;
+  }
   applyGesture(g, armId);
 });
+
+// Log controls
+document.getElementById('tune-log-copy')?.addEventListener('click', async () => {
+  if (!$tuneLog?.value) return;
+  try { await navigator.clipboard.writeText($tuneLog.value); }
+  catch { $tuneLog.select(); document.execCommand('copy'); }
+});
+document.getElementById('tune-log-clear')?.addEventListener('click', () => {
+  if ($tuneLog) $tuneLog.value = '';
+  tuneRowCount = 0;
+  if ($tuneCount) $tuneCount.textContent = '0 rows';
+});
+
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => dispatcher.onLine(line),
+  onOpen: () => {
+    $stat.textContent = 'hub connected';
+    $stat.classList.add('connected');
+    document.body.classList.add('game-active');
+    $title.classList.add('hidden');
+  },
+  onClose: () => {
+    $stat.textContent = 'hub disconnected';
+    $stat.classList.remove('connected');
+  },
+  onError: () => {
+    $stat.textContent = 'hub error, try again';
+    $stat.classList.remove('connected');
+  },
+};
 
 document.getElementById('connect').addEventListener('click', async () => {
   try {
     $stat.textContent = 'choosing port…';
-    await openSerial({
-      baud: 115200,
-      onLine: (line) => dispatcher.onLine(line),
-      onOpen: () => {
-        $stat.textContent = 'hub connected';
-        $stat.classList.add('connected');
-        document.body.classList.add('game-active');
-        $title.classList.add('hidden');
-      },
-      onClose: () => {
-        $stat.textContent = 'hub disconnected';
-        $stat.classList.remove('connected');
-      },
-      onError: () => {
-        $stat.textContent = 'hub error, try again';
-        $stat.classList.remove('connected');
-      },
-    });
+    await openSerial(serialHandlers);
   } catch (e) {
     $stat.textContent = 'connect hub';
     $stat.classList.remove('connected');
   }
 });
+
+// Silent reconnect on page load if the hub was previously authorized.
+autoOpenSerial(serialHandlers).catch(() => {});
 
 // Dev shortcut: j/h/u = right; J/H/U (shift) = left.
 addEventListener('keydown', (e) => {

@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Tennis</title>
+<title>Soup Games — Tennis</title>
 <style>
-  /* ── Soup Sports palette (from index.html) ── */
+  /* ── Soup Games palette (from index.html) ── */
   :root {
     --sky-top:    #7bd3ee;
     --sky-mid:    #4fc0e3;
@@ -208,7 +208,7 @@
   #banner.cpu { color: var(--ruin-blue); }
   #banner.miss{ color: var(--gold); }
 
-  /* ── Soup Sports chrome (shared treatment across pages) ── */
+  /* ── Soup Games chrome (shared treatment across pages) ── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -240,6 +240,32 @@
              font-size:10px; letter-spacing:.04em; color:var(--ink);
              opacity:.45; font-weight:600; pointer-events:none; }
   @media (max-width: 640px) { #devhint { display:none; } }
+
+  /* Tune log */
+  #tune-log-wrap { position:absolute; top:16px; left:120px; z-index:131;
+                   display:flex; flex-direction:column; gap:6px; max-width:44vw; }
+  #tune-log-controls { display:flex; gap:6px; align-items:center; }
+  #tune-log-controls button {
+    padding:6px 12px; border-radius:8px;
+    background:var(--cream); color:var(--ink);
+    border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink);
+    font:inherit; font-size:11px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+  }
+  #tune-log-controls button:hover { background:var(--cream-warm); }
+  #tune-log-controls #tune-log-count {
+    font-family:ui-monospace,Menlo,monospace; font-size:11px;
+    color:var(--cream); background:rgba(28,42,58,.65);
+    padding:4px 10px; border-radius:999px;
+  }
+  #tune-log {
+    width:100%; height:220px; padding:10px 12px;
+    background:rgba(28,42,58,.85); color:#f7f3e6;
+    border:none; border-radius:8px;
+    font-family:ui-monospace,Menlo,monospace;
+    font-size:11px; line-height:1.5; resize:none;
+  }
+  @media (max-width: 640px) { #tune-log-wrap { display:none; } }
 </style>
 </head>
 <body>
@@ -268,6 +294,14 @@
 </div>
 
 <div id="devhint">keys · space hit · a miss · n rush</div>
+<div id="tune-log-wrap">
+  <div id="tune-log-controls">
+    <button id="tune-log-copy" type="button">copy</button>
+    <button id="tune-log-clear" type="button">clear</button>
+    <span id="tune-log-count">0 rows</span>
+  </div>
+  <textarea id="tune-log" readonly placeholder="each swing logs one row here. throw a bunch, click copy, paste back."></textarea>
+</div>
 <button id="connect" class="ss-btn">connect hub</button>
 <a id="back" class="ss-btn" href="index.html">← menu</a>
 
@@ -281,7 +315,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { openSerial } from './serial.js';
+import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 
 // ═══════════════════════ Three.js scene ═══════════════════════
@@ -890,13 +924,17 @@ function updateBall(dt) {
 }
 
 // ═══════════════════════ Swing detector ═══════════════════════
+// Tuned from live logs on the user's mount:
+//   real forehand swings: pkGyro 970..1329, pkAcc 24..45
+//   false-positive twitch: pkGyro 403, pkAcc 7 (drops below MIN_PEAK_ACC)
 const GYRO_ARM_DPS  = 250;
 const GYRO_QUIET_DPS = 90;
 const QUIET_MS      = 80;
 const MAX_ACTIVE_MS = 500;
 const REFRACTORY_MS = 500;
-const ACCEL_MIN     = 10;
-const ACCEL_MAX     = 40;
+const ACCEL_MIN     = 15;   // power floor
+const ACCEL_MAX     = 50;   // saturates around a strong swing (~45)
+const MIN_PEAK_ACC  = 15;   // commit gate: false-positive twitches sit at ~7
 
 const swing = {
   phase: 'IDLE',
@@ -918,10 +956,21 @@ function resetSwing() {
 }
 
 function fireSwing() {
+  // Commit gate: reject swings whose peak accel never really got going.
+  // Real swings hit ~24+, false-positive twitches sit at ~7.
+  if (swing.peakAccel < MIN_PEAK_ACC) {
+    swing.phase = 'REFRACTORY';
+    swing.refractoryUntil = performance.now() + REFRACTORY_MS;
+    return;
+  }
   const power = THREE.MathUtils.clamp(
     (swing.peakAccel - ACCEL_MIN) / (ACCEL_MAX - ACCEL_MIN), 0.15, 1.0);
   const roll = swing.rollAtPeak;
   const isForehand = swing.yawSignAtPeak >= 0;
+  logTune('swing', {
+    peakGyro: swing.peakGyro, peakAccel: swing.peakAccel,
+    roll, power, forehand: isForehand ? 'F' : 'B',
+  });
   handleSwing({ power, roll, forehand: isForehand });
   swing.phase = 'REFRACTORY';
   swing.refractoryUntil = performance.now() + REFRACTORY_MS;
@@ -1120,6 +1169,30 @@ function tick() {
 requestAnimationFrame(tick);
 
 // ═══════════════════════ Serial wire-up ═══════════════════════
+// Tune-log helpers.
+const $tuneLog = document.getElementById('tune-log');
+const $tuneCount = document.getElementById('tune-log-count');
+let tuneRows = 0;
+function logTune(kind, f) {
+  if (!$tuneLog) return;
+  const pad = (v, w=5, p=1) => (typeof v === 'number' ? v.toFixed(p) : String(v)).padStart(w);
+  const row = `${kind.padEnd(8)} pkGyro=${pad(f.peakGyro,5,0)} pkAcc=${pad(f.peakAccel,5,1)} roll=${pad(f.roll,6,1)} pwr=${pad(f.power,4,2)} side=${f.forehand}\n`;
+  $tuneLog.value += row;
+  $tuneLog.scrollTop = $tuneLog.scrollHeight;
+  tuneRows++;
+  if ($tuneCount) $tuneCount.textContent = `${tuneRows} row${tuneRows === 1 ? '' : 's'}`;
+}
+document.getElementById('tune-log-copy')?.addEventListener('click', async () => {
+  if (!$tuneLog?.value) return;
+  try { await navigator.clipboard.writeText($tuneLog.value); }
+  catch { $tuneLog.select(); document.execCommand('copy'); }
+});
+document.getElementById('tune-log-clear')?.addEventListener('click', () => {
+  if ($tuneLog) $tuneLog.value = '';
+  tuneRows = 0;
+  if ($tuneCount) $tuneCount.textContent = '0 rows';
+});
+
 const dispatcher = new ArmDispatcher(() => {});
 const origOnLine = dispatcher.onLine.bind(dispatcher);
 dispatcher.onLine = (line) => {
@@ -1138,21 +1211,24 @@ dispatcher.onLine = (line) => {
   if (!Number.isNaN(s.ax)) onRawSample(armId, s);
 };
 
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => dispatcher.onLine(line),
+  onOpen:  () => { $stat.textContent = 'hub connected';
+                   $stat.classList.add('connected'); },
+  onClose: () => { $stat.textContent = 'hub disconnected';
+                   $stat.classList.remove('connected'); },
+  onError: () => { $stat.textContent = 'hub error, try again';
+                    $stat.classList.remove('connected'); },
+};
 document.getElementById('connect').addEventListener('click', async () => {
   try {
     $stat.textContent = 'choosing port…';
-    await openSerial({
-      baud: 115200,
-      onLine: (line) => dispatcher.onLine(line),
-      onOpen:  () => { $stat.textContent = 'hub connected';
-                       $stat.classList.add('connected'); },
-      onClose: () => { $stat.textContent = 'hub disconnected';
-                       $stat.classList.remove('connected'); },
-      onError: () => { $stat.textContent = 'hub error, try again';
-                        $stat.classList.remove('connected'); },
-    });
+    await openSerial(serialHandlers);
   } catch (e) { $stat.textContent = 'connect hub'; }
 });
+// Silent reconnect if hub was authorized on a prior page.
+autoOpenSerial(serialHandlers).catch(() => {});
 
 // ═══════════════════════ Dev shortcuts ═══════════════════════
 addEventListener('keydown', (e) => {

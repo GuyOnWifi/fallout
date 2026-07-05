@@ -55,6 +55,11 @@ function replayFile(path, label) {
   console.log(`   powers: ${results.slice(0,10).map(r=>r.power.toFixed(2)).join(' ')}...`);
 }
 
-replayFile(new URL('./data/jab.csv',  import.meta.url).pathname, 'jab');
+// Replay every label we have training data for. Missing files skip silently.
+import { existsSync } from 'node:fs';
+for (const label of ['jab', 'hook', 'uppercut', 'block', 'idle', 'dodge_left', 'dodge_right', 'dodge_back', 'idle_twist']) {
+  const p = new URL(`./data/${label}.csv`, import.meta.url).pathname;
+  if (existsSync(p)) replayFile(p, label);
+}
 
 performance.now = origNow;

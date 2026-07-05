@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Baseball</title>
+<title>Soup Games — Baseball</title>
 <style>
   :root {
-    /* Soup Sports palette */
+    /* Soup Games palette */
     --sky-top:    #7bd3ee;
     --sky-mid:    #4fc0e3;
     --sky-deep:   #2a95c4;
@@ -230,7 +230,7 @@
   #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
               background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
 
-  /* ── Soup Sports chrome (shared treatment across pages) ── */
+  /* ── Soup Games chrome (shared treatment across pages) ── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -264,6 +264,31 @@
   @media (max-width: 640px) { #devhint { display:none; } }
 
   #log { display:none; }
+
+  #tune-log-wrap { position:absolute; top:16px; left:120px; z-index:131;
+                   display:flex; flex-direction:column; gap:6px; max-width:44vw; }
+  #tune-log-controls { display:flex; gap:6px; align-items:center; }
+  #tune-log-controls button {
+    padding:6px 12px; border-radius:8px;
+    background:var(--cream); color:var(--ink);
+    border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink);
+    font:inherit; font-size:11px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+  }
+  #tune-log-controls button:hover { background:var(--cream-warm); }
+  #tune-log-controls #tune-log-count {
+    font-family:ui-monospace,Menlo,monospace; font-size:11px;
+    color:var(--cream); background:rgba(28,42,58,.65);
+    padding:4px 10px; border-radius:999px;
+  }
+  #tune-log {
+    width:100%; height:220px; padding:10px 12px;
+    background:rgba(28,42,58,.85); color:#f7f3e6;
+    border:none; border-radius:8px;
+    font-family:ui-monospace,Menlo,monospace;
+    font-size:11px; line-height:1.5; resize:none;
+  }
+  @media (max-width: 640px) { #tune-log-wrap { display:none; } }
 </style>
 </head>
 <body>
@@ -308,6 +333,14 @@
 <button id="connect" class="ss-btn">connect hub</button>
 <div id="log"></div>
 <div id="devhint">keys · space swing · p pitch</div>
+<div id="tune-log-wrap">
+  <div id="tune-log-controls">
+    <button id="tune-log-copy" type="button">copy</button>
+    <button id="tune-log-clear" type="button">clear</button>
+    <span id="tune-log-count">0 rows</span>
+  </div>
+  <textarea id="tune-log" readonly placeholder="each swing logs one row here. throw a bunch, click copy, paste back."></textarea>
+</div>
 
 <script type="importmap">
 { "imports": {
@@ -319,7 +352,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { openSerial } from './serial.js';
+import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 
 // ══════════════════════════ Tunables ══════════════════════════
@@ -340,7 +373,7 @@ const PLATE_Z = 0;
 const PLATE_Y = 1.0;
 const BALL_RELEASE_Y = 2.0;
 
-// Soup Sports palette (three.js hex)
+// Soup Games palette (three.js hex)
 const COL = {
   skyTop:    0x7bd3ee,
   skyMid:    0x4fc0e3,
@@ -1007,7 +1040,15 @@ function commitSwing(nowMs) {
 
   log(`SWING pk gyro=${swing.peakGyro.toFixed(0)} dynA=${swing.peakAccel.toFixed(1)} pitch=${swing.peakPitch.toFixed(0)} roll=${swing.peakRoll.toFixed(0)}`);
 
-  if (isInStrikeWindow(nowMs)) {
+  const inWindow = isInStrikeWindow(nowMs);
+  logTune('swing', {
+    peakGyro: swing.peakGyro, peakAccel: swing.peakAccel,
+    pitch: swing.peakPitch, roll: swing.peakRoll,
+    power, launchAngle, pullDeg,
+    hit: inWindow ? 'HIT' : (state.pitchPhase === 'flight' ? 'WHIFF' : 'EARLY'),
+  });
+
+  if (inWindow) {
     connect(power, launchAngle, pullDeg);
   } else {
     if (state.pitchPhase === 'flight') {
@@ -1206,6 +1247,30 @@ function tick() {
 requestAnimationFrame(tick);
 
 // ══════════════════════════ Serial wire-up ══════════════════════════
+// Tune-log helpers.
+const $tuneLog = document.getElementById('tune-log');
+const $tuneCount = document.getElementById('tune-log-count');
+let tuneRows = 0;
+function logTune(kind, f) {
+  if (!$tuneLog) return;
+  const pad = (v, w=5, p=1) => (typeof v === 'number' ? v.toFixed(p) : String(v)).padStart(w);
+  const row = `${kind.padEnd(8)} pkGyro=${pad(f.peakGyro,5,0)} pkAcc=${pad(f.peakAccel,5,1)} pitch=${pad(f.pitch,6,1)} roll=${pad(f.roll,6,1)} pwr=${pad(f.power,4,2)} ang=${pad(f.launchAngle,5,1)} pull=${pad(f.pullDeg,5,1)} ${f.hit}\n`;
+  $tuneLog.value += row;
+  $tuneLog.scrollTop = $tuneLog.scrollHeight;
+  tuneRows++;
+  if ($tuneCount) $tuneCount.textContent = `${tuneRows} row${tuneRows === 1 ? '' : 's'}`;
+}
+document.getElementById('tune-log-copy')?.addEventListener('click', async () => {
+  if (!$tuneLog?.value) return;
+  try { await navigator.clipboard.writeText($tuneLog.value); }
+  catch { $tuneLog.select(); document.execCommand('copy'); }
+});
+document.getElementById('tune-log-clear')?.addEventListener('click', () => {
+  if ($tuneLog) $tuneLog.value = '';
+  tuneRows = 0;
+  if ($tuneCount) $tuneCount.textContent = '0 rows';
+});
+
 const dispatcher = new ArmDispatcher(() => {});
 const origOnLine = dispatcher.onLine.bind(dispatcher);
 dispatcher.onLine = (line) => {
@@ -1224,21 +1289,23 @@ dispatcher.onLine = (line) => {
   if (!Number.isNaN(s.ax)) onRawSample(armId, s);
 };
 
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => dispatcher.onLine(line),
+  onOpen: () => { $status.textContent = 'hub connected';
+                  $status.classList.add('connected'); },
+  onClose: () => { $status.textContent = 'hub disconnected';
+                   $status.classList.remove('connected'); },
+  onError: () => { $status.textContent = 'hub error, try again';
+                    $status.classList.remove('connected'); },
+};
 document.getElementById('connect').addEventListener('click', async () => {
   try {
     $status.textContent = 'choosing port…';
-    await openSerial({
-      baud: 115200,
-      onLine: (line) => dispatcher.onLine(line),
-      onOpen: () => { $status.textContent = 'hub connected';
-                      $status.classList.add('connected'); },
-      onClose: () => { $status.textContent = 'hub disconnected';
-                       $status.classList.remove('connected'); },
-      onError: () => { $status.textContent = 'hub error, try again';
-                        $status.classList.remove('connected'); },
-    });
+    await openSerial(serialHandlers);
   } catch (e) { $status.textContent = 'connect hub'; }
 });
+autoOpenSerial(serialHandlers).catch(() => {});
 
 // ══════════════════════════ Dev shortcuts ══════════════════════════
 addEventListener('keydown', (e) => {
