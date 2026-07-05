@@ -22,42 +22,46 @@ const G = 9.80665;
 // track pose changes over ~a second.
 const GRAV_ALPHA = 0.995;
 
-// Trigger / release thresholds. Jab dyn-accel peak ~25 m/s², retraction ~10.
-// Arm well above retraction to keep the state machine from firing twice per punch.
-const ARM_DYN_ACCEL   = 15.0;   // m/s²  — must clearly exceed idle noise
-const ARM_GYRO        = 260.0;  // deg/s
-const RELAX_DYN_ACCEL = 3.0;
-const RELAX_GYRO      = 90.0;
+// Trigger / release thresholds. Retuned against day3/tools/data/{jab,hook,
+// uppercut,block,idle}.csv on the current sensor mount (mild off-axis
+// angle). Live medians for the three punches: dynA 73..90, wmag 823..959.
+// Idle/block max dynA < 1.5. Huge margin.
+const ARM_DYN_ACCEL   = 25.0;   // m/s² — well above idle noise, below any real jab
+const ARM_GYRO        = 400.0;  // deg/s — idle max is 26, jab 25th pct is 712
+const RELAX_DYN_ACCEL = 4.0;
+const RELAX_GYRO      = 120.0;
 const QUIET_MS        = 100;
-const REFRACT_MS      = 850;   // longer, so the retraction of a jab cannot re-fire
-// Two failsafes on when to classify:
-//   MAX_ACTIVE_MS      hard timeout, in case dynA never decays cleanly
-//   POST_PEAK_DROP     classify the moment dynA has dropped this fraction
-//                      below its running max after having been high. That
-//                      catches the extension peak and ignores the retraction.
-const MAX_ACTIVE_MS   = 220;
-const POST_PEAK_DROP  = 0.55;  // fire when dynA falls to this fraction of peak
-const POST_PEAK_MIN   = 22.0;  // ... but only after peak has cleared this floor
+const REFRACT_MS      = 850;    // long, so retraction of a jab cannot re-fire
+// Classify the moment dynA has dropped this fraction below its running max
+// after having been high. Catches the extension peak, ignores the retraction.
+const MAX_ACTIVE_MS   = 500;
+const POST_PEAK_DROP  = 0.55;
+// dynA has a small wind-up bump (~40) before the real punch spike (~80).
+// Set POST_PEAK_MIN above the wind-up so we don't classify on the fake peak.
+// Jab 25th percentile dynA is 76, hook 77, uppercut 65 — safe floor at 60.
+const POST_PEAK_MIN   = 60.0;
 
 // Sanity gate: don't classify unless the ACTIVE window's peak actually
-// looks like a punch. Blocks classifier from firing on brief noise spikes
-// that briefly clear the ARM threshold but never build to a real punch.
-const MIN_PEAK_DYNA  = 18.0;
-const MIN_PEAK_GYRO  = 300.0;
+// looks like a punch. Blocks brief noise spikes.
+// New data: jab 25% dynA = 79, hook = 67, uppercut = 66. Set floor at 45.
+const MIN_PEAK_DYNA  = 45.0;
+const MIN_PEAK_GYRO  = 550.0;
 
-// Discriminators (tuned to recorded reps in day3/tools/data — see comment
-// in _classify() for the peak-signature stats that back these numbers).
-// Vertical thresholds set well above any residual jab down-tilt.
-const UPPERCUT_UP_MIN   = 15.0;
-const OVERHAND_DOWN_MIN = 20.0;
-const OVERHAND_DOMINATE = 1.4;  // down must clearly dominate horiz too
-const JAB_HORIZ_MIN     = 12.0;   // loosened so softer jabs still clear the floor
-// jab   w_horiz median 314, w_mag median 340
-// hook  w_horiz median 381, w_mag median 383  (from prior collection)
-const HOOK_ROT_SCORE_MIN = 500.0;
-// Power normalization saturation
-const POWER_ACCEL_SAT = 30.0;
-const POWER_GYRO_SAT  = 500.0;
+// Discriminators from day3/tools/data, projected onto idle.csv gravity:
+//   jab      down 41..57 | up  9..29 | wYaw/wH 0.34..0.48
+//   hook     down 42..50 | up 35..50 | wYaw/wH 0.48..0.75
+//   uppercut down 17..22 | up 32..58 | wYaw/wH 1.02..1.43
+// Simple 3-way tree:
+//   1. down high AND up low          -> jab
+//   2. wYaw/wHoriz very high         -> uppercut (huge yaw-about-vertical spike)
+//   3. otherwise                     -> hook
+const JAB_DOWN_MIN         = 35.0;
+const JAB_DOWN_OVER_UP     = 1.5;   // jab = 2.5, hook = 1.0, uppercut = 0.5
+const UPPERCUT_YAW_RATIO   = 0.90;  // hook peaks at ~0.75, uppercut starts at ~1.0
+
+// Power normalization saturation, retuned for the new magnitudes.
+const POWER_ACCEL_SAT = 100.0;
+const POWER_GYRO_SAT  = 950.0;
 
 export class Classifier {
   constructor() {
@@ -213,20 +217,19 @@ export class Classifier {
     const p = this.peak;
     let gesture = null;
 
-    // Discriminator learned from LIVE debug-log dumps on the user's mount.
-    // Ratio wYaw / wHoriz splits jab from hook cleanly:
-    //   jab   wY/wH  0.32..0.64 (one outlier at 1.02 out of 25 throws)
-    //   hook  wY/wH  0.88..2.47 (nearly always above 1.0)
-    // Physical read: jab is a straight push, rotation lives in the
-    // horizontal plane (wH), yaw about vertical stays small. Hook is a
-    // shoulder swing around vertical, so wY dominates.
-    // Uppercut: high vertical accel + high dynA. From live data all your
-    // uppercuts had up >= 28 and dynA >= 39. Not perfectly separable from
-    // hooks that swing upward, but this catches the clean cases.
-    if (p.horiz >= JAB_HORIZ_MIN && p.dynA >= MIN_PEAK_DYNA) {
-      if (p.up >= 28 && p.dynA >= 38)             gesture = 'uppercut';
-      else if (p.wYaw >= 0.85 * p.wHoriz)         gesture = 'hook';
-      else                                         gesture = 'jab';
+    // Discriminator retuned against day3/tools/data:
+    //   jab distinguishes on strong DOWN accel that beats UP
+    //   hook vs uppercut splits on wYaw/wHoriz ratio (hook rotates
+    //   about vertical more; uppercut lives in the horizontal plane)
+    if (p.dynA >= MIN_PEAK_DYNA && p.wmag >= MIN_PEAK_GYRO) {
+      const yawRatio = p.wHoriz > 0 ? p.wYaw / p.wHoriz : 0;
+      if (p.down >= JAB_DOWN_MIN && p.down >= p.up * JAB_DOWN_OVER_UP) {
+        gesture = 'jab';
+      } else if (yawRatio >= UPPERCUT_YAW_RATIO) {
+        gesture = 'uppercut';
+      } else {
+        gesture = 'hook';
+      }
     }
 
     if (gesture) {

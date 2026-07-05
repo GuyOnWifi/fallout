@@ -27,25 +27,52 @@ let fakeNow = 0;
 const origNow = performance.now.bind(performance);
 performance.now = () => fakeNow;
 
+// Derive a canonical "quiet" sample from idle.csv if it exists. All punch
+// recordings center on peak motion and never contain true rest, so we can't
+// derive gravity from them — but idle.csv is captured as sustained still,
+// which gives us a real gravity reference for the mount.
+import { existsSync as _exists } from 'node:fs';
+let quietFromIdle = '0,7.82,5.94,-1.93,0,0,0,0,0';   // sensible fallback (~1g)
+const idlePath = new URL('./data/idle.csv', import.meta.url).pathname;
+if (_exists(idlePath)) {
+  const rows = readFileSync(idlePath, 'utf8').split('\n').filter(Boolean).slice(1);
+  let sax=0, say=0, saz=0, n=0;
+  for (const r of rows) {
+    const c = r.split(',').map(Number);
+    // cols: rep,label,t_us,ax,ay,az,...
+    if (!isNaN(c[3])) { sax += c[3]; say += c[4]; saz += c[5]; n++; }
+  }
+  if (n > 0) {
+    quietFromIdle = `0,${(sax/n).toFixed(3)},${(say/n).toFixed(3)},${(saz/n).toFixed(3)},0,0,0,0,0`;
+    console.log(`# Using idle.csv gravity: ${quietFromIdle.slice(2)}  (${n} samples)`);
+  }
+}
+
 function replayFile(path, label) {
   const reps = loadCsv(path);
   const clf = new Classifier();
   const results = [];
   clf.onGesture = (g) => results.push(g);
 
+  // Use idle.csv (if present) as the ground-truth gravity vector for
+  // between-rep quiet injection. The auto-triggered collector centers on
+  // peak motion, so the recording window itself never contains true rest;
+  // we cannot derive gravity from the punch data at all.
+  const quietLine = quietFromIdle;
+
   for (const rep of reps) {
-    // Warm up the gravity estimator with the rep's own resting pose.
-    // The recorded window starts with ~200ms of "before the strike" — its
-    // first samples are the arm's actual pre-punch pose, so feed those in
-    // repeatedly. 400 samples * 5ms = 2s → LPF (τ≈1s) settles cleanly.
-    // Long warm-up so the classifier's LPF gravity converges fully to the
-    // rep's actual arm pose. 3000 samples @ α=0.995 → residual < 1e-6.
-    const seed = rep[0];
-    for (let i = 0; i < 3000; i++) { fakeNow += 5; clf.onSample(seed); }
+
+    // Warm-up: settle the classifier's gravity LPF to the rep's pose and
+    // let the hasRested latch flip. 3000 samples * 5ms = 15s (fake time),
+    // longer than the 850ms REFRACT so it does not matter what state the
+    // previous rep left us in.
+    for (let i = 0; i < 3000; i++) { fakeNow += 5; clf.onSample(quietLine); }
+
+    // The actual gesture recording.
     for (const line of rep) { fakeNow += 5; clf.onSample(line); }
-    // Trailing quiet using rep's last sample so state machine can fire.
-    const tail = rep[rep.length - 1];
-    for (let i = 0; i < 40; i++) { fakeNow += 5; clf.onSample(tail); }
+
+    // Trailing quiet so the state machine can fire on POST_PEAK or QUIET.
+    for (let i = 0; i < 400; i++) { fakeNow += 5; clf.onSample(quietLine); }
   }
 
   const tally = {};

@@ -54,8 +54,17 @@ inline void read_all(int16_t &ax, int16_t &ay, int16_t &az,
 }
 
 // Init sequence — same for MPU6050 and MPU6500. Returns WHO_AM_I byte.
+//
+// Pins can be overridden per-env in platformio.ini via build_flags:
+//   -DMPU_SDA_PIN=<gpio> -DMPU_SCL_PIN=<gpio>
+// If not defined, Wire uses whatever the board variant declares as default
+// (SDA/SCL on the pin labeled D4 / D5 on both XIAO S3 and XIAO C3).
 inline uint8_t begin_full_range() {
+#if defined(MPU_SDA_PIN) && defined(MPU_SCL_PIN)
+  Wire.begin(MPU_SDA_PIN, MPU_SCL_PIN);
+#else
   Wire.begin();
+#endif
   Wire.setClock(400000);
   uint8_t who = rd(REG_WHO_AM_I);
   wr(REG_PWR_MGMT_1, 0x80); delay(100);   // reset

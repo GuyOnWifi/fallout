@@ -74,7 +74,19 @@ void setup() {
   while (!Serial && (millis() - t0) < 1500) delay(10);
 
   uint8_t who = mpu::begin_full_range();
-  Serial.printf("# arm=%d WHO_AM_I=0x%02X (0x68=MPU6050, 0x70=MPU6500)\n", ARM_ID, who);
+  Serial.printf("# arm=%d WHO_AM_I=0x%02X (0x68=MPU6050, 0x70=MPU6500, 0xFF=nothing on bus)\n", ARM_ID, who);
+
+  // I2C bus scan so we can tell "wrong pin" from "no device" at a glance.
+  Serial.print("# i2c scan:");
+  int found = 0;
+  for (uint8_t addr = 1; addr < 127; addr++) {
+    Wire.beginTransmission(addr);
+    if (Wire.endTransmission() == 0) {
+      Serial.printf(" 0x%02X", addr);
+      found++;
+    }
+  }
+  Serial.printf("  (%d device%s found)\n", found, found == 1 ? "" : "s");
 
   espnow_ready = init_espnow();
   Serial.printf("# ESP-NOW %s on channel %d\n",
