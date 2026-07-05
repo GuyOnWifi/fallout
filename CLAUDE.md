@@ -353,4 +353,8 @@ node replay.mjs                        # verify accuracy
 
 ## When in doubt
 
-Read `JOURNEY.md`. Every non-obvious decision is there.
+Read `JOURNEY.md` for pivot decisions and `DEVLOG.md` for technical war
+stories (bug fixes, root causes, lessons). Both are living documents;
+`DEVLOG.md` in particular is append-only newest-first — if you fix a real
+bug, add a § at the top in the Symptom / Debug / Fix / Lesson format. It
+doubles as the demo-day technical talk.
