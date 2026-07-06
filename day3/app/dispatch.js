@@ -30,7 +30,9 @@ export class ArmDispatcher {
     let clf = this.classifiers.get(armId);
     if (!clf) {
       clf = new Classifier();
-      clf.onGesture = (g) => this.onGesture(armId, g);
+      clf.onGesture     = (g) => this.onGesture(armId, g);
+      clf.onSkip        = (reason, info) => this.onSkip?.(armId, reason, info);
+      clf.onBlockChange = (active) => this.onBlockChange?.(armId, active);
       this.classifiers.set(armId, clf);
       this.armsSeen.add(armId);
     }
@@ -58,4 +60,9 @@ export class ArmDispatcher {
 
   /** For debug/HUD: which arm IDs have we ever received? */
   connectedArms() { return [...this.armsSeen].sort(); }
+
+  /** True while the wristband on `armId` is holding a still block pose. */
+  isBlocking(armId) {
+    return this.classifiers.get(armId)?.blockActive === true;
+  }
 }

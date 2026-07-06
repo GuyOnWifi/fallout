@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Games — Boxing</title>
+<title>Soup Sports — Boxing</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -24,9 +24,12 @@
     --hot:        #ff9663;
     --gold:       #f4c95d;
 
-    /* legacy HUD accents, remapped */
-    --p1: var(--ruin-blue);
-    --p2: var(--hot);
+    /* Per-player colors — Switch-joycon palette. Player A gets the blue
+       joycon color; Player B gets the red. Applied to HUD labels, HP bars
+       (below `--hp-good`), and the center-screen gesture flash so a glance
+       tells you who just threw the punch. */
+    --p1: #0088cc;       /* player A — Switch blue */
+    --p2: #e60012;       /* player B — Switch red  */
     --hp-good: var(--vine);
     --stam:    var(--gold);
     --combo:   var(--hot);
@@ -67,13 +70,17 @@
     letter-spacing: .18em; text-transform: uppercase;
     color: var(--ink-soft);
   }
-  .hud-p1 .label { color: var(--ruin-blue); }
-  .hud-p2 .label { color: var(--hot); }
+  .hud-p1 .label { color: var(--p1); }
+  .hud-p2 .label { color: var(--p2); }
 
   .bar-container { width:100%; background: var(--cream-deep);
                    border: 2px solid var(--ink); border-radius: 999px;
                    margin-top:8px; overflow:hidden; height:14px; }
-  .stamina-bar-container, .combo-bar-container { height:8px; }
+  /* Stamina + combo bars are hidden by default — they crowd the HUD and
+     don't communicate anything the fight itself isn't already showing.
+     Unlock in ?dev mode if you're tuning the numbers. */
+  .stamina-bar-container, .combo-bar-container { height:8px; display:none; }
+  html.dev .stamina-bar-container, html.dev .combo-bar-container { display:block; }
   .health-bar, .stamina-bar, .combo-bar {
     height:100%; width:100%; border-radius:999px;
     background:var(--hp-good);
@@ -160,7 +167,7 @@
   #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
               background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
 
-  /* ────────── Soup Games chrome (shared treatment across pages) ────────── */
+  /* ────────── Soup Sports chrome (shared treatment across pages) ────────── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -221,6 +228,34 @@
            z-index:70; transition:opacity 600ms ease;
            line-height: 0.9; pointer-events:none; }
   body.game-active #title, #title.hidden { opacity:0; pointer-events:none; }
+
+  /* Big player labels shown at match start so you can see who's who.
+     Fired via body.intro-labels toggle; auto-fades ~3s in. */
+  #intro-labels {
+    position:absolute; inset:0; z-index:70;
+    opacity:0; transition:opacity 500ms ease;
+    pointer-events:none;
+  }
+  body.intro-labels-on #intro-labels { opacity:1; }
+  #intro-a, #intro-b {
+    position:absolute; top:26%;
+    font-size:clamp(32px, 5.4vw, 68px);
+    font-weight:900; letter-spacing:.02em;
+    text-transform:uppercase;
+    color: var(--cream);
+    padding:6px 22px;
+    border:3px solid var(--ink);
+    border-radius:14px;
+    box-shadow: 0 5px 0 var(--ink), 0 10px 24px rgba(28,42,58,.28);
+    animation: introBob 700ms ease-out;
+  }
+  #intro-a { left:12%;  background: var(--p1); }
+  #intro-b { right:12%; background: var(--p2); }
+  @keyframes introBob {
+    0%   { transform: translateY(-16px) scale(.86); opacity:0; }
+    60%  { transform: translateY(4px)   scale(1.08); opacity:1; }
+    100% { transform: translateY(0)     scale(1);   opacity:1; }
+  }
   #title small { display:block; font-size:16px; letter-spacing:.02em;
                  color: var(--ink); font-weight: 700;
                  margin-top: 20px;
@@ -305,27 +340,9 @@
     font-size:10px; font-weight:900; letter-spacing:.08em;
     text-transform:uppercase; color:var(--ink); margin-top:2px;
   }
-  .tut-glove {
-    width:16px; height:16px; line-height:1;
-    animation: tutSlide 2.4s ease-in-out infinite;
-  }
-  .tut-glove svg { display:block; }
-  .tut-card.jab .tut-glove      { animation-delay: 0s; }
-  .tut-card.hook .tut-glove     { animation-delay: 0.4s; animation-name: tutHook; }
-  .tut-card.uppercut .tut-glove { animation-delay: 0.8s; animation-name: tutUpper; }
-  @keyframes tutSlide {
-    0%, 100% { transform: translate(-28px, 0); opacity:.6; }
-    45%      { transform: translate(28px, 0);  opacity:1; }
-    55%      { transform: translate(28px, 0);  opacity:1; }
-  }
-  @keyframes tutHook {
-    0%, 100% { transform: translate(-24px, 6px); opacity:.6; }
-    50%      { transform: translate(24px, -10px); opacity:1; }
-  }
-  @keyframes tutUpper {
-    0%, 100% { transform: translate(0, 14px); opacity:.6; }
-    50%      { transform: translate(0, -14px); opacity:1; }
-  }
+  /* Old flying-glove animations removed — the fist now lives inside each
+     card's static SVG at the origin of the motion (jab left, hook bottom-
+     left, uppercut bottom) so it can't fly out of bounds. */
   /* Keep the three tutorial cards inside a 375px viewport */
   @media (max-width: 420px) {
     #tutorial { gap: 4px; padding: 8px 8px; max-width: 94vw; }
@@ -409,6 +426,14 @@
 
 <div id="title">SOUP <span class="accent">BOXING</span><small>gloves on, he's waiting</small></div>
 
+<!-- Match-start player labels — big blue "PLAYER A" over the left fighter
+     and big red "PLAYER B" over the right fighter, shown for ~3s so you can
+     see which soup is which at the top of a match. -->
+<div id="intro-labels" aria-hidden="true">
+  <div id="intro-a">PLAYER A</div>
+  <div id="intro-b">PLAYER B</div>
+</div>
+
 <div id="hud">
   <div class="hud-panel hud-p1">
     <div class="label" id="p1-label">player a</div>
@@ -428,29 +453,33 @@
 <div id="vignette"></div>
 
 <div id="tutorial">
+  <!-- Each card: static fist at the origin of the motion, arrow showing
+       direction. Jab left→right, hook curves across, uppercut fist first
+       at bottom then arrow up. All shapes constrained inside the viewBox
+       so they can't overflow the card. -->
   <div class="tut-card jab">
-    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M10 26 L60 26"/>
-      <path d="M49 14 L66 26 L49 38"/>
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <!-- fist on the LEFT (start of the jab) -->
+      <g transform="translate(4 14)">
+        <path d="M2 7 C1.6 3.6 4 1.4 8 1.6 C12.2 1.8 14.4 3.9 14 7.4 C13.6 9.6 12 11.1 9.2 11.3 L4.9 11.4 C3.1 11.2 2.3 9.4 2 7 Z" fill="#ff9663" stroke-width="2"/>
+        <path d="M4.6 11.4 L4.4 15.6 L11.9 15.8 L11.8 11.4 Z" fill="#fbf3e0" stroke-width="2"/>
+      </g>
+      <!-- arrow shaft going right -->
+      <path d="M28 26 L64 26"/>
+      <!-- arrow head -->
+      <path d="M55 16 L70 26 L55 36"/>
     </svg>
-    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Jab</div>
   </div>
-  <div class="tut-card hook">
-    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M24 41 A 18 16 0 1 1 55 40"/>
-      <path d="M62 31 L54 43 L42 38"/>
-    </svg>
-    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
-    <div class="name">Hook</div>
-  </div>
-  <div class="tut-card uppercut">
+  <div class="tut-card block">
     <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M39 44 L39 12"/>
-      <path d="M27 22 L39 10 L51 22"/>
+      <!-- shield silhouette -->
+      <path d="M39 8 L58 15 L58 30 C58 40 47 46 39 48 C31 46 20 40 20 30 L20 15 Z" fill="#9dd9f2" stroke-width="3"/>
+      <!-- up-arrow inside the shield showing the raise motion -->
+      <path d="M39 38 L39 22" stroke-width="2.5"/>
+      <path d="M32 28 L39 20 L46 28" stroke-width="2.5"/>
     </svg>
-    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
-    <div class="name">Uppercut</div>
+    <div class="name">Block</div>
   </div>
 </div>
 
@@ -494,6 +523,14 @@ import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
 import { sfx } from './sfx.js';
+import { showLoader } from './loader.js';
+
+showLoader({ game: 'boxing', tips: [
+  'move your hand back before punching, the classifier needs to see the wind-up',
+  'jab and hook feel similar, exaggerate the arc on hook to help',
+  'uppercut is your palm-up rising punch, the follow-through matters',
+  'stamina drops with each punch, mix it up',
+] });
 
 // ══════════════════════════ Scene ══════════════════════════
 const SKY_HEX = 0x7bd3ee;
@@ -545,6 +582,10 @@ scene.add(rim);
 const fill = new THREE.DirectionalLight(0xfff2d8, 0.5);
 fill.position.set(0, 2, 6);
 scene.add(fill);
+// Warm cream rim from high behind the fighters — back-edge glow (polish pass).
+const rimWarm = new THREE.DirectionalLight(0xffe4b0, 0.5);
+rimWarm.position.set(-1, 7, -9);
+scene.add(rimWarm);
 
 // ── Ring floor: cream base w/ ink grid, vine/ruin-blue corners ──
 function makeRingFloor() {
@@ -633,7 +674,7 @@ const corners = [
 
 // ── Sky clouds (three sphere puffs drifting high) ──
 const clouds = [];
-const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
 for (let i = 0; i < 8; i++) {
   const r = 0.6 + Math.random() * 0.7;
   const cloud = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cloudMat);
@@ -652,6 +693,194 @@ for (let i = 0; i < 8; i++) {
   cloud.userData.driftSpeed = 0.2 + Math.random() * 0.3;
   scene.add(cloud);
   clouds.push(cloud);
+}
+
+// ── Backdrop flair: horizon hills + ambient dust motes (additive only) ──
+// Rolling-hills silhouette rings the far edge of the grass apron so the
+// horizon reads as a place instead of a void. Static — no animation.
+const hillMat = new THREE.MeshBasicMaterial({ color: 0x6cb85a, side: THREE.DoubleSide });
+function addHills(z, width, hMin, hMax, seed) {
+  const segs = 24;
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, 0);
+  for (let i = 0; i <= segs; i++) {
+    const x = -width / 2 + (i / segs) * width;
+    const roll = 0.5 + 0.5 * Math.sin(seed + i * 1.7) * Math.sin(seed * 2 + i * 0.9);
+    shape.lineTo(x, hMin + roll * (hMax - hMin));
+  }
+  shape.lineTo(width / 2, 0);
+  const hills = new THREE.Mesh(new THREE.ShapeGeometry(shape), hillMat);
+  hills.position.z = z;
+  scene.add(hills);
+}
+addHills(-28, 90, 2.5, 4.0, 1.3);  // behind the opponent
+addHills( 28, 90, 2.5, 4.0, 4.7);  // behind camera — depth if the cam ever pans
+
+// Ambient dust motes: tiny cream sparkles rising off the ring for a sunlit
+// feel. Spawn a few per second, rise slowly, fade over 2s. Capped, pooled
+// geometry, no gameplay interaction.
+const DUST_MAX = 30;
+const dustGeo = new THREE.SphereGeometry(0.03, 6, 6);
+const dustMotes = [];
+let dustSpawnClock = 0;
+function updateDust(dt) {
+  dustSpawnClock += dt;
+  if (dustSpawnClock > 0.4 && dustMotes.length < DUST_MAX) {
+    dustSpawnClock = 0;
+    const m = new THREE.Mesh(dustGeo,
+      new THREE.MeshBasicMaterial({ color: 0xfbf3e0, transparent: true, opacity: 0.9 }));
+    m.position.set((Math.random() - 0.5) * 8, 0.05 + Math.random() * 0.3, (Math.random() - 0.5) * 6);
+    m.userData = { vy: 0.4 + Math.random() * 0.4, age: 0 };
+    scene.add(m);
+    dustMotes.push(m);
+  }
+  for (let i = dustMotes.length - 1; i >= 0; i--) {
+    const p = dustMotes[i];
+    p.userData.age += dt;
+    p.position.y += p.userData.vy * dt;
+    p.material.opacity = 0.9 * Math.max(0, 1 - p.userData.age / 2);
+    if (p.userData.age >= 2) {
+      scene.remove(p);
+      p.material.dispose();
+      dustMotes.splice(i, 1);
+    }
+  }
+}
+
+// ═══════════════ Visual polish: toon mascots, blobs, impact FX ═══════════════
+// Additive only — no gameplay changes. Toon + inverted-hull outlines on the
+// soup mascots, ground shadow blobs, impact bursts + paw afterimage streaks.
+const TOON_LIGHT_DIR = { value: new THREE.Vector3(0.5, 0.8, 0.6) }; // view space, shared by all toon mats
+const TOON_KEY_DIR = new THREE.Vector3(4, 8, 5).normalize();        // matches `key` light
+const TOON_VERT = `
+varying vec3 vNormal;
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const TOON_FRAG = `
+varying vec3 vNormal;
+uniform vec3 baseColor;
+uniform vec3 lightDir;
+void main() {
+  float d = dot(normalize(vNormal), normalize(lightDir));
+  float shade = (d > 0.5) ? 1.0 : (d > 0.0) ? 0.75 : 0.55;
+  gl_FragColor = vec4(baseColor * shade, 1.0);
+}`;
+const OUTLINE_VERT = `
+uniform float outlineWidth;
+void main() {
+  vec3 p = position + normal * outlineWidth;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+// ink #1c2a3a
+const OUTLINE_FRAG = `void main() { gl_FragColor = vec4(0.110, 0.165, 0.227, 1.0); }`;
+
+function applyToonMaterial(mesh, baseHex, outlineWidth = 2.0) {
+  const tint = new THREE.Color(baseHex);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { baseColor: { value: tint }, lightDir: TOON_LIGHT_DIR },
+    vertexShader: TOON_VERT, fragmentShader: TOON_FRAG,
+  });
+  mat.color = tint;   // alias so existing tint/flash code (KO red, etc.) keeps working
+  mesh.material = mat;
+  if (outlineWidth > 0) {
+    const outline = new THREE.Mesh(mesh.geometry, new THREE.ShaderMaterial({
+      uniforms: { outlineWidth: { value: outlineWidth } },
+      vertexShader: OUTLINE_VERT, fragmentShader: OUTLINE_FRAG,
+      side: THREE.BackSide,
+    }));
+    outline.castShadow = false;
+    mesh.add(outline);   // inherits the part's transform, incl. paw anim
+  }
+  return mat;
+}
+// Toon-shade every named mascot part; outline only the chunky parts — the
+// face decals are thin shells, hulling them smears ink across the face.
+const TOON_PARTS = ['body', 'ears', 'face_patch', 'eyes_nose', 'paws', 'tail'];
+const OUTLINE_PARTS = new Set(['body', 'ears', 'paws', 'tail']);
+function applyToonToSoup(soup, outlineWidth = 2.0) {   // width in model units (mm)
+  for (const name of TOON_PARTS) {
+    const node = soup.getObjectByName(name);
+    if (node && node.isMesh) {
+      applyToonMaterial(node, node.material.color.getHex(),
+                        OUTLINE_PARTS.has(name) ? outlineWidth : 0);
+    }
+  }
+}
+
+// Ground shadow blobs — plant the fighters on the canvas.
+function makeGroundBlob(radius, y = 0.012) {
+  const blob = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 20),
+    new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true,
+                                  opacity: 0.25, depthWrite: false }));
+  blob.rotation.x = -Math.PI / 2;
+  blob.position.y = y;
+  scene.add(blob);
+  return blob;
+}
+
+// Impact FX — 3D particle bursts at the hit point + paw motion-blur streaks.
+const FX_COLORS = [0xfbf3e0, 0xff9663, 0xf4c95d];
+const FX_P_SIZE = 0.03, FX_P_VEL = 1.6, FX_STREAK_W = 0.05;
+const fxGeo = new THREE.SphereGeometry(FX_P_SIZE, 6, 6);
+const fxParticles = [], fxStreaks = [];
+function spawnImpactBurst(pos, power = 0.7) {
+  const n = 10 + Math.floor(Math.random() * 5);
+  for (let i = 0; i < n; i++) {
+    const mat = new THREE.MeshBasicMaterial({ color: FX_COLORS[i % 3],
+      transparent: true, opacity: 1, depthWrite: false });
+    const m = new THREE.Mesh(fxGeo, mat);
+    m.position.copy(pos);
+    const th = Math.random() * Math.PI * 2, up = Math.random();
+    const r = Math.sqrt(1 - up * up);
+    m.userData.vel = new THREE.Vector3(Math.cos(th) * r, up, Math.sin(th) * r)
+      .multiplyScalar(FX_P_VEL * (0.6 + 0.8 * power) * (0.7 + Math.random() * 0.6));
+    m.userData.born = performance.now();
+    scene.add(m); fxParticles.push(m);
+  }
+}
+const _fxAxis = new THREE.Vector3(1, 0, 0);
+// Afterimage streaks laid along the attacker's paw trajectory over the last
+// few frames (the paw trail ring buffer is refreshed every tick).
+function spawnPawStreaks(f) {
+  const tr = f.pawTrail;
+  if (!tr || tr.length < 2) return;
+  let spawned = 0;
+  for (let i = tr.length - 1; i > 0 && spawned < 6; i--) {
+    const a = tr[i], b = tr[i - 1];
+    const seg = a.distanceTo(b);
+    if (seg < 0.02) continue;
+    const dir = a.clone().sub(b).normalize();
+    const geo = new THREE.PlaneGeometry(seg * 1.5, FX_STREAK_W * (1 - spawned * 0.12));
+    const mat = new THREE.MeshBasicMaterial({ color: 0xfbf3e0, transparent: true,
+      opacity: 0.5 * (1 - spawned / 6), side: THREE.DoubleSide, depthWrite: false });
+    const q = new THREE.Mesh(geo, mat);
+    q.position.copy(a).lerp(b, 0.5);
+    q.quaternion.setFromUnitVectors(_fxAxis, dir);
+    q.userData.born = performance.now();
+    q.userData.o0 = mat.opacity;
+    scene.add(q); fxStreaks.push(q);
+    spawned++;
+  }
+}
+function updateImpactFx(dt) {
+  const nowFx = performance.now();
+  for (let i = fxParticles.length - 1; i >= 0; i--) {
+    const m = fxParticles[i];
+    const a = (nowFx - m.userData.born) / 400;
+    if (a >= 1) { scene.remove(m); m.material.dispose(); fxParticles.splice(i, 1); continue; }
+    m.userData.vel.y -= 8 * dt;
+    m.position.addScaledVector(m.userData.vel, dt);
+    m.material.opacity = 1 - a;
+  }
+  for (let i = fxStreaks.length - 1; i >= 0; i--) {
+    const q = fxStreaks[i];
+    const a = (nowFx - q.userData.born) / 120;
+    if (a >= 1) { scene.remove(q); q.geometry.dispose(); q.material.dispose(); fxStreaks.splice(i, 1); continue; }
+    q.material.opacity = q.userData.o0 * (1 - a);
+  }
 }
 
 // ══════════════════════════ Fighters (two Soups) ══════════════════════════
@@ -700,6 +929,10 @@ const opp    = makeFighter(0,   -2.4, +1);   // faces +Z, squared up with the pl
 player.idlePhase = 0;
 opp.idlePhase = 2.4; // desync the idles so they don't mirror each other
 
+// Ground shadow blobs under each fighter (tracked to x/z every frame).
+const blobPlayer = makeGroundBlob(0.5);
+const blobOpp    = makeGroundBlob(0.5);
+
 function setupSoup(soup, tint) {
   // Y-up flip. Per soup/HANDOFF.md, after rot.x=-π/2 the face already points +Z.
   soup.rotation.x = -Math.PI / 2;
@@ -716,6 +949,10 @@ function setupSoup(soup, tint) {
     const node = soup.getObjectByName(name);
     if (node && node.material) node.material.color.setHex(hex);
   }
+  // Toon shading + ink outlines — applied after tinting so the toon material
+  // picks up the per-role colors. Flash/KO code mutates .color, which aliases
+  // the shader's baseColor uniform.
+  applyToonToSoup(soup, 2.0);
   return soup;
 }
 
@@ -736,9 +973,14 @@ loader.load(
   (gltf) => {
     // Player keeps the default cream; opponent gets the warmer taupe trim
     // so the matchup reads from behind the player's shoulder.
-    attachSoup(player, setupSoup(gltf.scene.clone(true), null));
+    // Player A tinted blue (Switch joycon blue) to match HUD; Player B (opp)
+    // tinted red. Face_patch + eyes_nose left default so they still read as
+    // "soup" and not "grape / apple."
+    attachSoup(player, setupSoup(gltf.scene.clone(true), {
+      body: 0x0088cc, paws: 0x005080, ears: 0x005080, tail: 0x005080,
+    }));
     attachSoup(opp, setupSoup(gltf.scene.clone(true), {
-      body: 0xecdcb1, paws: 0xc9a878, ears: 0xc9a878, tail: 0xc9a878,
+      body: 0xe60012, paws: 0x8b0009, ears: 0x8b0009, tail: 0x8b0009,
     }));
     log('mascots loaded');
   },
@@ -759,8 +1001,8 @@ scene.add(impactLight);
 
 // ══════════════════════════ Game state ══════════════════════════
 const state = {
-  p1: { hp:100, stamina:100, combo:0 },
-  p2: { hp:100, stamina:100, combo:0 },
+  p1: { hp:100, stamina:100, combo:0, blockingUntil: 0, stunUntil: 0 },
+  p2: { hp:100, stamina:100, combo:0, blockingUntil: 0, stunUntil: 0 },
   lastHitAt: 0,
   camShake: { x:0, y:0, until:0, amp:0 },
   koFired: false,
@@ -770,7 +1012,10 @@ const state = {
   koLoser: null,    // fighter reference — set at KO time
 };
 
-const DMG = { jab: 6, hook: 10, uppercut: 14 };
+// Simplified two-gesture ruleset: jab is your attack, block absorbs incoming
+// damage AND stuns the attacker. Hook/uppercut kept in the tables so any
+// legacy input still resolves, but the classifier never emits them anymore.
+const DMG = { jab: 8, hook: 10, uppercut: 14, block: 0 };
 const STAM_COST = { jab: 8, hook: 14, uppercut: 20 };
 
 // Punch timing: dur = full player animation, impact = when the paw connects.
@@ -779,7 +1024,12 @@ const PUNCH = {
   jab:      { dur: 280, impact: 105, react: 'hit_jab',   reactDur: 280 },
   hook:     { dur: 360, impact: 190, react: 'hit_hook',  reactDur: 430 },
   uppercut: { dur: 360, impact: 200, react: 'hit_upper', reactDur: 470 },
+  // Block: no damage lands. `impact` is used to time the "shield up" pose.
+  block:    { dur: 420, impact: 0,   react: 'guard',     reactDur: 0 },
 };
+
+// Stamina cost per gesture — block is a defensive move so it's cheap.
+const STAM_COST_BLOCK = 4;
 
 // Game clock (ms). Runs at real speed except for the KO slow-mo beat.
 let gt = 0;
@@ -827,6 +1077,11 @@ function markGestured() {
   hasGestured = true;
   $title.classList.add('hidden');
   document.body.classList.add('game-active');
+  // Big blue/red "PLAYER A / PLAYER B" plaques over each fighter at match
+  // start — visible for 3s so you can see which soup is which before the
+  // first hit lands.
+  document.body.classList.add('intro-labels-on');
+  setTimeout(() => document.body.classList.remove('intro-labels-on'), 3000);
   // Hold the tutorial for the remainder of MIN_TUT_MS before fading it out.
   const shownFor = performance.now() - tutorialShownAt;
   const remaining = Math.max(0, MIN_TUT_MS - shownFor);
@@ -893,8 +1148,8 @@ function fireKO() {
 // after the KO celebration also triggers this, so wristband-only players
 // are never stuck staring at the banner.
 function doRematch() {
-  state.p1 = { hp:100, stamina:100, combo:0 };
-  state.p2 = { hp:100, stamina:100, combo:0 };
+  state.p1 = { hp:100, stamina:100, combo:0, blockingUntil: 0, stunUntil: 0 };
+  state.p2 = { hp:100, stamina:100, combo:0, blockingUntil: 0, stunUntil: 0 };
   state.koFired = false;
   state.koLoser = null;
   state.lastHitAt = 0;
@@ -923,10 +1178,13 @@ function refreshHud() {
 }
 refreshHud();
 
-const GEST_COLOR = { jab:'#f4c95d', hook:'#ff9663', uppercut:'#6cb85a', block:'#4fc0e3' };
-function popGesture(name, power) {
+// Player colors mirror the Switch joycons — blue for A, red for B — so a
+// glance at the center flash tells you who just landed a hit.
+const PLAYER_COLOR = { A: '#0088cc', B: '#e60012' };
+function popGesture(name, power, letter) {
+  // No "A" / "B" prefix — the color alone (blue = A, red = B) says who.
   $gest.textContent = `${name} ${Math.round(power*100)}`;
-  $gest.style.color = GEST_COLOR[name] || '#fbf3e0';
+  $gest.style.color = PLAYER_COLOR[letter] || '#fbf3e0';
   $gest.classList.remove('pop'); void $gest.offsetWidth;
   $gest.classList.add('pop');
   setTimeout(() => $gest.classList.remove('pop'), 420);
@@ -954,20 +1212,31 @@ function applyGesture(g, armId = 0) {
     return;
   }
   markGestured();
-  popGesture(g.gesture, g.power);
+  const attackerLetter = pairing.playerForArm(armId) === 'B' ? 'B' : 'A';
+  const attackerIsOpp = attackerLetter === 'B';
+  popGesture(g.gesture, g.power, attackerLetter);
+
+  const attacker     = attackerIsOpp ? opp    : player;
+  const attackerStat = attackerIsOpp ? state.p2 : state.p1;
+  const spec         = PUNCH[g.gesture];
+  if (!spec) return;
+
+  // Block is a defensive gesture — sets the actor's own blockingUntil so the
+  // NEXT incoming impact whiffs and stuns the attacker. No damage enqueued.
+  if (g.gesture === 'block') {
+    sfx.click?.();
+    attacker.act = { name: 'block', start: gt, dur: spec.dur, side: -1, power: g.power };
+    attackerStat.stamina = Math.max(0, attackerStat.stamina - STAM_COST_BLOCK);
+    attackerStat.blockingUntil = performance.now() + 550;
+    refreshHud();
+    return;
+  }
+
   if (g.gesture === 'jab') sfx.punch(g.power);
   else if (g.gesture === 'hook') sfx.hookImpact(g.power);
   else if (g.gesture === 'uppercut') sfx.uppercutImpact(g.power);
   const dmgBase = DMG[g.gesture];
-  const spec = PUNCH[g.gesture];
-  if (!dmgBase || !spec) return;
-
-  // Player A → player fighter (LHS HUD, attacks opp). Player B → opp fighter.
-  // Arm ids are now MAC-derived (5-digit ints), so we route through pairing
-  // rather than a fixed armId===0/1 check. Unpaired arms default to A.
-  const attackerIsOpp = (pairing.playerForArm(armId) === 'B');
-  const attacker     = attackerIsOpp ? opp    : player;
-  const attackerStat = attackerIsOpp ? state.p2 : state.p1;
+  if (!dmgBase) return;
 
   // Both mascots share the same rig — right hand is always at local -X. So
   // the attacker always uses side=-1. The world-X knockback direction is
@@ -999,9 +1268,31 @@ function landImpact(imp) {
   const attackerStat = attackerIsOpp ? state.p2 : state.p1;
   const defenderStat = attackerIsOpp ? state.p1 : state.p2;
   const defender     = attackerIsOpp ? player   : opp;
+  const attacker     = attackerIsOpp ? opp      : player;
+  const now = performance.now();
+
+  // Block check — if the defender was still holding block within the last
+  // 200 ms grace window, the punch is absorbed AND the attacker gets stunned
+  // (their next 900 ms of punches deal 0 damage). Reward for a well-timed
+  // block: skill > spam.
+  const defenderArm = attackerIsOpp ? pairing.armForPlayer('A') : pairing.armForPlayer('B');
+  const wasBlocking = defenderArm != null && (defenderStat.blockingUntil || 0) >= now - 200;
+  if (wasBlocking) {
+    attackerStat.stunUntil = now + 900;
+    sfx.click?.();
+    fireHitConfirm(innerWidth / 2, innerHeight / 2, power * 0.6, 'BLOCK');
+    // Small camera shake, no HP hit, no combo credit.
+    state.camShake.until = now + 140;
+    state.camShake.amp = 0.03;
+    return;
+  }
+
+  // Attacker stunned by a previous block? Whiff — no damage.
+  if ((attackerStat.stunUntil || 0) > now) {
+    return;
+  }
 
   defenderStat.hp = Math.max(0, defenderStat.hp - dmg);
-  const now = performance.now();
   if (now - state.lastHitAt < 900) attackerStat.combo = Math.min(100, attackerStat.combo + 15);
   else                             attackerStat.combo = 15;
   state.lastHitAt = now;
@@ -1022,6 +1313,8 @@ function landImpact(imp) {
   impactLight.position.set(defender.g.position.x, 1.6, defender.g.position.z);
 
   const headWorld = new THREE.Vector3(defender.g.position.x + dir * 0.25, 1.2, defender.g.position.z);
+  spawnImpactBurst(headWorld, power);   // 3D burst at the hit point (before projecting)
+  spawnPawStreaks(attacker);            // afterimage of the punching paw
   headWorld.project(camera);
   const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
   const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
@@ -1147,6 +1440,19 @@ function applyPunch(f, act) {
       L.scale.y *= 1 + 0.12 * r;
       if (paws) { paws.position.z += 58 * r; paws.position.y += -42 * r; paws.position.x += side * 10 * r; }
     }
+  } else if (act.name === 'block') {
+    // Guard pose: raise the paws high in front of the face and hold. Small
+    // brace-in animation on the way up, held nearly still through the middle,
+    // gentle drop on the way out.
+    const rise = p < 0.25 ? easeOutCubic(p / 0.25) : 1;
+    const drop = p > 0.75 ? easeInOut((p - 0.75) / 0.25) : 0;
+    const guard = rise * (1 - drop);
+    L.rotation.x += -0.06 * guard;           // lean back slightly
+    L.scale.y    *= 1 - 0.02 * guard;        // small crouch
+    if (paws) {
+      paws.position.z += 22 * guard;         // paws come forward
+      paws.position.y += -34 * guard;        // and up (paw base is above chest)
+    }
   }
   if (p >= 1) f.act = null;
 }
@@ -1261,6 +1567,7 @@ function tick() {
     cloud.position.x += cloud.userData.driftSpeed * rdt;
     if (cloud.position.x > 16) cloud.position.x = -16;
   }
+  updateDust(rdt);
 
   // ── Camera: home framing → KO push-in on the crumpled opponent + shake ──
   const camPos = camHome.clone();
@@ -1290,6 +1597,19 @@ function tick() {
     if (p >= 1) { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.phase = 'idle'; }
     camera.updateProjectionMatrix();
   }
+
+  // ── Visual polish updates: fighter shadow blobs, paw trails, FX, toon light ──
+  blobPlayer.position.x = player.g.position.x; blobPlayer.position.z = player.g.position.z;
+  blobOpp.position.x = opp.g.position.x;       blobOpp.position.z = opp.g.position.z;
+  for (const f of [player, opp]) {
+    if (f.paws) {
+      if (!f.pawTrail) f.pawTrail = [];
+      f.pawTrail.push(f.paws.getWorldPosition(new THREE.Vector3()));
+      if (f.pawTrail.length > 7) f.pawTrail.shift();
+    }
+  }
+  updateImpactFx(rdt);
+  TOON_LIGHT_DIR.value.copy(TOON_KEY_DIR).transformDirection(camera.matrixWorldInverse);
 
   // Light decay + stamina regen (real time)
   impactLight.intensity *= 0.88;
@@ -1328,6 +1648,40 @@ const dispatcher = new ArmDispatcher((armId, g) => {
   }
   applyGesture(g, armId);
 });
+
+// Block polling — extend blockingUntil while the wristband holds still.
+// The classifier flips blockActive on/off; we translate that into a
+// grace-windowed timestamp on the player's state so landImpact can check
+// with a simple `blockingUntil >= now - 200` and land the reward.
+const BLOCK_GRACE_MS = 250;
+function pollBlocks() {
+  const now = performance.now();
+  const armA = pairing.armForPlayer('A');
+  const armB = pairing.armForPlayer('B');
+  if (armA != null && dispatcher.isBlocking(armA)) state.p1.blockingUntil = now + BLOCK_GRACE_MS;
+  if (armB != null && dispatcher.isBlocking(armB)) state.p2.blockingUntil = now + BLOCK_GRACE_MS;
+}
+setInterval(pollBlocks, 40);
+
+// Log every rejected swing too — so "why didn't my punch fire?" is answerable
+// from the same widget. Reasons:
+//   low-dynA / low-wmag → the ACTIVE peaks fell under MIN_PEAK_DYNA/GYRO
+//   no-rest-gate        → arm never returned to rest since the last classify
+dispatcher.onSkip = (armId, reason, info) => {
+  if (!$tuneLog) return;
+  const arm = armLabel(armId);
+  const dynA = (info.dynA || 0).toFixed(1).padStart(5);
+  const wmag = (info.wmag || 0).toFixed(0).padStart(4);
+  const thr  = info.threshold !== undefined ? ` thr=${info.threshold}` : '';
+  const extra = info.horiz !== undefined
+    ? ` a_h=${info.horiz.toFixed(1)} up=${info.up.toFixed(1)} down=${info.down.toFixed(1)} wH=${info.wHoriz.toFixed(0)} wY=${info.wYaw.toFixed(0)}`
+    : '';
+  const row = `SKIP:${reason.padEnd(12)} arm ${arm} dynA=${dynA} |w|=${wmag}${thr}${extra}\n`;
+  $tuneLog.value += row;
+  $tuneLog.scrollTop = $tuneLog.scrollHeight;
+  tuneRowCount++;
+  if ($tuneCount) $tuneCount.textContent = `${tuneRowCount} row${tuneRowCount === 1 ? '' : 's'}`;
+};
 
 // Log controls
 document.getElementById('tune-log-copy')?.addEventListener('click', async () => {

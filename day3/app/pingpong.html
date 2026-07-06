@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Tennis</title>
+<title>Soup Sports — Ping Pong</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -18,8 +18,8 @@
     --cream-deep: #ecdcb1;
     --ruin-blue:  #37628a;
     --ruin-teal:  #2f8fa3;
-    --vine:       #6cb85a;
-    --vine-deep:  #4a9440;
+    --vine:       #ff5a2c;
+    --vine-deep:  #a5471d;
     --ink:        #1c2a3a;
     --ink-soft:   #476278;
     --hot:        #ff9663;
@@ -303,7 +303,7 @@
       <div class="serve-dot">serve</div>
     </div>
     <div class="mid">
-      <span id="mid-sets">sets 0–0</span>
+      <span>set to 3</span>
       <span class="call" id="score-call">love–love</span>
     </div>
     <div class="col B" id="col-B">
@@ -355,21 +355,21 @@ import { pairing } from './pairing.js';
 import { sfx } from './sfx.js';
 import { showLoader } from './loader.js';
 
-showLoader({ game: 'tennis', tips: [
-  'wait for the ball to be near the net before you swing',
-  'forehand and backhand come from the direction of your swing',
-  "serve when you're paired and the CPU tosses to you",
+showLoader({ game: 'pingpong', tips: [
+  'short, snappy strikes work better than big swings',
+  'the ball is quick, so is the rally',
+  "watch which side of the paddle you're hitting with",
 ] });
 
 // ═══════════════════════ Three.js scene ═══════════════════════
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x4fc0e3);
-scene.fog = new THREE.Fog(0x4fc0e3, 40, 110);
+scene.fog = new THREE.Fog(0x4fc0e3, 30, 90);
 
-// Side-elevated view so a full 23.77m court fits in frame.
+// Side-elevated view so both baselines fit in frame.
 const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
-const camHome = new THREE.Vector3(11, 9, 17);
-const camLook = new THREE.Vector3(0, 1, 0);
+const camHome = new THREE.Vector3(5.5, 5.0, 9.5);
+const camLook = new THREE.Vector3(0, 0.6, 0);
 camera.position.copy(camHome);
 camera.lookAt(camLook);
 
@@ -393,46 +393,32 @@ rim.position.set(-4, 6, -6);
 scene.add(rim);
 // Warm cream rim from high behind the mascots — back-edge glow (polish pass).
 const rimWarm = new THREE.DirectionalLight(0xffe4b0, 0.5);
-rimWarm.position.set(-6, 9, -12);
+rimWarm.position.set(-4, 6, -8);
 scene.add(rimWarm);
 
 // ── Court dimensions ──
-// Real singles tennis court, meters. Player A on +z (near) half. Player B on
-// -z (far) half. Net at z=0. All physics units meters, seconds.
-const COURT_LEN     = 23.77;
-const BASELINE      = COURT_LEN / 2;   // 11.885
-const SERVICE_LINE  = 6.40;
-const SINGLES_W     = 8.23;
-const SINGLES_HALF  = SINGLES_W / 2;   // 4.115
-const DOUBLES_W     = 10.97;
-const DOUBLES_HALF  = DOUBLES_W / 2;   // 5.485
-const NET_H_CENTER  = 0.914;
-const NET_H_POST    = 1.07;
-const BALL_R        = 0.033;
-const G_ACCEL       = 9.81;
-// Drag: per-frame factor at 60fps (spec) applied to horizontal velocity.
-const DRAG_60       = 0.995;
-// Bounce restitution: vy = -vy * BOUNCE_R, horiz *= BOUNCE_H.
-const BOUNCE_R      = 0.75;
-const BOUNCE_H      = 0.95;
+// Player A on +z (near) half. Player B on -z (far) half. Net at z=0.
+const COURT_W = 3.6;
+const COURT_L = 8.0;
+const HALF_L  = COURT_L / 2;
+const halfW   = COURT_W / 2;
 
-// Court flooring — extends past doubles + baselines.
 const court = new THREE.Mesh(
-  new THREE.PlaneGeometry(DOUBLES_W + 5.0, COURT_LEN + 6.0),
+  new THREE.PlaneGeometry(COURT_W + 3.0, COURT_L + 4.0),
   new THREE.MeshStandardMaterial({ color: 0xebd9a8, roughness: 0.9 })
 );
 court.rotation.x = -Math.PI/2;
 scene.add(court);
 
 const outer = new THREE.Mesh(
-  new THREE.PlaneGeometry(200, 200),
+  new THREE.PlaneGeometry(140, 140),
   new THREE.MeshStandardMaterial({ color: 0x37a7d0, roughness: 0.95 })
 );
 outer.rotation.x = -Math.PI/2;
 outer.position.y = -0.02;
 scene.add(outer);
 
-function addLine(x1, z1, x2, z2, thickness = 0.06) {
+function addLine(x1, z1, x2, z2, thickness = 0.08) {
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
   const mesh = new THREE.Mesh(
@@ -444,44 +430,33 @@ function addLine(x1, z1, x2, z2, thickness = 0.06) {
   mesh.rotation.z = -Math.atan2(dz, dx);
   scene.add(mesh);
 }
-// Baselines
-addLine(-DOUBLES_HALF, -BASELINE,  DOUBLES_HALF, -BASELINE, 0.08);
-addLine(-DOUBLES_HALF,  BASELINE,  DOUBLES_HALF,  BASELINE, 0.08);
-// Doubles sidelines
-addLine(-DOUBLES_HALF, -BASELINE, -DOUBLES_HALF,  BASELINE, 0.08);
-addLine( DOUBLES_HALF, -BASELINE,  DOUBLES_HALF,  BASELINE, 0.08);
-// Singles sidelines
-addLine(-SINGLES_HALF, -BASELINE, -SINGLES_HALF,  BASELINE, 0.08);
-addLine( SINGLES_HALF, -BASELINE,  SINGLES_HALF,  BASELINE, 0.08);
-// Service lines (span singles width, on both sides of the net)
-addLine(-SINGLES_HALF, -SERVICE_LINE,  SINGLES_HALF, -SERVICE_LINE);
-addLine(-SINGLES_HALF,  SERVICE_LINE,  SINGLES_HALF,  SERVICE_LINE);
-// Center service line (between the two service lines)
-addLine(0, -SERVICE_LINE, 0, SERVICE_LINE);
-// Center marks at each baseline (small ticks)
-addLine(0,  BASELINE - 0.30, 0, BASELINE);
-addLine(0, -BASELINE, 0, -BASELINE + 0.30);
+addLine(-halfW, -HALF_L, -halfW,  HALF_L);
+addLine( halfW, -HALF_L,  halfW,  HALF_L);
+addLine(-halfW, -HALF_L,  halfW, -HALF_L);
+addLine(-halfW,  HALF_L,  halfW,  HALF_L);
+addLine(-halfW, -HALF_L/2, halfW, -HALF_L/2);
+addLine(-halfW,  HALF_L/2, halfW,  HALF_L/2);
+addLine(0, -HALF_L/2, 0, HALF_L/2);
 
 // ── Net ──
-// Slight visual sag: three panels; collision uses flat NET_H_CENTER.
 const netGroup = new THREE.Group();
 const netMat = new THREE.MeshStandardMaterial({
-  color: 0xfbf3e0, roughness: 0.9, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
-const netPanel = new THREE.Mesh(
-  new THREE.PlaneGeometry(DOUBLES_W + 1.8, NET_H_CENTER), netMat);
-netPanel.position.set(0, NET_H_CENTER/2, 0);
-netGroup.add(netPanel);
+  color: 0xfbf3e0, roughness: 0.9, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
+// Ping-pong net is TINY — a low tape strip stretched across the table.
+const net = new THREE.Mesh(new THREE.PlaneGeometry(COURT_W + 0.4, 0.18), netMat);
+net.position.set(0, 0.09, 0);
+netGroup.add(net);
 const netTop = new THREE.Mesh(
-  new THREE.BoxGeometry(DOUBLES_W + 1.9, 0.05, 0.05),
+  new THREE.BoxGeometry(COURT_W + 0.45, 0.03, 0.03),
   new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.6 })
 );
-netTop.position.set(0, NET_H_CENTER, 0);
+netTop.position.set(0, 0.18, 0);
 netGroup.add(netTop);
-const postGeo = new THREE.CylinderGeometry(0.06, 0.06, NET_H_POST + 0.05, 12);
+const postGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.22, 10);
 const postMat = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.7 });
 [-1, 1].forEach(s => {
   const post = new THREE.Mesh(postGeo, postMat);
-  post.position.set(s * (DOUBLES_HALF + 0.9), (NET_H_POST + 0.05)/2, 0);
+  post.position.set(s * (halfW + 0.2), 0.11, 0);
   netGroup.add(post);
 });
 scene.add(netGroup);
@@ -489,21 +464,21 @@ scene.add(netGroup);
 // ── Clouds ──
 const clouds = [];
 const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
-for (let i = 0; i < 8; i++) {
+for (let i = 0; i < 7; i++) {
   const cloud = new THREE.Group();
   const n = 3 + Math.floor(Math.random() * 3);
   for (let j = 0; j < n; j++) {
-    const r = 1.0 + Math.random() * 1.1;
+    const r = 0.9 + Math.random() * 0.9;
     const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), cloudMat);
-    s.position.set((j - n/2) * 1.2, Math.random() * 0.4, Math.random() * 0.5);
+    s.position.set((j - n/2) * 1.1, Math.random() * 0.4, Math.random() * 0.5);
     cloud.add(s);
   }
   cloud.position.set(
-    (Math.random() - 0.5) * 80,
-    9 + Math.random() * 6,
-    -25 - Math.random() * 30
+    (Math.random() - 0.5) * 60,
+    8 + Math.random() * 5,
+    -20 - Math.random() * 25
   );
-  cloud.userData.driftSpeed = 0.15 + Math.random() * 0.25;
+  cloud.userData.driftSpeed = 0.15 + Math.random() * 0.2;
   clouds.push(cloud);
   scene.add(cloud);
 }
@@ -513,7 +488,7 @@ for (let i = 0; i < 8; i++) {
 // as a place instead of a void. Static — no animation.
 const hillMat = new THREE.MeshBasicMaterial({ color: 0x6cb85a, side: THREE.DoubleSide });
 {
-  const width = 160, segs = 24, hMin = 2.5, hMax = 4.5, seed = 3.4;
+  const width = 120, segs = 24, hMin = 2.0, hMax = 4.0, seed = 7.9;
   const shape = new THREE.Shape();
   shape.moveTo(-width / 2, 0);
   for (let i = 0; i <= segs; i++) {
@@ -523,7 +498,7 @@ const hillMat = new THREE.MeshBasicMaterial({ color: 0x6cb85a, side: THREE.Doubl
   }
   shape.lineTo(width / 2, 0);
   const hills = new THREE.Mesh(new THREE.ShapeGeometry(shape), hillMat);
-  hills.position.z = -40;
+  hills.position.z = -30;
   scene.add(hills);
 }
 
@@ -531,7 +506,7 @@ const hillMat = new THREE.MeshBasicMaterial({ color: 0x6cb85a, side: THREE.Doubl
 // feel. Spawn a few per second, rise slowly, fade over 2s. Capped, pooled
 // geometry, no gameplay interaction.
 const DUST_MAX = 30;
-const dustGeo = new THREE.SphereGeometry(0.04, 6, 6);
+const dustGeo = new THREE.SphereGeometry(0.03, 6, 6);
 const dustMotes = [];
 let dustSpawnClock = 0;
 function updateDust(dt) {
@@ -540,7 +515,7 @@ function updateDust(dt) {
     dustSpawnClock = 0;
     const m = new THREE.Mesh(dustGeo,
       new THREE.MeshBasicMaterial({ color: 0xfbf3e0, transparent: true, opacity: 0.9 }));
-    m.position.set((Math.random() - 0.5) * 12, 0.05 + Math.random() * 0.4, (Math.random() - 0.5) * 24);
+    m.position.set((Math.random() - 0.5) * 6, 0.05 + Math.random() * 0.3, (Math.random() - 0.5) * 10);
     m.userData = { vy: 0.4 + Math.random() * 0.4, age: 0 };
     scene.add(m);
     dustMotes.push(m);
@@ -634,7 +609,7 @@ function makeGroundBlob(radius, y = 0.02) {
 
 // Impact FX — particle bursts on ball contact + racket afterimage streaks.
 const FX_COLORS = [0xfbf3e0, 0xff9663, 0xf4c95d];
-const FX_P_SIZE = 0.06, FX_P_VEL = 3.0, FX_STREAK_W = 0.12, FX_STREAK_SPAN = 1.6;
+const FX_P_SIZE = 0.04, FX_P_VEL = 1.8, FX_STREAK_W = 0.07, FX_STREAK_SPAN = 0.9;
 const fxGeo = new THREE.SphereGeometry(FX_P_SIZE, 6, 6);
 const fxParticles = [], fxStreaks = [];
 function spawnImpactBurst(pos, power = 0.7) {
@@ -711,11 +686,15 @@ function updateFovPunch(now) {
   }
 }
 
+
 // ═══════════════════════ Player mascots ═══════════════════════
-const MASCOT_SCALE = 0.014;
-// Mascots stand ~1m inside each baseline.
-const BASE_Z_A =  BASELINE - 0.8;
-const BASE_Z_B = -BASELINE + 0.8;
+// Two identical soup mascots, retinted per player. Both loaded from the same
+// GLB — see soup/HANDOFF.md. Placeholder shows until the GLB lands.
+const MASCOT_SCALE = 0.012;
+// Ping-pong mascots stand BEHIND the (short) table, not on it. Push them
+// past the baseline so the paddle swing meets the ball above the table edge.
+const BASE_Z_A =  HALF_L + 1.4;   // player A near baseline (+z)
+const BASE_Z_B = -HALF_L - 1.4;   // player B far  baseline (-z)
 
 function makePlaceholder(tint) {
   const g = new THREE.Group();
@@ -734,17 +713,21 @@ function makePlaceholder(tint) {
   return g;
 }
 
+// Group per player — game logic reads .position, animation lives on inner mesh.
 const soupA = new THREE.Group();
 soupA.position.set(0, 0, BASE_Z_A);
-soupA.rotation.y = Math.PI;    // face -z (toward net)
+// Turn the whole GROUP 180° around world Y so player A faces the net (-z).
+// Do NOT stack rotation.y on top of the mascot's own rotation.x flip — that
+// combo lands the mascot upside-down / below the floor (DEVLOG §11, §12).
+soupA.rotation.y = Math.PI;
 scene.add(soupA);
 const soupB = new THREE.Group();
 soupB.position.set(0, 0, BASE_Z_B);
 scene.add(soupB);
 
 // Ground shadow blobs under each mascot (tracked to x/z every frame).
-const blobA = makeGroundBlob(0.55, 0.02);
-const blobB = makeGroundBlob(0.55, 0.02);
+const blobA = makeGroundBlob(0.5, 0.02);
+const blobB = makeGroundBlob(0.5, 0.02);
 
 const phA = makePlaceholder(0xff9663); soupA.add(phA);
 const phB = makePlaceholder(0xf6e9c9); soupB.add(phB);
@@ -758,10 +741,14 @@ const anim = {
 const loader = new GLTFLoader();
 loader.load('assets/mascot.glb', (gltf) => {
   try {
+    // Player A — near baseline, hot orange, faces -z (toward net/B)
     const a = gltf.scene.clone(true);
     a.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     a.scale.setScalar(MASCOT_SCALE);
     a.rotation.x = -Math.PI / 2;
+    // NO rotation.y on the mascot itself — the parent group soupA handles the
+    // 180° turn. Stacking both rotations here reproduces DEVLOG §11's
+    // upside-down-mascot / invisible-mascot bug.
     const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0x0088cc);
     const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x005080);
     const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0x0088cc);
@@ -769,10 +756,14 @@ loader.load('assets/mascot.glb', (gltf) => {
     mascot.A.mesh = a; mascot.A.paws = aPaws;
     applyToonToSoup(a, 2.0);
 
+    // Player B — far baseline, teal-blue, faces +z (toward net/A)
     const b = gltf.scene.clone(true);
     b.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     b.scale.setScalar(MASCOT_SCALE);
     b.rotation.x = -Math.PI / 2;
+    // no y-flip: mascot faces +z by default → toward the net
+    // Player B — warm cream/taupe (matches boxing's CPU tint), visually
+    // distinct from player A's hot-orange without breaking the palette.
     const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0xe60012);
     const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x8b0009);
     const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0xe60012);
@@ -782,30 +773,29 @@ loader.load('assets/mascot.glb', (gltf) => {
   } catch (err) {
     console.warn('mascot setup failed, keeping placeholders:', err);
   }
+  // Signal the boot loader (loader.js) that assets are in.
   document.body.classList.add('game-active');
 }, undefined, (err) => {
   console.warn('mascot.glb load failed — placeholder stays:', err);
   document.body.classList.add('game-active');
 });
 
-// ── Ball ──
-// Real tennis ball radius (0.033m). Emissive so it stays visible from the
-// elevated side camera at ~17m.
+// ── Ball — small table-tennis ball, electric orange ──
 const ball = new THREE.Mesh(
-  new THREE.SphereGeometry(BALL_R, 20, 14),
+  new THREE.SphereGeometry(0.06, 18, 12),
   new THREE.MeshStandardMaterial({
-    color: 0xdaff5a, roughness: 0.4,
-    emissive: 0x8ac000, emissiveIntensity: 0.55 })
+    color: 0xff5a2c, roughness: 0.35,
+    emissive: 0xa5471d, emissiveIntensity: 0.4 })
 );
 ball.position.set(0, 1.0, BASE_Z_A);
 scene.add(ball);
 
 const ballShadow = new THREE.Mesh(
-  new THREE.CircleGeometry(0.15, 16),
+  new THREE.CircleGeometry(0.09, 16),
   new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true, opacity: 0.28 })
 );
 ballShadow.rotation.x = -Math.PI/2;
-ballShadow.position.y = 0.015;
+ballShadow.position.y = 0.02;
 scene.add(ballShadow);
 
 // ── Ball trail ──
@@ -814,7 +804,7 @@ const trailPositions = new Float32Array(TRAIL_LEN * 3);
 const trailGeom = new THREE.BufferGeometry();
 trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
 const trailMatCore = new THREE.LineBasicMaterial({
-  color: 0xeaff70, transparent: true, opacity: 0.95,
+  color: 0xff8a4a, transparent: true, opacity: 0.95,
 });
 const trail = new THREE.Line(trailGeom, trailMatCore);
 scene.add(trail);
@@ -824,10 +814,10 @@ const trailSpriteCanvas = (() => {
   c.width = c.height = 64;
   const g = c.getContext('2d');
   const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0.00, 'rgba(255,255,220,1)');
-  grd.addColorStop(0.35, 'rgba(220,255,90,0.85)');
-  grd.addColorStop(0.75, 'rgba(180,220,60,0.25)');
-  grd.addColorStop(1.00, 'rgba(180,220,60,0)');
+  grd.addColorStop(0.00, 'rgba(255,230,210,1)');
+  grd.addColorStop(0.35, 'rgba(255,138,74,0.9)');
+  grd.addColorStop(0.75, 'rgba(255,90,44,0.28)');
+  grd.addColorStop(1.00, 'rgba(255,90,44,0)');
   g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
   return c;
 })();
@@ -840,7 +830,7 @@ for (let i = 0; i < TRAIL_SPRITES; i++) {
     blending: THREE.AdditiveBlending, opacity: 0,
   });
   const s = new THREE.Sprite(m);
-  s.scale.setScalar(0.35);
+  s.scale.setScalar(0.4);
   scene.add(s);
   trailSprites.push(s);
 }
@@ -863,7 +853,7 @@ function pushTrail(p) {
     if (src) {
       s.position.copy(src);
       const t = 1 - i / TRAIL_SPRITES;
-      s.scale.setScalar(0.14 + 0.36 * t);
+      s.scale.setScalar(0.18 + 0.42 * t);
       s.material.opacity = 0.9 * t * t;
     } else {
       s.material.opacity = 0;
@@ -883,76 +873,60 @@ function clearTrail() {
 
 // ═══════════════════════ Game state ═══════════════════════
 //
-// Real-tennis state machine:
-//   idle             — waiting to start
-//   serve_wait       — ball pinned by server, awaiting their swing
-//   in_flight_serve  — ball airborne, must land in target service box
-//   in_flight_rally  — post-serve, either player can hit before 2nd bounce
-//   point_end / game_end / set_end / match_end — banner interlude
+// Rally state machine:
+//   'idle'         — game hasn't started (waiting for connect / pair)
+//   'serve_wait'   — ball pinned to server, waiting for their swing
+//   'in_flight'    — ball airborne heading to state.headingTo
+//   'point_end'    — banner up between points
+//   'game_end'     — banner up between games (or set)
 //
-// SCORE
-//   points  — 0..3 (=0/15/30/40) or 'AD' after advantage. Deuce at 3-3.
-//   games   — 0..7. Win: >=6 AND lead>=2, cap 7 (no tiebreak).
-//   sets    — first to 1 wins match.
+// The ball's active-player side is state.headingTo. It flips ONCE per rally
+// stroke — inside processHit() the moment a receiver successfully returns.
 //
-// SERVE
-//   server         — 'A' | 'B', alternates each game
-//   servingFrom    — 'deuce' | 'ad', alternates every point in a game
-//   firstServe     — true on first attempt of a point; false after a fault
+// Server is state.server ('A' or 'B'). Server alternates every game
+// (standard tennis is one-server-per-game; we use whole-game alternation).
 //
-// BALL TRACKING
-//   hitter/receiver, bounces since last hit, target service box for a serve.
-//
-// From server A's view (standing at +z looking toward -z), A's right is +x
-// (A's deuce court is world +x, +z). Diagonal-opposite = receiver B's deuce
-// box (world -x, -z half). B faces +z so B's right is -x; B's deuce court is
-// world -x, -z.
+// Scoring: state.points['A' | 'B'] is 0..3 for 0/15/30/40, or 'AD' after
+// an advantage. Deuce = both at 3. First to 3 games wins the set.
 
-const HITTABLE_MS      = 380;    // swing window around ball arrival at hitter
-const HITTABLE_LATE_MS = 120;    // grace after arrival
-const SET_TARGET_GAMES = 6;      // win a set at 6, need 2-game lead
-const SET_CAP_GAMES    = 7;      // cap at 7 (no tiebreak this build)
-const MATCH_TARGET_SETS = 1;
+const HITTABLE_MS = 350;      // catchable swing window (was 220 — too tight)
+const HITTABLE_LATE_MS = 90;  // grace after arrival
+const SET_TARGET = 3;
+const G_ACCEL = 9.8;
 
 const state = {
   mode: 'idle',
   server: 'A',
-  servingFrom: 'deuce',
-  firstServe: true,
-  headingTo: 'A',
+  headingTo: 'A',        // who ball is currently flying to (or serving to)
   ballVel: new THREE.Vector3(),
   rally: 0,
   points: { A: 0, B: 0 },
   games:  { A: 0, B: 0 },
-  sets:   { A: 0, B: 0 },
   arriveTime: 0,
   hittableStart: 0,
   hittableEnd: 0,
   camShake: { until: 0, amp: 0 },
-  pvp: false,
-  cpuControls: null,
+  pvp: false,            // set true once both slots paired
+  cpuControls: null,     // 'A' or 'B' when non-pvp
 };
 
-// Ball tracker — reset each hit / serve.
-const bt = {
-  hitter:   null,    // who last struck the ball ('A' or 'B')
-  receiver: null,    // who ball is heading to
-  bounces:  0,       // bounces since last hit
-  isServe:  false,   // true from serve launch until first bounce
-  serveTargetBox: null,   // {xMin,xMax,zMin,zMax} for current serve
-};
-
+// Wire pvp/cpu once — recompute on pairing changes.
 function refreshMode() {
   const armA = pairing.armForPlayer('A');
   const armB = pairing.armForPlayer('B');
   state.pvp = (armA !== null && armB !== null);
   state.cpuControls = state.pvp ? null : (armA === null ? 'A' : 'B');
+  // Actually: whichever slot is EMPTY is CPU-controlled. If both empty, CPU
+  // controls B and player A takes any inbound arm (fallback single-player).
   if (!state.pvp) {
     state.cpuControls = (armB === null) ? 'B' : 'A';
   }
+  // Only nag about pairing once at least one wristband has actually been
+  // heard — before that the hint is just noise for a judge walking up.
   document.getElementById('pair-hint')
     .classList.toggle('show', !state.pvp && pairing.stats.size > 0);
 }
+
 pairing.onChange(refreshMode);
 refreshMode();
 
@@ -971,7 +945,6 @@ const $pointB   = document.getElementById('point-B');
 const $call     = document.getElementById('score-call');
 const $colA     = document.getElementById('col-A');
 const $colB     = document.getElementById('col-B');
-const $midSets  = document.getElementById('mid-sets');
 
 function sparkleShower(cx, cy, count = 18) {
   for (let i = 0; i < count; i++) {
@@ -1003,6 +976,7 @@ function scoreCall() {
   return `${pointLabel(A)}–${pointLabel(B)}`;
 }
 
+// Set a scoreboard number and give it a quick pop when it changes.
 function setScoreNum(el, v) {
   const s = String(v);
   if (el.textContent === s) return;
@@ -1019,7 +993,6 @@ function refreshScore() {
   $call.textContent = scoreCall();
   $colA.classList.toggle('serving', state.server === 'A');
   $colB.classList.toggle('serving', state.server === 'B');
-  if ($midSets) $midSets.textContent = `sets ${state.sets.A}–${state.sets.B}`;
   const r = state.rally;
   let streakClass = '';
   let flame = '';
@@ -1071,199 +1044,98 @@ function shakeCamera(power) {
   state.camShake.amp = 0.06 + 0.18 * power;
 }
 
-// ═══════════════════════ Helpers ═══════════════════════
+// ═══════════════════════ Ball flight ═══════════════════════
+function baselineZFor(player) { return player === 'A' ? BASE_Z_A : BASE_Z_B; }
 function otherPlayer(p) { return p === 'A' ? 'B' : 'A'; }
 function mascotPos(player) { return player === 'A' ? soupA.position : soupB.position; }
-function baselineZFor(player) { return player === 'A' ? BASELINE : -BASELINE; }
-function zSideOf(player) { return player === 'A' ? +1 : -1; }
 
-// Diagonal-opposite service box for a serve.
-function serveTargetBox(server, side) {
-  // Server A (at +z looking -z): deuce = server's right = world +x. Target =
-  // receiver B's deuce court, world (-x, -z half).
-  if (server === 'A' && side === 'deuce')
-    return { xMin: -SINGLES_HALF, xMax: 0,             zMin: -SERVICE_LINE, zMax: 0 };
-  if (server === 'A' && side === 'ad')
-    return { xMin: 0,             xMax:  SINGLES_HALF, zMin: -SERVICE_LINE, zMax: 0 };
-  // Server B (at -z looking +z): deuce = server's right = world -x. Target =
-  // receiver A's deuce court, world (+x, +z half).
-  if (server === 'B' && side === 'deuce')
-    return { xMin: 0,             xMax:  SINGLES_HALF, zMin: 0, zMax: SERVICE_LINE };
-  return   { xMin: -SINGLES_HALF, xMax: 0,             zMin: 0, zMax: SERVICE_LINE };
-}
-
-// Server standing position (behind their baseline, offset to the correct
-// half of the court based on deuce/ad).
-function serverStartPos(server, side) {
-  const z = server === 'A' ? BASELINE + 0.3 : -BASELINE - 0.3;
-  // Deuce court is server's right. A faces -z (right = +x), B faces +z (right = -x).
-  const xSign = server === 'A'
-    ? (side === 'deuce' ? +1 : -1)
-    : (side === 'deuce' ? -1 : +1);
-  const x = xSign * (SINGLES_HALF * 0.55);
-  return new THREE.Vector3(x, 2.30, z);
-}
-
-// Center of a target box.
-function boxCenter(box) {
-  return new THREE.Vector3((box.xMin+box.xMax)/2, BALL_R, (box.zMin+box.zMax)/2);
-}
-
-// ═══════════════════════ Serve launcher ═══════════════════════
-// Given start, target-landing point, and power → initial velocity that (in
-// gravity, no drag) reaches target at time t. Serve speed 25 + 10*power m/s
-// gives us t = horizontal_dist / speed for a roughly-flat trajectory.
-function ballisticVelocity(from, target, power, minT = 0.55, maxT = 3.0) {
-  const dx = target.x - from.x;
-  const dz = target.z - from.z;
-  const dy = target.y - from.y;
-  const horiz = Math.hypot(dx, dz);
-  const speed = 25 + 10 * power;
-  let t = THREE.MathUtils.clamp(horiz / speed, minT, maxT);
-
-  // Guarantee the ball clears the net at z=0 by height NET_CLEAR. Iterate
-  // up to 40 times, stretching t by 12% each round until the arc's linear
-  // height at the net is above NET_CLEAR. maxT cap is now 3 s (was 1.6),
-  // so even extreme return angles can loft high enough. Net faults are
-  // effectively impossible after this — the ball always makes it over.
-  const NET_CLEAR = NET_H_CENTER + 0.55;
-  const crossesNet = (from.z > 0) !== (target.z > 0);
-  if (crossesNet) {
-    for (let i = 0; i < 40; i++) {
-      const vy = (dy + 0.5 * G_ACCEL * t * t) / t;
-      const vz = dz / t;
-      const tNet = -from.z / vz;
-      if (!isFinite(tNet) || tNet <= 0 || tNet >= t) break;
-      const yAtNet = from.y + vy * tNet - 0.5 * G_ACCEL * tNet * tNet;
-      if (yAtNet >= NET_CLEAR) break;
-      // Not enough clearance — stretch t (higher arc). Cap at maxT.
-      t = Math.min(maxT, t * 1.12);
-      if (t >= maxT) break;
-    }
-  }
-
+function launchArc(from, to, flightMs) {
+  const t = flightMs / 1000;
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const dy = to.y - from.y;
+  ball.position.copy(from);
   const vx = dx / t;
   const vz = dz / t;
   const vy = (dy + 0.5 * G_ACCEL * t * t) / t;
-  return { v: new THREE.Vector3(vx, vy, vz), t };
+  state.ballVel.set(vx, vy, vz);
+  state.mode = 'in_flight';
+  state.arriveTime = performance.now() + flightMs;
+  state.hittableEnd = state.arriveTime + HITTABLE_LATE_MS;
+  state.hittableStart = state.arriveTime - (HITTABLE_MS - HITTABLE_LATE_MS);
+  clearTrail();
 }
 
 function pinBallToServer() {
-  const pos = serverStartPos(state.server, state.servingFrom);
-  ball.position.copy(pos);
+  const mp = mascotPos(state.server);
+  // Slight offset in from the baseline + upward hold
+  const zOffset = state.server === 'A' ? -0.3 : 0.3;
+  ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
   clearTrail();
-  ballShadow.position.x = pos.x;
-  ballShadow.position.z = pos.z;
 }
 
 function startServe() {
   state.mode = 'serve_wait';
-  state.rally = 0;
-  bt.hitter = null; bt.receiver = null; bt.bounces = 0;
-  bt.isServe = false; bt.serveTargetBox = null;
+  state.headingTo = state.server;   // ball is with server; they'll launch to the other
   pinBallToServer();
-  refreshScore();
   const label = state.server === 'A' ? 'player a' : 'player b';
-  const which = state.firstServe ? '1st' : '2nd';
-  setPrompt(`${label} — ${which} serve, ${state.servingFrom} court`);
-  // CPU serves after a beat.
+  setPrompt(`${label} — swing to serve!`);
+  // CPU serves automatically after a beat.
   if (!state.pvp && state.cpuControls === state.server) {
     setTimeout(() => {
-      if (state.mode !== 'serve_wait') return;
-      // CPU is generally reliable but faults occasionally.
-      const misfire = Math.random() > 0.9;
-      const power = 0.4 + Math.random() * 0.5;
-      // Deliberate wide roll on misfire.
-      const roll = misfire ? (Math.random() < 0.5 ? -45 : 45) : (Math.random() - 0.5) * 12;
-      handleSwing(state.server, { power, roll, forehand: true });
+      if (state.mode === 'serve_wait') cpuSwing();
     }, 900);
   }
 }
 
-// ═══════════════════════ Hit resolution ═══════════════════════
-// Serve: launch to diagonal service box (with a tiny aim offset from roll).
-function launchServe(server, power, roll) {
-  const box = serveTargetBox(server, state.servingFrom);
-  bt.serveTargetBox = box;
-  const center = boxCenter(box);
-  // roll adds a bit of aim inside the box (clamped).
-  const aim = THREE.MathUtils.clamp(roll / 60, -1, 1);
-  const boxHalfX = (box.xMax - box.xMin) / 2;
-  center.x += aim * (boxHalfX - 0.3);
-  const from = serverStartPos(server, state.servingFrom);
-  ball.position.copy(from);
-  const { v } = ballisticVelocity(from, center, power);
-  state.ballVel.copy(v);
-  state.mode = 'in_flight_serve';
-  bt.hitter   = server;
-  bt.receiver = otherPlayer(server);
-  bt.bounces  = 0;
-  bt.isServe  = true;
-  clearTrail();
-  fireHitConfirm(from, power);
-  shakeCamera(power * 0.6);
-  spawnImpactBurst(from, power);
-  spawnSwingStreaks(from, state.ballVel);
-  fovPunch(power);
-  anim[server].swingStart = performance.now();
-  // Approximate arrival (for CPU return timing / swing window).
-  const arriveT = 0.85;
-  state.arriveTime = performance.now() + arriveT * 1000;
-  state.hittableEnd = state.arriveTime + HITTABLE_LATE_MS;
-  state.hittableStart = state.arriveTime - (HITTABLE_MS - HITTABLE_LATE_MS);
-}
-
-// Rally return: aim into opponent's singles court.
-function launchReturn(swinger, power, roll) {
+// swinger = 'A' | 'B', with input power/roll.
+// Called both from serve and from mid-rally return. Ball flips to the other side.
+function processHit(swinger, power, roll) {
   const target = otherPlayer(swinger);
-  const targetBaselineZ = baselineZFor(target);
-  // Roll = lateral aim. Depth scaled by power (more power = deeper into
-  // opponent's court).
-  const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
-  const targetX = aim * (SINGLES_HALF - 0.6);
-  // Land 1.5..(BASELINE-1) in from receiver side of net.
-  const depth = 1.5 + power * (Math.abs(targetBaselineZ) - 2.5);
-  const targetZ = target === 'A' ? +depth : -depth;
-  const to = new THREE.Vector3(targetX, BALL_R, targetZ);
   const from = ball.position.clone();
-  const { v, t } = ballisticVelocity(from, to, power);
-  state.ballVel.copy(v);
-  ball.position.copy(from);
-  state.mode = 'in_flight_rally';
-  bt.hitter   = swinger;
-  bt.receiver = target;
-  bt.bounces  = 0;
-  bt.isServe  = false;
-  clearTrail();
+  const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
+  const targetX = aim * (halfW - 0.6);
+  // Land ball a bit inside opponent's baseline, deeper on higher power.
+  const baseZ = baselineZFor(target);
+  const dir = target === 'B' ? -1 : +1;   // deeper into B = more negative z
+  const targetZ = baseZ - dir * (1.2 + (1 - power) * 1.0);
+  const to = new THREE.Vector3(targetX, 1.0, targetZ);
+  // Ball speed roughly halved (was 620-260*power = 360-620 ms; now
+  // 1100-300*power = 800-1100 ms). Gives the receiver a comfortable
+  // ~350-500 ms swing window instead of the tight 220 ms it used to be.
+  const flight = 1100 - power * 300;
+  launchArc(from, to, flight);
+  state.headingTo = target;
+  // Bounce-rule tracking — reset on every hit. The ball must bounce ONCE
+  // on the receiver's side of the net before the receiver's swing counts.
+  state.bounceCount = 0;
+  state.bounceSide = 0;
   fireHitConfirm(from, power);
   shakeCamera(power * 0.7);
   spawnImpactBurst(from, power);
-  spawnSwingStreaks(from, state.ballVel);
+  spawnSwingStreaks(from, to.clone().sub(from));
   fovPunch(power);
   anim[swinger].swingStart = performance.now();
-  state.arriveTime = performance.now() + t * 1000;
-  state.hittableEnd = state.arriveTime + HITTABLE_LATE_MS;
-  state.hittableStart = state.arriveTime - (HITTABLE_MS - HITTABLE_LATE_MS);
 }
 
-// ═══════════════════════ Faults / scoring ═══════════════════════
-function serveFault(reason) {
-  if (state.mode === 'point_end' || state.mode === 'game_end') return;
-  state.mode = 'point_end';
-  if (state.firstServe) {
-    state.firstServe = false;
-    popBanner('fault', reason, 'miss');
-    setTimeout(startServe, 1400);
+function cpuSwing() {
+  // Straightforward CPU: 85% return rate, random aim.
+  const returns = state.mode === 'serve_wait' ? true : Math.random() < 0.85;
+  const cpu = state.cpuControls;
+  if (returns) {
+    const power = 0.5 + Math.random() * 0.4;
+    const roll = (Math.random() - 0.5) * 60;
+    processHit(cpu, power, roll);
   } else {
-    // Double fault → point to receiver.
-    popBanner('double fault!', reason, 'miss');
-    state.firstServe = true;
-    setTimeout(() => resolvePoint(otherPlayer(state.server), 'double fault'), 900);
+    anim[cpu].missStart = performance.now();
+    awardPoint(otherPlayer(cpu), `${cpu.toLowerCase()} missed`);
   }
 }
 
-function resolvePoint(winner, subtitle) {
-  if (state.mode === 'game_end') return;
+// ═══════════════════════ Scoring ═══════════════════════
+function awardPoint(winner, subtitle) {
+  if (state.mode === 'point_end' || state.mode === 'game_end') return;
+  state.mode = 'point_end';
   const loser = otherPlayer(winner);
   const w = state.points[winner];
   const l = state.points[loser];
@@ -1272,219 +1144,110 @@ function resolvePoint(winner, subtitle) {
   if (w === 'AD') {
     gameWon = true;
   } else if (l === 'AD') {
+    // Back to deuce
     state.points = { A: 3, B: 3 };
   } else if (w < 3) {
     state.points[winner] = w + 1;
   } else {
+    // winner is at 40
     if (l < 3) gameWon = true;
-    else state.points[winner] = 'AD';
+    else state.points[winner] = 'AD';   // deuce → advantage
   }
 
   const cx = innerWidth * 0.5;
   const cy = innerHeight * 0.42;
   sparkleShower(cx, cy, 22);
   anim[winner].hopStart = performance.now();
+
   const bannerKind = winner === 'A' ? '' : 'b';
   const winnerName = winner === 'A' ? 'player a' : 'player b';
 
   if (gameWon) {
     state.games[winner] += 1;
     state.points = { A: 0, B: 0 };
-    const gw = state.games[winner], gl = state.games[loser];
-    const setWon = (gw >= SET_TARGET_GAMES && gw - gl >= 2) || gw >= SET_CAP_GAMES;
-
+    const setWon = state.games[winner] >= SET_TARGET;
     if (setWon) {
-      state.sets[winner] += 1;
-      const matchWon = state.sets[winner] >= MATCH_TARGET_SETS;
-      state.mode = 'set_end';
-      if (matchWon) {
-        state.mode = 'match_end';
-        popBanner(`${winnerName} wins the match!`,
-                  `sets ${state.sets.A}–${state.sets.B}`, bannerKind);
-        refreshScore();
-        setTimeout(() => {
-          state.sets = { A: 0, B: 0 };
-          state.games = { A: 0, B: 0 };
-          state.points = { A: 0, B: 0 };
-          state.server = winner;
-          state.servingFrom = 'deuce';
-          state.firstServe = true;
-          refreshScore();
-          startServe();
-        }, 4200);
-        return;
-      }
-      popBanner(`${winnerName} takes the set`,
-                `sets ${state.sets.A}–${state.sets.B}`, bannerKind);
+      state.mode = 'game_end';
+      popBanner(`${winnerName} wins the set!`,
+                `${state.games.A}–${state.games.B}`, bannerKind);
       refreshScore();
       setTimeout(() => {
         state.games = { A: 0, B: 0 };
-        state.server = otherPlayer(state.server);
-        state.servingFrom = 'deuce';
-        state.firstServe = true;
+        state.server = winner === 'A' ? 'B' : 'A';
         refreshScore();
         startServe();
-      }, 3000);
+      }, 3200);
       return;
     }
-    state.mode = 'game_end';
     popBanner(`game — ${winnerName}`,
               `games ${state.games.A}–${state.games.B}`, bannerKind);
+    // Alternate serve on each new game.
     state.server = otherPlayer(state.server);
-    state.servingFrom = 'deuce';
-    state.firstServe = true;
-    refreshScore();
-    setTimeout(startServe, 1800);
   } else {
-    state.mode = 'point_end';
     popBanner(subtitle || `point — ${winnerName}`, scoreCall(), bannerKind);
-    // Alternate service side within a game.
-    state.servingFrom = (state.servingFrom === 'deuce') ? 'ad' : 'deuce';
-    state.firstServe = true;
-    refreshScore();
-    setTimeout(startServe, 1600);
   }
-}
-
-function awardPoint(winner, subtitle) {
-  if (state.mode === 'point_end' || state.mode === 'game_end' ||
-      state.mode === 'set_end' || state.mode === 'match_end') return;
-  state.mode = 'point_end';
-  resolvePoint(winner, subtitle);
-}
-
-// ═══════════════════════ Bounce & net handling ═══════════════════════
-function handleBounce() {
-  bt.bounces++;
-  const { x, z } = ball.position;
-
-  // 1) Serve first bounce → must be in target service box.
-  if (bt.isServe) {
-    bt.isServe = false;
-    const b = bt.serveTargetBox;
-    const inBox = b && x >= b.xMin - 0.02 && x <= b.xMax + 0.02
-                    && z >= b.zMin - 0.02 && z <= b.zMax + 0.02;
-    if (!inBox) {
-      const reason =
-        (Math.sign(z) === zSideOf(state.server)) ? 'in the net area' :
-        (Math.abs(x) > SINGLES_HALF)             ? 'wide' :
-        (Math.abs(z) > SERVICE_LINE)             ? 'long' : 'out of box';
-      serveFault(reason);
-      return;
-    }
-    // Valid serve — reset bounce count for the return window.
-    bt.bounces = 1;
-    state.mode = 'in_flight_rally';
-    state.firstServe = true;   // reset for next point
-    // Receiver has until second bounce; set an arrival estimate from apex.
-    return;
-  }
-
-  // 2) Rally first bounce after a hit — must be in receiver's singles court.
-  if (bt.bounces === 1) {
-    const receiver = bt.receiver;
-    const hitter   = bt.hitter;
-    const rSign = zSideOf(receiver);
-    const inCourt = Math.abs(x) <= SINGLES_HALF + 0.02
-                 && Math.sign(z) === rSign
-                 && Math.abs(z) <= BASELINE + 0.02
-                 && Math.abs(z) > 0.02;
-    if (!inCourt) {
-      const reason =
-        (Math.sign(z) !== rSign)                  ? 'into the net area' :
-        (Math.abs(x) > SINGLES_HALF)              ? 'wide' :
-        (Math.abs(z) > BASELINE)                  ? 'long' : 'out';
-      awardPoint(receiver, `${hitter.toLowerCase()} hit ${reason}`);
-    }
-    return;
-  }
-
-  // 3) Second bounce on receiver's side → they failed to return.
-  if (bt.bounces >= 2) {
-    awardPoint(bt.hitter, `${bt.receiver.toLowerCase()} let it double-bounce`);
-  }
-}
-
-// Net collisions removed entirely as a gameplay feature. Serves and rallies
-// used to fault into the net so often that it killed the fun. Now the ball
-// clips through the net visually if it comes in low — no fault, no let-cord
-// deflection, no penalty. The scene still renders the net (it's part of the
-// visual court identity), it just doesn't stop the ball.
-//
-// If a ball would land on the net's side (hit low and stopped there), the
-// arc iterator in ballisticVelocity already fights that; anything that
-// still gets through is now just cosmetic.
-function checkNetCollision(prevZ, prevY) {
-  return false;
+  state.rally = 0;
+  refreshScore();
+  setTimeout(startServe, 1600);
 }
 
 // ═══════════════════════ Physics tick ═══════════════════════
 function updateBall(dt) {
-  if (state.mode !== 'in_flight_serve' && state.mode !== 'in_flight_rally') return;
-
-  const prevZ = ball.position.z;
-  const prevY = ball.position.y;
-
-  // Gravity + air drag on horizontal.
+  if (state.mode !== 'in_flight') return;
   state.ballVel.y -= G_ACCEL * dt;
-  const drag = Math.pow(DRAG_60, dt * 60);
-  state.ballVel.x *= drag;
-  state.ballVel.z *= drag;
-
   ball.position.addScaledVector(state.ballVel, dt);
-  ball.rotation.x += 8 * dt;
+  ball.rotation.x += 6 * dt;
   pushTrail(ball.position);
   ballShadow.position.x = ball.position.x;
   ballShadow.position.z = ball.position.z;
-  const s = THREE.MathUtils.clamp(1.0 - ball.position.y * 0.25, 0.2, 1.0);
+  const s = THREE.MathUtils.clamp(1.0 - ball.position.y * 0.3, 0.2, 1.0);
   ballShadow.scale.setScalar(s);
   ballShadow.material.opacity = 0.28 * s;
 
-  // Net check first (before ground bounce), because ball crossing the net at
-  // low altitude should end the shot regardless of where it lands.
-  if (checkNetCollision(prevZ, prevY)) return;
-
-  // Ground bounce.
-  if (ball.position.y <= BALL_R && state.ballVel.y < 0) {
-    ball.position.y = BALL_R;
-    state.ballVel.y = -state.ballVel.y * BOUNCE_R;
-    state.ballVel.x *= BOUNCE_H;
-    state.ballVel.z *= BOUNCE_H;
-    handleBounce();
-    if (state.mode !== 'in_flight_serve' && state.mode !== 'in_flight_rally') return;
+  if (ball.position.y <= 0.11 && state.ballVel.y < 0) {
+    ball.position.y = 0.11;
+    state.ballVel.y = -state.ballVel.y * 0.55;
+    state.ballVel.x *= 0.9;
+    state.ballVel.z *= 0.9;
+    // Record where the bounce landed for the bounce-rule check.
+    state.bounceCount = (state.bounceCount || 0) + 1;
+    state.bounceSide  = Math.sign(ball.position.z);   // +z = A side, −z = B side
   }
 
-  // Safety: ball flew way off (behind server's own baseline, or ridiculous
-  // altitude) → give point to whoever it wasn't going to.
-  if (Math.abs(ball.position.z) > BASELINE + 5.0 || ball.position.y > 20) {
-    if (state.mode === 'in_flight_serve') { serveFault('long'); return; }
-    awardPoint(bt.receiver, `${bt.hitter.toLowerCase()} sent it long`);
+  const now = performance.now();
+  const target = state.headingTo;
+  const hitter = otherPlayer(target);
+
+  // Sideways out of play → hitter's shot was bad → point to target.
+  if (Math.abs(ball.position.x) > halfW + 0.9) {
+    awardPoint(target, `${hitter.toLowerCase()} sent it wide`);
+    return;
+  }
+  // Past target's baseline OR swing window expired → target failed to
+  // return a legit shot → hitter's point. (No bounce tracking; if the ball
+  // landed in bounds and bounced past, we still count it as missed.)
+  const baseZ = baselineZFor(target);
+  const past = target === 'A' ? (ball.position.z > baseZ + 1.2)
+                              : (ball.position.z < baseZ - 1.2);
+  if (past || now > state.hittableEnd + 250) {
+    awardPoint(hitter, `${target.toLowerCase()} missed`);
     return;
   }
 
-  // CPU return: when ball is on CPU's side after a valid bounce, react.
-  if (!state.pvp && state.cpuControls === bt.receiver
-      && state.mode === 'in_flight_rally' && bt.bounces >= 1) {
-    // React ~140ms after landing, once.
-    if (!bt._cpuScheduled) {
-      bt._cpuScheduled = true;
-      setTimeout(() => {
-        bt._cpuScheduled = false;
-        if (state.mode !== 'in_flight_rally') return;
-        if (bt.receiver !== state.cpuControls) return;
-        // 85% return rate.
-        if (Math.random() < 0.85) {
-          const power = 0.45 + Math.random() * 0.5;
-          const roll = (Math.random() - 0.5) * 60;
-          handleSwing(state.cpuControls, { power, roll, forehand: Math.random() < 0.7 });
-        }
-        // else: CPU misses → the next tick will hit 2nd bounce and award.
-      }, 140);
-    }
+  // If CPU controls the receiver, decide their return around arrival time.
+  if (!state.pvp && state.cpuControls === target && now >= state.arriveTime - 30) {
+    // Consume this in-flight so the next tick doesn't re-fire.
+    state.mode = 'idle';
+    state.rally++;
+    refreshScore();
+    setTimeout(cpuSwing, 180);
   }
 }
 
 // ═══════════════════════ Swing detector (per-arm) ═══════════════════════
+// Constants tuned from live logs (see previous single-player revision).
+// The state machine itself is unchanged; we just clone the state per armId
+// so two wristbands can be running through the same detector concurrently.
 const GYRO_ARM_DPS   = 200;
 const GYRO_QUIET_DPS = 90;
 const QUIET_MS       = 40;
@@ -1495,6 +1258,7 @@ const POST_PEAK_MIN  = 25;
 const ACCEL_MIN      = 15;
 const ACCEL_MAX      = 100;
 const MIN_PEAK_ACC   = 22;
+// Sign of yaw rate (gz) at peak → forehand vs backhand. Flip to swap.
 const FOREHAND_YAW_SIGN = +1;
 
 function newSwingState() {
@@ -1527,6 +1291,7 @@ function fireSwing(armId, sw) {
   const roll = sw.rollAtPeak;
   const yawSign = sw.yawSignAtPeak || FOREHAND_YAW_SIGN;
   const isForehand = yawSign === FOREHAND_YAW_SIGN;
+  // Route to player via pairing. If unpaired, fall back: arm 0 → A, arm 1 → B.
   const paired = pairing.playerForArm(armId);
   const player = paired || (armId === 1 ? 'B' : 'A');
   logTune('swing', {
@@ -1544,6 +1309,7 @@ function onRawSample(armId, s) {
   const now = performance.now();
   if (sw.phase === 'REFRACTORY') {
     if (now >= sw.refractoryUntil) {
+      // reset in place
       const fresh = newSwingState();
       Object.assign(sw, fresh);
     } else return;
@@ -1591,48 +1357,43 @@ function onRawSample(armId, s) {
 function handleSwing(player, { power, roll, forehand }) {
   const now = performance.now();
 
-  // Serve.
+  // Serve: only the current server's swing launches the ball.
   if (state.mode === 'serve_wait') {
     if (player !== state.server) return;
     popGesture(`serve ${Math.round(power*100)}`, '#ff9663');
     sfx.serve(power);
-    launchServe(player, power, roll);
+    processHit(player, power, roll);
     return;
   }
 
-  // Rally return. Only the player the ball is on/heading to counts.
-  if (state.mode === 'in_flight_rally') {
-    if (player !== bt.receiver) return;
-    // Bounce-once rule: the ball MUST bounce on the receiver's side of the
-    // net before they can hit it. No mid-air volleys during a rally — that
-    // was the pre-fix behavior, and it made the game feel like a coin flip.
-    if (bt.bounces === 0) {
+  // Return: only the swing of the player the ball is heading to counts.
+  if (state.mode === 'in_flight') {
+    if (player !== state.headingTo) return;   // spectator-side swings ignored
+    // Table-tennis bounce rule: the ball MUST bounce once on the receiver's
+    // side before the receiver can hit. A swing before that first bounce is
+    // a whiff — the paddle "phased through" the ball too early.
+    const receiverSideSign = player === 'A' ? +1 : -1;
+    const bouncedOnReceiverSide = state.bounceCount >= 1
+                               && state.bounceSide === receiverSideSign;
+    if (!bouncedOnReceiverSide) {
       popGesture('too early', '#ff9663');
+      anim[player].missStart = performance.now();
+      awardPoint(otherPlayer(player), `${player.toLowerCase()} swung before the bounce`);
       return;
     }
-    // Ball must still be on receiver's side of the net when they swing.
-    if (Math.sign(ball.position.z) !== zSideOf(player)) return;
-    state.rally++;
-    refreshScore();
-    popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
-               forehand ? '#ff9663' : '#37628a');
-    sfx.rally(power);
-    launchReturn(player, power, roll);
-    return;
-  }
-
-  // Receiver swings during serve flight, before first bounce → refuse; but if
-  // the ball is on their side we still allow (they're volleying the serve —
-  // real tennis forbids that but we accept it as a chip return for playability).
-  if (state.mode === 'in_flight_serve') {
-    if (player !== bt.receiver) return;
-    if (Math.sign(ball.position.z) !== zSideOf(player)) return;
-    state.rally++;
-    refreshScore();
-    popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
-               forehand ? '#ff9663' : '#37628a');
-    sfx.rally(power);
-    launchReturn(player, power, roll);
+    const inWindow = now >= state.hittableStart && now <= state.hittableEnd;
+    if (inWindow) {
+      state.rally++;
+      refreshScore();
+      popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
+                 forehand ? '#ff9663' : '#37628a');
+      sfx.rally(power);
+      processHit(player, power, roll);
+    } else {
+      popGesture('miss', '#f4c95d');
+      anim[player].missStart = performance.now();
+      awardPoint(otherPlayer(player), `${player.toLowerCase()} whiffed`);
+    }
     return;
   }
 }
@@ -1646,24 +1407,23 @@ function tick() {
 
   updateBall(dt);
 
-  // Ball glued to server between points.
+  // If ball is pinned to server, keep it glued to the server mascot.
   if (state.mode === 'serve_wait') {
-    const pos = serverStartPos(state.server, state.servingFrom);
-    ball.position.copy(pos);
-    ballShadow.position.x = pos.x;
-    ballShadow.position.z = pos.z;
+    const mp = mascotPos(state.server);
+    const zOffset = state.server === 'A' ? -0.3 : 0.3;
+    ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
+    ballShadow.position.x = ball.position.x;
+    ballShadow.position.z = ball.position.z;
   }
 
-  // Mascots track ball x when it's coming to them.
-  if (state.mode === 'in_flight_serve' || state.mode === 'in_flight_rally') {
-    const target = bt.receiver;
-    if (target) {
-      const tGroup = target === 'A' ? soupA : soupB;
-      const tx = THREE.MathUtils.clamp(ball.position.x, -SINGLES_HALF + 0.5, SINGLES_HALF - 0.5);
-      tGroup.position.x += (tx - tGroup.position.x) * 3 * dt;
-      const other = target === 'A' ? soupB : soupA;
-      other.position.x += (0 - other.position.x) * 1.5 * dt;
-    }
+  // Mascots track the ball's x when it's coming to them.
+  if (state.mode === 'in_flight') {
+    const target = state.headingTo;
+    const tGroup = target === 'A' ? soupA : soupB;
+    const tx = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.5, halfW - 0.5);
+    tGroup.position.x += (tx - tGroup.position.x) * 3 * dt;
+    const other = target === 'A' ? soupB : soupA;
+    other.position.x += (0 - other.position.x) * 1.5 * dt;
   }
 
   // ── Mascot procedural anim (per player) ──
@@ -1684,6 +1444,7 @@ function tick() {
     const breathe = 1 + Math.sin(t * 2) * 0.02;
     m.scale.set(MASCOT_SCALE, MASCOT_SCALE, MASCOT_SCALE * breathe);
 
+    // swing lean + paws
     let swingLean = 0;
     if (a.swingStart) {
       const dt2 = now - a.swingStart;
@@ -1696,6 +1457,7 @@ function tick() {
         swingLean = Math.sin(phase * Math.PI) * 0.28;
       }
     }
+    // miss lean
     let missLean = 0;
     if (a.missStart) {
       const dt2 = now - a.missStart;
@@ -1708,6 +1470,8 @@ function tick() {
       }
     }
     m.rotation.z = swingLean + missLean;
+    // preserve the base rotation.x (from load) and player-specific y flip.
+    // We only ever mutate .z here.
   }
 
   // ── Visual polish updates: mascot shadow blobs, FX, FOV punch, toon light ──
@@ -1720,7 +1484,7 @@ function tick() {
   // Cloud drift
   for (const c of clouds) {
     c.position.x += c.userData.driftSpeed * dt;
-    if (c.position.x > 50) c.position.x = -50;
+    if (c.position.x > 40) c.position.x = -40;
   }
   updateDust(dt);
 
@@ -1760,6 +1524,8 @@ document.getElementById('tune-log-clear')?.addEventListener('click', () => {
   if ($tuneCount) $tuneCount.textContent = '0 rows';
 });
 
+// Feed each serial line through both pairing (for slot assignment) and our
+// custom parser (for the swing detector). Canonical pattern from boxing.html.
 const dispatcher = new ArmDispatcher(() => {});
 const origOnLine = dispatcher.onLine.bind(dispatcher);
 dispatcher.onLine = (line) => {
@@ -1798,13 +1564,13 @@ document.getElementById('connect').addEventListener('click', async () => {
 autoOpenSerial(serialHandlers).catch(() => {});
 
 // ═══════════════════════ Dev shortcuts ═══════════════════════
-// SPACE: swing on behalf of whoever should swing now.
+// SPACE: swing on behalf of whoever's supposed to swing right now.
+// Serve → the server; in-flight return → the receiver (state.headingTo).
 addEventListener('keydown', (e) => {
   if (e.key === ' ') {
     e.preventDefault();
-    const player = state.mode === 'serve_wait'      ? state.server
-                 : state.mode === 'in_flight_rally' ? bt.receiver
-                 : state.mode === 'in_flight_serve' ? bt.receiver
+    const player = state.mode === 'serve_wait' ? state.server
+                 : state.mode === 'in_flight'  ? state.headingTo
                  : null;
     if (!player) return;
     handleSwing(player, {
@@ -1818,7 +1584,15 @@ addEventListener('keydown', (e) => {
 // ═══════════════════════ Kick off ═══════════════════════
 refreshScore();
 clearTrail();
-startServe();
+// Don't launch a rally until the hub connects (so the server prompt reflects
+// pairing). In single-player fallback we still start immediately.
+if (state.pvp === false && pairing.armForPlayer('A') === null &&
+    pairing.armForPlayer('B') === null) {
+  // No wristbands paired yet. Start anyway; SPACE-key works.
+  startServe();
+} else {
+  startServe();
+}
 </script>
 </body>
 </html>

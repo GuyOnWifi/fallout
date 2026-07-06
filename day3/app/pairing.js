@@ -39,6 +39,27 @@ export class Pairing {
     this.listeners = new Set();
   }
 
+  /**
+   * Drop any slotted arm_id we haven't heard from in graceMs. Useful when
+   * the wristband gets swapped: the old arm_id sits in sessionStorage
+   * forever otherwise and the new one has nowhere to land in slot A.
+   */
+  forgetStale(graceMs = 8000) {
+    const now = performance.now();
+    let changed = false;
+    for (const letter of ['A', 'B']) {
+      const armId = this.slots[letter];
+      if (armId === null || armId === undefined) continue;
+      const st = this.stats.get(armId);
+      const lastSeen = st ? st.lastSeenMs : -Infinity;
+      if (!st || now - lastSeen > graceMs) {
+        this.slots[letter] = null;
+        changed = true;
+      }
+    }
+    if (changed) { persist(this.slots); this._emit(); }
+  }
+
   /** Feed a raw serial line (already trimmed). Handles legacy 9-field lines too. */
   onLine(line) {
     if (!line || line[0] === '#' || line.startsWith('ERR')) return;

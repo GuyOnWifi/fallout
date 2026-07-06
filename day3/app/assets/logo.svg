@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" width="400" height="220" role="img" aria-label="Soup Sports">
+  <!-- Soup Sports logo — console-split mark.
+       Mascot face split down the middle: left hemisphere red #e60012,
+       right hemisphere blue #0088cc, 4px vertical gap between the halves.
+       Cream fill #fbf3e0, wordmark ink #1c2a3a. Flat edges, no gradients. -->
+
+  <defs>
+    <clipPath id="half-l"><rect x="0"   y="0" width="198" height="220"/></clipPath>
+    <clipPath id="half-r"><rect x="202" y="0" width="198" height="220"/></clipPath>
+  </defs>
+
+  <!-- ── left hemisphere (red) ── -->
+  <g clip-path="url(#half-l)">
+    <!-- ear -->
+    <circle cx="162" cy="46" r="16" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
+    <!-- head half -->
+    <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
+    <!-- eye -->
+    <ellipse cx="174" cy="92" rx="5.5" ry="7.5" fill="#e60012"/>
+    <!-- smile (left half, cut by the gap) -->
+    <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
+    <!-- flat inner edge -->
+    <line x1="195.5" y1="46" x2="195.5" y2="144" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <!-- ── right hemisphere (blue) ── -->
+  <g clip-path="url(#half-r)">
+    <!-- ear -->
+    <circle cx="238" cy="46" r="16" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
+    <!-- head half -->
+    <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
+    <!-- eye -->
+    <ellipse cx="226" cy="92" rx="5.5" ry="7.5" fill="#0088cc"/>
+    <!-- smile (right half, cut by the gap) -->
+    <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
+    <!-- flat inner edge -->
+    <line x1="204.5" y1="46" x2="204.5" y2="144" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <!-- ── wordmark ── -->
+  <text x="200" y="202" text-anchor="middle"
+        font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"
+        font-weight="700" font-size="34" letter-spacing="0.5"
+        fill="#1c2a3a">Soup Sports</text>
+</svg>

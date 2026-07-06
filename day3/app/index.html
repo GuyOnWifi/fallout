@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Soup Games</title>
+<title>Soup Sports</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -99,37 +99,11 @@
     display:flex; align-items:center; justify-content:space-between;
     margin-bottom: 0;
   }
-  .brand { display:flex; align-items:center; gap:14px; }
-  .brand-text { display:flex; flex-direction:column; line-height:1; }
-  .brand-text b {
-    font-size: clamp(22px, 2.4vw, 30px);
-    font-weight: 900; letter-spacing:-.02em;
-    color: var(--ink);
-    text-shadow: 0 3px 0 rgba(255,255,255,.7);
+  .brand { display:flex; align-items:center; }
+  .brand .logo {
+    height: clamp(76px, 11vh, 110px); width: auto; display:block;
+    flex-shrink: 0;
   }
-  .brand-text small {
-    font-size: 11px; letter-spacing: .02em;
-    color: var(--ink-soft); font-weight: 700; margin-top: 4px;
-    white-space: nowrap;
-  }
-  @media (max-width: 480px) {
-    .brand-text small { display:none; }
-  }
-  .brand-blob {
-    width: 48px; height: 48px; border-radius: 50%;
-    background: var(--cream);
-    box-shadow:
-      inset 4px -5px 0 var(--cream-deep),
-      0 4px 0 rgba(0,0,0,.15),
-      0 8px 20px rgba(0,0,0,.15);
-    position: relative; flex-shrink: 0;
-  }
-  .brand-blob::before, .brand-blob::after {
-    content:""; position:absolute; top:19px;
-    width:5px; height:5px; border-radius:50%; background: var(--ink);
-  }
-  .brand-blob::before { left:16px; }
-  .brand-blob::after  { right:16px; }
 
   .title-block { text-align:center; margin: 0.2vh 0 0.2vh; }
   @media (max-width: 760px) { .title-block { margin-top: 14px; } }
@@ -240,6 +214,21 @@
   }
   #pair-connect:hover { transform: translateY(-1px); }
   #pair-connect.hidden { display: none; }
+
+  #pair-reset {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: 2px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: transparent;
+    border: 2px solid var(--ink-soft);
+    color: var(--ink-soft);
+    font-weight: 800; font-size: 10.5px; letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  #pair-reset:hover { color: var(--ink); border-color: var(--ink); }
 
   #pair-hint {
     grid-column: 1 / -1;
@@ -588,11 +577,34 @@
 <main>
   <header>
     <div class="brand">
-      <div class="brand-blob" aria-label="Soup"></div>
-      <div class="brand-text">
-        <b>SOUP&nbsp;GAMES</b>
-        <small>wristband sports arcade</small>
-      </div>
+      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" role="img" aria-label="Soup Sports">
+        <!-- console-split mark: mascot face halved, red left / blue right, 4px gap -->
+        <defs>
+          <clipPath id="logo-half-l"><rect x="0"   y="0" width="198" height="220"/></clipPath>
+          <clipPath id="logo-half-r"><rect x="202" y="0" width="198" height="220"/></clipPath>
+        </defs>
+        <!-- left hemisphere (red) -->
+        <g clip-path="url(#logo-half-l)">
+          <circle cx="162" cy="46" r="16" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
+          <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
+          <ellipse cx="174" cy="92" rx="5.5" ry="7.5" fill="#e60012"/>
+          <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
+          <line x1="195.5" y1="46" x2="195.5" y2="144" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
+        </g>
+        <!-- right hemisphere (blue) -->
+        <g clip-path="url(#logo-half-r)">
+          <circle cx="238" cy="46" r="16" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
+          <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
+          <ellipse cx="226" cy="92" rx="5.5" ry="7.5" fill="#0088cc"/>
+          <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
+          <line x1="204.5" y1="46" x2="204.5" y2="144" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
+        </g>
+        <!-- wordmark -->
+        <text x="200" y="202" text-anchor="middle"
+              font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"
+              font-weight="700" font-size="34" letter-spacing="0.5"
+              fill="#1c2a3a">Soup Sports</text>
+      </svg>
     </div>
   </header>
 
@@ -619,6 +631,7 @@
     </div>
     <button id="pair-connect">connect hub</button>
     <div id="pair-hint">plug in the hub, then wave your wristband to claim a slot</div>
+    <button id="pair-reset" title="clear the saved A/B assignments if you've swapped wristbands">reset pairing</button>
   </div>
 
   <div id="hero">
@@ -637,19 +650,7 @@
       <div class="name">Soup Boxing</div>
       <div class="desc">jab and hook your way through one very patient opponent</div>
     </a>
-    <a class="card" href="bowling.html" style="--card-accent: #4fc0e3;">
-      <div class="icon">
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="14" r="7.6" fill="#fbf3e0"/>
-          <circle cx="9" cy="11.6" r="0.4" fill="#2b1e14"/>
-          <circle cx="12.4" cy="10.8" r="0.4" fill="#2b1e14"/>
-          <circle cx="11.6" cy="14.2" r="0.4" fill="#2b1e14"/>
-          <path d="M20.2 4.4 C21.4 6.2 20.4 7.6 20.9 9.4 C21.3 10.8 22 11.7 21.6 13" fill="none"/>
-        </svg>
-      </div>
-      <div class="name">Soup Bowling</div>
-      <div class="desc">one big underhand swing, ten little Soups to knock down</div>
-    </a>
+    <!-- Bowling hidden pending a difficulty pass — file kept at bowling.html. -->
     <a class="card" href="tennis.html" style="--card-accent: #6cb85a;">
       <div class="icon">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
@@ -660,6 +661,28 @@
       </div>
       <div class="name">Soup Tennis</div>
       <div class="desc">hold your nerve and swing when the ball gets close</div>
+    </a>
+    <a class="card" href="badminton.html" style="--card-accent: #b96cd9;">
+      <div class="icon">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="17.6" cy="7.4" rx="4.6" ry="5.6" transform="rotate(38 17.6 7.4)" fill="#fbf3e0"/>
+          <path d="M13.9 12.4 L6.2 20.9"/>
+          <path d="M5 4.7 L7.6 7.3 L4.6 8.1 L7.4 10.1 L4.2 11.6 Z" fill="#fbf3e0"/>
+        </svg>
+      </div>
+      <div class="name">Soup Badminton</div>
+      <div class="desc">wave lightly, the shuttle glides</div>
+    </a>
+    <a class="card" href="pingpong.html" style="--card-accent: #ff5a2c;">
+      <div class="icon">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="15.4" cy="9.2" r="5.4" fill="#fbf3e0"/>
+          <path d="M11.7 13 L6 19.4"/>
+          <circle cx="7.6" cy="7.4" r="1.9" fill="#fbf3e0"/>
+        </svg>
+      </div>
+      <div class="name">Soup Ping Pong</div>
+      <div class="desc">quick reflexes, table-top rallies</div>
     </a>
     <a class="card" href="fruit_ninja.html" style="--card-accent: #f4c95d;">
       <div class="badge">1 or 2 players</div>
@@ -683,7 +706,7 @@
         </svg>
       </div>
       <div class="name">Soup Bomb</div>
-      <div class="desc">take turns punching Soup, bank your points before he pops</div>
+      <div class="desc">punch Soup all you like, but punch him too much and he might explode</div>
     </a>
   </div>
 
@@ -693,7 +716,7 @@
       <span class="step"><b>2</b> strap on a wristband</span>
       <span class="step"><b>3</b> pick a game</span>
     </div>
-    <div class="version">soup games · hackathon build v0.5</div>
+    <div class="version">soup sports · hackathon build v0.5</div>
   </footer>
 </main>
 
@@ -920,6 +943,17 @@ function applyShake($letter, power) {
 })();
 
 $swap.addEventListener('click', () => pairing.swap());
+
+// Manual reset — dumps A/B assignments back to empty. Use this after
+// swapping a wristband so the new one can claim slot A instead of
+// slipping into B because the old arm_id is still cached.
+document.getElementById('pair-reset')?.addEventListener('click', () => {
+  pairing.reset();
+});
+
+// Auto-forget: if a slotted arm hasn't been heard from in 8 s, drop it so
+// the next wristband to broadcast takes its place. Runs once a second.
+setInterval(() => pairing.forgetStale(8000), 1000);
 
 $slotA.addEventListener('click', () => {
   if (pairing.armForPlayer('A') !== null) return;

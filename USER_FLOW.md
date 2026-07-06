@@ -1,4 +1,4 @@
-# Soup Games — user flow wireframes
+# Soup Sports — user flow wireframes
 
 Cold-start to first-punch, PvP session, and recovery paths.
 Text wireframes so we can iterate on the flow independently of visual fidelity.
@@ -11,7 +11,7 @@ Text wireframes so we can iterate on the flow independently of visual fidelity.
 ┌──────────────────────────────┐
 │ landing page                 │
 │                              │
-│  SOUP GAMES                  │
+│  SOUP SPORTS                  │
 │  wristband sports arcade     │
 │                              │
 │  ┌──────┐   ⇄   ┌──────┐    │  slot A + B, empty

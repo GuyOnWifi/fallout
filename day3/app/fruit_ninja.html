@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Games — Soup Ninja</title>
+<title>Soup Sports — Soup Ninja</title>
 <style>
   :root {
     --sky-top:    #7bd3ee;
@@ -84,6 +84,7 @@
   .pscore .val { font-size:22px; font-weight:900; line-height:1;
                  color: var(--ink); }
   #hud.solo .pscore.b, #hud.solo .sep.rt { display:none; }
+  .lives { display:inline-block; margin-left:6px; color:#d84a4a; font-size:13px; letter-spacing:-1px; font-weight:900; }
   @media (max-width: 640px) { #hud { top: 64px; } }
 
   /* Prompt bottom-center */
@@ -155,7 +156,7 @@
 </head>
 <body>
 <script>
-  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+  if (true) {
     document.documentElement.classList.add('dev');
   }
 </script>
@@ -163,11 +164,19 @@
 <button id="connect" class="ss-btn">connect hub</button>
 
 <div id="hud" class="solo">
-  <div class="pscore a"><span class="lbl">you</span><span class="val" id="scoreA">0</span></div>
+  <div class="pscore a">
+    <span class="lbl">you</span>
+    <span class="val" id="scoreA">0</span>
+    <span class="lives" id="livesA">♥♥♥</span>
+  </div>
   <div class="sep"></div>
   <div id="timer">60</div>
   <div class="sep rt"></div>
-  <div class="pscore b"><span class="lbl">P B</span><span class="val" id="scoreB">0</span></div>
+  <div class="pscore b">
+    <span class="lbl">P B</span>
+    <span class="val" id="scoreB">0</span>
+    <span class="lives" id="livesB">♥♥♥</span>
+  </div>
 </div>
 
 <div id="prompt">swing to slice the soups · don't touch the slime</div>
@@ -191,6 +200,13 @@ import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
 import { sfx } from './sfx.js';
+import { showLoader } from './loader.js';
+
+showLoader({ game: 'ninja', tips: [
+  'slash any direction, timing matters more than aim',
+  'bombs slime you out, small fruits are worth two points',
+  'keep the wristband strap snug so it reads your slash cleanly',
+] });
 
 // ─── canvas ───
 const canvas = document.getElementById('stage');
@@ -229,6 +245,10 @@ const state = {
   startedMs: 0,
   endMs: 0,
   scoreA: 0, scoreB: 0,
+  // Three lives per player. One slime = one life lost + a shake + a warning
+  // banner. Third slime ends the round. Was instant-out — didn't leave any
+  // room to recover from one misjudged slice.
+  livesA: 3, livesB: 3,
   slimedA: false, slimedB: false,
   nextSpawn: 0,
   fruits: [],       // {x,y,vx,vy,r,color,bomb,alive,spin,rot}
@@ -299,14 +319,23 @@ function fireSlash(player) {
 
 function sliceFruit(f, player, sliceY) {
   f.alive = false;
-  // Score — soup-bomb (slime) eliminates the slicer instantly.
+  // Bomb hit: costs 1 life. Third hit ends the round. Softer than the old
+  // instant-out — gives players a chance to recover after one misjudged slice.
   if (f.bomb) {
-    if (player === 'A') state.slimedA = true;
-    else state.slimedB = true;
-    popBanner('slimed!', PAL.vine);
-    kickBanner();
+    if (player === 'A') state.livesA = Math.max(0, state.livesA - 1);
+    else                state.livesB = Math.max(0, state.livesB - 1);
+    const remaining = player === 'A' ? state.livesA : state.livesB;
     sfx.bombSlash();
-    endRound();
+    kickBanner();
+    if (remaining <= 0) {
+      if (player === 'A') state.slimedA = true;
+      else                state.slimedB = true;
+      popBanner('slimed out!', PAL.vine);
+      endRound();
+      return;
+    }
+    popBanner(`${remaining} ${remaining === 1 ? 'life' : 'lives'} left`, PAL.vine);
+    refreshHud();
     return;
   }
   sfx.slice();
@@ -334,10 +363,16 @@ function sliceFruit(f, player, sliceY) {
 let bannerKickT = 0;
 function kickBanner() { bannerKickT = 0.35; }
 
+const livesAEl = document.getElementById('livesA');
+const livesBEl = document.getElementById('livesB');
 function updateHUD() {
   scoreAEl.textContent = state.scoreA;
   scoreBEl.textContent = state.scoreB;
+  if (livesAEl) livesAEl.textContent = '♥'.repeat(state.livesA) || '—';
+  if (livesBEl) livesBEl.textContent = '♥'.repeat(state.livesB) || '—';
 }
+// Alias for the bomb-hit path (which called this before it existed).
+function refreshHud() { updateHUD(); }
 
 // ─── game loop ───
 let lastT = performance.now();
@@ -470,33 +505,88 @@ function drawFruit(r, color, bomb) {
 }
 
 function drawBomb(r) {
-  // Round dark body
-  ctx.fillStyle = '#2b1e14';
+  // Cartoon dynamite bomb: near-black ball, steel cap, twisted fuse,
+  // lit flame with a spark shower. Pulses at ~4 Hz so it feels alive.
+  const t = performance.now() / 1000;
+  const pulse = 1 + 0.18 * Math.sin(t * Math.PI * 2 * 4);
+
+  // Ambient red glow behind the body — subtle, radial falloff.
+  const glow = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.55);
+  glow.addColorStop(0, 'rgba(255,80,50,0.20)');
+  glow.addColorStop(1, 'rgba(255,80,50,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(0, 0, r * 1.55, 0, Math.PI * 2); ctx.fill();
+
+  // Round near-black body
+  ctx.fillStyle = '#1a1410';
   ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // Spherical highlight, upper-left
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.beginPath(); ctx.arc(-r*0.38, -r*0.42, r*0.22, 0, Math.PI * 2); ctx.fill();
-  // Square wick/fuse cap on top
-  const cw = r * 0.28, ch = r * 0.22;
-  ctx.fillStyle = '#3d2a1a'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.rect(-cw/2, -r - ch*0.9, cw, ch); ctx.fill(); ctx.stroke();
-  // Fuse string curling up
-  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(0, -r - ch*0.9);
-  ctx.quadraticCurveTo(r*0.35, -r - ch*1.8, r*0.15, -r - ch*2.5);
-  ctx.stroke();
+  // Deeper shade on the lower-right so the sphere reads round
+  ctx.fillStyle = 'rgba(15,10,8,0.6)';
+  ctx.beginPath(); ctx.arc(r*0.22, r*0.25, r*0.62, 0, Math.PI * 2); ctx.fill();
+  // Cool-blue sheen, upper-left
+  ctx.strokeStyle = 'rgba(120,140,180,0.35)'; ctx.lineWidth = r * 0.16;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.68, Math.PI * 1.05, Math.PI * 1.45); ctx.stroke();
   ctx.lineCap = 'butt';
-  // Flame sparkle at fuse tip — outer orange, inner yellow
-  const fx = r*0.15, fy = -r - ch*2.5;
-  const fr = r * 0.24;
+
+  // Metallic cap — small rounded cylinder between body and fuse
+  const cw = r * 0.36, ch = r * 0.26;
+  const capY = -r - ch * 0.75;
+  ctx.fillStyle = '#3a3230'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(-cw/2, capY, cw, ch, r * 0.06); ctx.fill(); ctx.stroke();
+  // Cap rim highlight so it reads metallic
+  ctx.strokeStyle = 'rgba(160,170,190,0.4)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-cw/2 + 3, capY + 3); ctx.lineTo(cw/2 - 3, capY + 3); ctx.stroke();
+
+  // Twisted fuse wire curling out of the cap
+  const fx = r * 0.18, fy = capY - ch * 1.7;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.moveTo(0, capY);
+  ctx.quadraticCurveTo(r * 0.42, capY - ch * 1.1, fx, fy);
+  ctx.stroke();
+  // Dashed darker overlay = twist in the wire
+  ctx.strokeStyle = '#5a4426'; ctx.lineWidth = 1.6;
+  ctx.setLineDash([2.5, 3]);
+  ctx.beginPath();
+  ctx.moveTo(0, capY);
+  ctx.quadraticCurveTo(r * 0.42, capY - ch * 1.1, fx, fy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+
+  // Flame at the fuse tip — hot core, orange middle, red-orange outer.
+  const fr = r * 0.22 * pulse;
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = '#ff6b3a';
+  ctx.beginPath(); ctx.arc(fx, fy, fr * 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.75;
   ctx.fillStyle = '#ff9663';
-  ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f4c95d';
-  ctx.beginPath(); ctx.arc(fx - fr*0.15, fy + fr*0.05, fr*0.55, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff3c0';
-  ctx.beginPath(); ctx.arc(fx - fr*0.25, fy + fr*0.1, fr*0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(fx, fy - fr * 0.12, fr, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = '#fff9c0';
+  ctx.beginPath(); ctx.arc(fx, fy - fr * 0.2, fr * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Spark shower — 3 to 5 tiny stars scattered around the tip each frame.
+  const sparkCount = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < sparkCount; i++) {
+    const sx = fx + (Math.random() * 8 - 4) * pulse;
+    const sy = fy + (Math.random() * 8 - 4) * pulse;
+    const sr = (0.9 + Math.random() * 1.3) * pulse;
+    ctx.fillStyle = Math.random() < 0.5 ? '#f4c95d' : '#ffb14d';
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+    // Occasional 4-point star twinkle
+    if (Math.random() < 0.4) {
+      ctx.strokeStyle = '#fff9c0'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx - sr * 2.2, sy); ctx.lineTo(sx + sr * 2.2, sy);
+      ctx.moveTo(sx, sy - sr * 2.2); ctx.lineTo(sx, sy + sr * 2.2);
+      ctx.stroke();
+    }
+  }
 }
 
 function drawHalf(r, color, side, bomb) {
@@ -520,6 +610,7 @@ function drawHalf(r, color, side, bomb) {
 // ─── round control ───
 function startRound() {
   state.scoreA = 0; state.scoreB = 0;
+  state.livesA = 3; state.livesB = 3;
   state.slimedA = false; state.slimedB = false;
   state.fruits.length = 0; state.halves.length = 0;
   state.slashes.length = 0; state.splats.length = 0;
@@ -704,6 +795,9 @@ addEventListener('keydown', (e) => {
     startRound();
   }
 });
+
+// No GLB here — module reaching the end means we're booted; dismiss loader.
+document.body.classList.add('game-active');
 </script>
 </body>
 </html>

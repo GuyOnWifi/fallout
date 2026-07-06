@@ -40,6 +40,35 @@ export function init() {
   resumeIfNeeded();
 }
 
+// Web Audio unlock. Chromium refuses to resume() an AudioContext unless the
+// call happens inside a user-gesture handler. Every sfx.foo() we fire comes
+// from a serial-data event, which doesn't qualify. So we listen ONCE for the
+// first real user gesture on the whole document and warm the audio there —
+// after that the context stays running and subsequent sfx.foo() calls play.
+let _unlocked = false;
+function unlock() {
+  if (_unlocked) return;
+  _unlocked = true;
+  ensure();
+  resumeIfNeeded();
+  // Play a truly silent tick so the browser marks the context as running.
+  if (ctx) {
+    try {
+      const s = ctx.createBufferSource();
+      s.buffer = ctx.createBuffer(1, 1, 22050);
+      s.connect(ctx.destination);
+      s.start(0);
+    } catch {}
+  }
+}
+if (typeof window !== 'undefined') {
+  const opts = { once: true, capture: true };
+  window.addEventListener('pointerdown', unlock, opts);
+  window.addEventListener('keydown',     unlock, opts);
+  window.addEventListener('touchstart',  unlock, opts);
+  window.addEventListener('click',       unlock, opts);
+}
+
 // ─── helpers ───
 function now() { return ctx.currentTime; }
 

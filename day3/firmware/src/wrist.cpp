@@ -29,6 +29,10 @@ static uint32_t arm_id = 0;
 static const uint8_t ESPNOW_WIFI_CHANNEL = 1;
 static const uint8_t BROADCAST_MAC[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
+// 200 Hz matches the sample rate the classifier thresholds were tuned
+// against. Dropping this even to 100 Hz shifts the noise-floor stats that
+// the peak-tracking arm/quiet gates rely on, so the C3 (still at 200 Hz)
+// and the S3 (retuned) end up classifying differently. Keep both at 200.
 static const uint32_t SAMPLE_HZ = 200;
 static const uint32_t SAMPLE_PERIOD_US = 1000000UL / SAMPLE_HZ;
 static const float COMP_ALPHA = 0.98f;
@@ -55,6 +59,11 @@ static bool init_espnow() {
   // few extra mA of idle current, well worth the reliability.
   WiFi.setSleep(false);
   esp_wifi_set_ps(WIFI_PS_NONE);
+  // TX power: 20 dBm default → 14 dBm. Two doublings back from the
+  // earlier 11 dBm setting, which was reaching its usable range limit
+  // when the wristband sat off-axis to the dongle antenna. 14 dBm keeps
+  // most of the LiPo savings while giving ~30 m of margin.
+  esp_wifi_set_max_tx_power(56);   // units are 0.25 dBm → 56 = 14 dBm
   esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) return false;

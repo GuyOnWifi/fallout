@@ -10,6 +10,108 @@ newest-first when scrolling.
 
 ---
 
+## §16. The block gesture and the phantom Soup Bomb turn skip
+
+**The symptom.** Soup Bomb sometimes ended a player's turn immediately —
+one small motion after the "you're up" banner and the game would jump
+straight to the next player. It felt like the classifier was making up
+punches.
+
+**The debug.** Added a per-event log in punch_bomb.html and confirmed
+`punchesThisTurn` was jumping to 3+ within milliseconds of the round
+starting. Correlated with wristband dynA — the phantom punches happened
+during arm *raise*, not arm *thrust*. That's the shape of a block.
+
+**The fix.** Two lines in punch_bomb.html — `if (g.gesture !== 'jab') return;`
+in the dispatcher's classifier-event handler. Blocks now silently no-op
+in Soup Bomb (it doesn't have a defensive gesture concept). Punches count
+as before.
+
+**The lesson.** When a shared module (classifier) grows new event types,
+every downstream consumer has to be audited. A block was a *gesture*
+and the dispatcher forwarded it dutifully; punch_bomb assumed all
+gesture events meant "punch." The right fix wasn't in the classifier
+(where blocks are legitimate) but in the consumer that couldn't
+distinguish them.
+
+---
+
+## §15. Simplifying the boxing classifier to jab + block
+
+**The symptom.** Live-tuning the 3-way jab/hook/uppercut classifier kept
+hitting the same wall — the user's live motion produced feature clusters
+that overlapped between hook and uppercut. A wrist rotation during a
+"hook" made features look uppercut-shaped; an upward drive on an
+"uppercut" made features look like a jab. Sample logs showed 50–70%
+accuracy under 3-way discrimination and no single feature axis that
+could reliably split them.
+
+**The debug.** Three separate live-tuning sessions collected batches
+of jab/hook/uppercut with the ask "these were all X" and each time the
+features overlapped enough that any rule tuned for one batch broke the
+others. The gravity-aligned features assume rotation-invariance to first
+order, but during a swing the wrist rotates 30–90° — Mahony-style
+attitude fusion would fix it, but that's not a demo-day project.
+
+**The fix.** Collapse to two gestures: `jab` (any peak-detected swing
+that doesn't look like a guard) and `block` (any peak-detected swing
+with big `up` peak and near-zero `down` peak — an upward guard motion).
+`up ≥ 22 AND down ≤ 15 → block`, else → jab. Boxing repurposes hook
+and uppercut animations as visual variety on jabs; damage tables kept
+for legacy dev shortcuts. The refractory dropped from 850 ms → 450 ms
+so back-to-back jabs stop getting swallowed.
+
+**The lesson.** Sometimes the fix is to remove a class, not to tune
+a threshold. The 3-way problem was fundamentally under-observed —
+we only had translational accel and gyro, and the three punches share
+a lot of the same signal. Two classes with genuinely different feature
+signatures (attack vs. guard) is a completely different problem than
+three attacks with overlapping signatures. Trade: lost animation
+richness on the input side, gained reliability that survives a demo.
+
+---
+
+## §14. Tennis: ballistic net-clearance iterator and the let-cord bounce
+
+**The symptom.** Every rally return in tennis hit the net. The serve
+worked because the ball starts at ~2.3 m (above the mascot's head), so
+the ballistic arc naturally cleared the 0.914 m net. Returns started
+from `ball.position` — which was ~3 cm off the ground after a bounce —
+and the ballistic solver's `minT = 0.55 s` gave a low, fast arc that
+peaked at ~0.4 m. The net top is at 0.914 m. Every return smacked
+straight into it.
+
+**The debug.** Symbolically computed the ball's y-height at the z=0
+crossing: `y_net = from.y + vy·t_net − 0.5·g·t_net²`, where
+`t_net = |from.z| / |vz|`. Plugged in the actual numbers and got 0.4 m.
+Net is 0.914. Zero clearance, always.
+
+**The fix.** Two-part.
+
+1. **Iterate the arc.** `ballisticVelocity` now checks the linear-interp
+   height at z=0 crossing and, if it's under `NET_H_CENTER + 0.35`,
+   stretches `t` by 18% and recomputes. Up to 6 iterations, capped at
+   `maxT = 1.6 s`. Returns naturally get taller arcs when they need
+   them; serves that already clear the net don't waste time.
+2. **Net-cord bounce instead of point-loss.** Even with the iterator,
+   the ball can theoretically still clip the top of the net (rare
+   edge case). Instead of ending the point, the ball now deflects off
+   the net cord back to the hitter — `vy → |vy|·0.6 + 1.2` upward,
+   `vx → 0.6·vx`, `vz → −0.35·vz`. Play continues. Real tennis calls
+   this a "let cord;" here it's a demo-day fairness knob.
+
+Trade-offs, honestly: the iterator makes returns look a bit floaty
+compared to real tennis (max arc time bumped from 1.2 s → 1.6 s), but
+the alternative was a game that felt unwinnable.
+
+**The lesson.** Physics simulation constants that work for one initial
+condition (serve from high) can silently fail for another (return from
+low) even when the code is identical. When you add a new call site to
+a shared solver, walk the physics in both regimes on paper before
+trusting it.
+
+---
+
 ## §13. Universal wristband firmware — MAC-derived arm_id
 
 **The symptom.** With two wristbands live at the same time, the browser's

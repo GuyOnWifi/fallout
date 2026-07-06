@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Games — Bowling</title>
+<title>Soup Sports — Bowling</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@
                           rgba(28,42,58,0.18) 80%,
                           rgba(28,42,58,0.42) 100%); }
 
-  /* ── Soup Games chrome (shared treatment across pages) ── */
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -301,7 +301,7 @@
 </head>
 <body>
 <script>
-  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+  if (true) {
     document.documentElement.classList.add('dev');
   }
 </script>
@@ -397,6 +397,13 @@ import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
 import { sfx } from './sfx.js';
+import { showLoader } from './loader.js';
+
+showLoader({ game: 'bowling', tips: [
+  'swing underhand and let go at the low point',
+  'follow through past your leg for a straight throw',
+  'hook the ball by twisting your wrist at release',
+] });
 
 // ═══════════════════════ Three.js scene ═══════════════════════
 const SKY_MID = 0x4fc0e3;
@@ -433,6 +440,10 @@ scene.add(key);
 const fill = new THREE.DirectionalLight(0x9ecbe5, 0.5);
 fill.position.set(-4, 5, -6);
 scene.add(fill);
+// Warm cream rim from high behind the pins — back-edge glow (polish pass).
+const rimWarm = new THREE.DirectionalLight(0xffe4b0, 0.5);
+rimWarm.position.set(0, 7, -13);
+scene.add(rimWarm);
 
 // ── Lane (cream planks). Shortened + pins closer for better framing. ──
 const LANE_LENGTH = 14;
@@ -496,7 +507,7 @@ scene.add(backstop);
 const clouds = [];
 function makeCloud(x, y, z, r) {
   const cloud = new THREE.Group();
-  const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const cMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
   const s1 = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cMat);
   const s2 = new THREE.Mesh(new THREE.SphereGeometry(r*0.75, 12, 10), cMat);
   s2.position.set(r*0.85, -r*0.1, 0);
@@ -506,7 +517,7 @@ function makeCloud(x, y, z, r) {
   s4.position.set(r*0.2, r*0.4, 0);
   cloud.add(s1); cloud.add(s2); cloud.add(s3); cloud.add(s4);
   cloud.position.set(x, y, z);
-  cloud.userData.drift = 0.3 + Math.random() * 0.4;
+  cloud.userData.drift = 0.15 + Math.random() * 0.2;  // m/s, applied directly
   scene.add(cloud);
   clouds.push(cloud);
 }
@@ -516,6 +527,152 @@ makeCloud(-4,  11, -28, 1.2);
 makeCloud( 5,  12, -12, 0.7);
 makeCloud(-11, 12, -6,  0.85);
 makeCloud( 12,  9, -30, 1.0);
+
+// ── Backdrop flair: horizon hills + ambient dust motes (additive only) ──
+// Rolling-hills silhouette past the pins so the end of the lane reads as a
+// place instead of a void. Static — no animation. Peaks clear the backstop.
+const hillMat = new THREE.MeshBasicMaterial({ color: 0x6cb85a, side: THREE.DoubleSide });
+{
+  const width = 80, segs = 24, hMin = 2.5, hMax = 4.5, seed = 2.1;
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, 0);
+  for (let i = 0; i <= segs; i++) {
+    const x = -width / 2 + (i / segs) * width;
+    const roll = 0.5 + 0.5 * Math.sin(seed + i * 1.7) * Math.sin(seed * 2 + i * 0.9);
+    shape.lineTo(x, hMin + roll * (hMax - hMin));
+  }
+  shape.lineTo(width / 2, 0);
+  const hills = new THREE.Mesh(new THREE.ShapeGeometry(shape), hillMat);
+  hills.position.z = -22;
+  scene.add(hills);
+}
+
+// Ambient dust motes: tiny cream sparkles rising off the lane for a sunlit
+// feel. Spawn a few per second, rise slowly, fade over 2s. Capped, pooled
+// geometry, no gameplay interaction (distinct from the charge sparkles).
+const DUST_MAX = 30;
+const dustGeo = new THREE.SphereGeometry(0.03, 6, 6);
+const dustMotes = [];
+let dustSpawnClock = 0;
+function updateDust(dt) {
+  dustSpawnClock += dt;
+  if (dustSpawnClock > 0.4 && dustMotes.length < DUST_MAX) {
+    dustSpawnClock = 0;
+    const m = new THREE.Mesh(dustGeo,
+      new THREE.MeshBasicMaterial({ color: 0xfbf3e0, transparent: true, opacity: 0.9 }));
+    m.position.set((Math.random() - 0.5) * 3.2, 0.05 + Math.random() * 0.3, -9 + Math.random() * 9.5);
+    m.userData = { vy: 0.4 + Math.random() * 0.4, age: 0 };
+    scene.add(m);
+    dustMotes.push(m);
+  }
+  for (let i = dustMotes.length - 1; i >= 0; i--) {
+    const p = dustMotes[i];
+    p.userData.age += dt;
+    p.position.y += p.userData.vy * dt;
+    p.material.opacity = 0.9 * Math.max(0, 1 - p.userData.age / 2);
+    if (p.userData.age >= 2) {
+      scene.remove(p);
+      p.material.dispose();
+      dustMotes.splice(i, 1);
+    }
+  }
+}
+
+// ═══════════════ Visual polish: toon mascots, blobs, FOV punch ═══════════════
+// Additive only — no gameplay changes. Toon + inverted-hull outlines on the
+// soup pins/bowler, ground shadow blobs, FOV punch on strike/spare.
+const TOON_LIGHT_DIR = { value: new THREE.Vector3(0.5, 0.8, 0.6) }; // view space, shared by all toon mats
+const TOON_KEY_DIR = new THREE.Vector3(4, 8, 5).normalize();        // matches `key` light
+const TOON_VERT = `
+varying vec3 vNormal;
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const TOON_FRAG = `
+varying vec3 vNormal;
+uniform vec3 baseColor;
+uniform vec3 lightDir;
+void main() {
+  float d = dot(normalize(vNormal), normalize(lightDir));
+  float shade = (d > 0.5) ? 1.0 : (d > 0.0) ? 0.75 : 0.55;
+  gl_FragColor = vec4(baseColor * shade, 1.0);
+}`;
+const OUTLINE_VERT = `
+uniform float outlineWidth;
+void main() {
+  vec3 p = position + normal * outlineWidth;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`;
+// ink #1c2a3a
+const OUTLINE_FRAG = `void main() { gl_FragColor = vec4(0.110, 0.165, 0.227, 1.0); }`;
+
+function applyToonMaterial(mesh, baseHex, outlineWidth = 2.0) {
+  const tint = new THREE.Color(baseHex);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { baseColor: { value: tint }, lightDir: TOON_LIGHT_DIR },
+    vertexShader: TOON_VERT, fragmentShader: TOON_FRAG,
+  });
+  mat.color = tint;   // alias so the existing pin-flash code keeps working
+  mesh.material = mat;
+  if (outlineWidth > 0) {
+    const outline = new THREE.Mesh(mesh.geometry, new THREE.ShaderMaterial({
+      uniforms: { outlineWidth: { value: outlineWidth } },
+      vertexShader: OUTLINE_VERT, fragmentShader: OUTLINE_FRAG,
+      side: THREE.BackSide,
+    }));
+    outline.castShadow = false;
+    mesh.add(outline);
+  }
+  return mat;
+}
+// Toon-shade every named mascot part; outline only the chunky parts — the
+// face decals are thin shells, hulling them smears ink across the face.
+const TOON_PARTS = ['body', 'ears', 'face_patch', 'eyes_nose', 'paws', 'tail'];
+const OUTLINE_PARTS = new Set(['body', 'ears', 'paws', 'tail']);
+function applyToonToSoup(soup, outlineWidth = 2.0) {   // width in model units (mm)
+  for (const name of TOON_PARTS) {
+    const node = soup.getObjectByName(name);
+    if (node && node.isMesh) {
+      applyToonMaterial(node, node.material.color.getHex(),
+                        OUTLINE_PARTS.has(name) ? outlineWidth : 0);
+    }
+  }
+}
+
+// Ground shadow blobs — plant the pins + bowler on the lane.
+function makeGroundBlob(radius, y = 0.03) {
+  const blob = new THREE.Mesh(
+    new THREE.CircleGeometry(radius, 20),
+    new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true,
+                                  opacity: 0.25, depthWrite: false }));
+  blob.rotation.x = -Math.PI / 2;
+  blob.position.y = y;
+  scene.add(blob);
+  return blob;
+}
+
+// Camera FOV punch — ~2° push for 120ms on strike/spare. Baseline untouched.
+const BASE_FOV = camera.fov;
+const camFx = { fov: BASE_FOV, target: BASE_FOV, until: 0, phase: 'idle' };
+function fovPunch(power = 0.7) {
+  camFx.target = BASE_FOV - 2.2 * Math.max(0.4, Math.min(1, power));
+  camFx.phase = 'in';
+  camFx.until = performance.now() + 45;
+}
+function updateFovPunch(now) {
+  if (camFx.phase === 'in') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 45);
+    camera.fov = camFx.fov + (camFx.target - camFx.fov) * p;
+    if (p >= 1) { camFx.fov = camera.fov; camFx.phase = 'out'; camFx.until = now + 120; }
+    camera.updateProjectionMatrix();
+  } else if (camFx.phase === 'out') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 120);
+    camera.fov = camFx.fov + (BASE_FOV - camFx.fov) * p;
+    if (p >= 1) { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.phase = 'idle'; }
+    camera.updateProjectionMatrix();
+  }
+}
 
 // ── Pins (10-pin triangle). Larger scale for prominence. ──
 const PIN_SCALE = 0.0075;    // ~3x boost vs original 0.0025
@@ -550,6 +707,11 @@ pinRows.forEach((row, rowI) => {
     pins.push(pin);
   });
 });
+
+// Ground shadow blobs under every pin + the bowler (tracked per frame).
+const pinBlobs = pins.map(() => makeGroundBlob(0.15, 0.03));
+const bowlerBlob = makeGroundBlob(0.32, 0.04);
+bowlerBlob.position.x = -1.55; bowlerBlob.position.z = 1.7;
 
 // ── Ball ── positioned in FRONT of camera
 const ball = new THREE.Mesh(
@@ -634,6 +796,15 @@ async function loadMascot() {
         pawsNode.material.color.copy(bodyNode.material.color);
       }
 
+      // Toon shading + ink outlines, then re-capture the body material so the
+      // pin-flash code points at the live (toon) material, not the old one.
+      applyToonToSoup(soup, 2.6);
+      const toonBody = soup.getObjectByName('body');
+      if (toonBody) {
+        pin.userData.bodyMat = toonBody.material;
+        pin.userData.origBodyColor = toonBody.material.color.clone();
+      }
+
       soup.rotation.x = -Math.PI / 2;
       soup.scale.setScalar(PIN_SCALE);
       soup.position.y = -0.2 + 0.025;
@@ -647,6 +818,7 @@ async function loadMascot() {
     bowlerSoup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     const bBody = bowlerSoup.getObjectByName('body');
     if (bBody) bBody.material.color.setHex(0xf6e9c9);
+    applyToonToSoup(bowlerSoup, 2.0);
     // Per soup/HANDOFF.md + DEVLOG §11: no y-flip after the x-flip — the old
     // extra rotation flipped him out of view entirely.
     bowlerSoup.rotation.x = -Math.PI / 2;
@@ -658,7 +830,8 @@ async function loadMascot() {
     console.error('[bowling] mascot load failed', err);
   }
 }
-loadMascot();
+// Signal the boot loader (loader.js) that assets are in.
+loadMascot().then(() => document.body.classList.add('game-active'));
 
 let ballState = 'ready';  // 'ready' | 'rolling' | 'settling'
 let ballVel = new THREE.Vector3();
@@ -904,10 +1077,12 @@ function resetBall() {
     spawnConfetti();
     strikeCelebration();
     sfx.strike();
+    fovPunch(1.0);
   }
   else if (!isTenth && g.rollInFrame === 1 && total === 10) {
     popBanner('spare', '#f4c95d');
     spawnConfetti();
+    fovPunch(0.7);
   }
   else if (knocked === 0) {
     popBanner('gutter', '#37628a');
@@ -1053,11 +1228,14 @@ const bowlerAnim = {
 function updatePhysics(dt) {
   const t = performance.now() * 0.001;
 
-  // Clouds drift
+  // Clouds drift. Wrap threshold widens with depth so the teleport always
+  // lands outside the camera frustum — no visible pop-in.
   for (const c of clouds) {
-    c.position.x += c.userData.drift * dt * 0.4;
-    if (c.position.x > 18) c.position.x = -18;
+    c.position.x += c.userData.drift * dt;
+    const wrap = 16 + Math.abs(c.position.z) * 0.5;
+    if (c.position.x > wrap) c.position.x = -wrap;
   }
+  updateDust(dt);
 
   // Sparkles: spawn while armed on the active player's arm
   const chargeArmId = pvpMode ? (pairing.armForPlayer(activePlayer) ?? 0) : 0;
@@ -1277,6 +1455,15 @@ function tick() {
   const dt = Math.min(0.05, (now - lastT) / 1000);
   lastT = now;
   updatePhysics(dt);
+
+  // ── Visual polish updates: pin/bowler shadow blobs, FOV punch, toon light ──
+  for (let i = 0; i < pins.length; i++) {
+    pinBlobs[i].position.x = pins[i].position.x;
+    pinBlobs[i].position.z = pins[i].position.z;
+  }
+  updateFovPunch(now);
+  TOON_LIGHT_DIR.value.copy(TOON_KEY_DIR).transformDirection(camera.matrixWorldInverse);
+
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }

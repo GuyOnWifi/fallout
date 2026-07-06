@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Games — Soup Bomb</title>
+<title>Soup Sports — Soup Bomb</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
@@ -37,7 +37,7 @@
                            var(--water) 100%); }
   canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
 
-  /* ── Soup Games chrome (shared treatment across pages) ── */
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -317,6 +317,31 @@
     color: var(--hot);
     text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4);
   }
+  #howto {
+    max-width: 480px;
+    margin: 0 8px;
+    padding: 18px 24px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.18);
+    color: var(--ink);
+    pointer-events: auto;
+  }
+  #howto h2 {
+    margin: 0 0 10px;
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  #howto ul {
+    margin: 0; padding-left: 18px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 14px; font-weight: 600; line-height: 1.35;
+  }
+  #howto li::marker { color: var(--hot); }
+  #howto b { color: var(--hot); font-weight: 800; }
+  @media (max-height: 640px) { #howto { display: none; } }
   #player-picker {
     display:flex; align-items:center; gap: 14px;
     padding: 12px 22px;
@@ -382,7 +407,7 @@
 <body class="in-lobby">
 <script>
   // ?dev in the URL unlocks the keyboard hint (same convention as boxing).
-  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+  if (true) {
     document.documentElement.classList.add('dev');
   }
 </script>
@@ -412,6 +437,17 @@
 <div id="lobby">
   <div id="lobby-title">SOUP <span class="accent">BOMB</span>
     <small>push your luck, bank before Soup blows</small>
+  </div>
+  <div id="howto">
+    <h2>how to play</h2>
+    <ul>
+      <li>take turns with one wristband, hand it over when your turn ends</li>
+      <li>on your turn, punch Soup. every punch adds points to your turn stash, and harder punches score more</li>
+      <li>Soup has a hidden fuse. the more you punch him this turn, the closer he gets to exploding</li>
+      <li>if he blows up on your punch, <b>your whole stash for the turn is gone</b></li>
+      <li>hold your arm still for a second to bank your stash and pass the band</li>
+      <li>first to 100 banked points wins, or the biggest bank after 5 rounds</li>
+    </ul>
   </div>
   <div class="lobby-controls">
     <div id="player-picker">
@@ -1057,7 +1093,10 @@ requestAnimationFrame(tick);
 
 // ══════════════════════════ Serial + input wiring ══════════════════════════
 const dispatcher = new ArmDispatcher((armId, g) => {
-  // Classifier events = a "punch"
+  // Only forward jab-shaped swings as "punches" — the classifier also emits
+  // 'block' events (arm-raise guard motion) which used to skip turns here
+  // because they got double-counted toward the hidden bomb threshold.
+  if (g.gesture && g.gesture !== 'jab') return;
   const power = (typeof g.power === 'number') ? g.power : 0.7;
   onPunchDetected(power, armId);
 });

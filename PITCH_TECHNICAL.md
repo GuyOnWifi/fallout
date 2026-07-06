@@ -1,4 +1,4 @@
-# Soup Games: technical pitch
+# Soup Sports: technical pitch
 
 ## The problem we set for ourselves
 

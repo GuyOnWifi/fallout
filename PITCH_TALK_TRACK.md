@@ -1,8 +1,8 @@
-# Soup Games: 90-second talk track
+# Soup Sports: 90-second talk track
 
 ## The pitch (30 seconds)
 
-This is Soup Games. Wii Sports without the Wii. You strap a wristband on,
+This is Soup Sports. Wii Sports without the Wii. You strap a wristband on,
 you punch, you bowl, you swing a tennis racket, and a cartoon soup mascot
 on screen does the same thing back. The wristband is a three-dollar
 microcontroller and a one-dollar motion sensor. No console. No camera.

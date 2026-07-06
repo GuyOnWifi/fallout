@@ -30,16 +30,21 @@ except ImportError:
 COLS = ["t_us", "ax", "ay", "az", "gx", "gy", "gz", "roll", "pitch"]
 
 SAMPLE_HZ     = 200
-PRE_MS        = 200     # samples kept BEFORE the trigger peak
-POST_MS       = 400     # samples kept AFTER the trigger peak
+PRE_MS        = 500     # samples kept BEFORE the trigger peak (widened
+POST_MS       = 800     # samples kept AFTER the trigger peak            from
+                        # 200/400 so wind-up and full retraction are captured)
 REFRACTORY_MS = 600     # dead time after a capture before re-arming
 ARM_WINDOW_S  = 6.0     # seconds of window in which we listen for a rep
 
 # Trigger thresholds — loose, tuned to fire on any real gesture but not on idle noise.
 # We look at "dynamic accel" (|a| − g) OR gyro magnitude; either can trip it.
 G = 9.80665
-TRIG_DYN_ACCEL = 4.0     # m/s² above/below 1g
-TRIG_GYRO      = 200.0   # deg/s
+TRIG_DYN_ACCEL = 2.0     # m/s² above/below 1g (dropped from 4.0 so lighter
+TRIG_GYRO      = 100.0   # deg/s               reps get captured too)
+
+# Raw mode — no trigger, no windowing. Continuously records a full session
+# per label so we see the "unfiltered" arm stream around each attempt.
+RAW_DURATION_S = 4.0     # seconds recorded per rep
 
 # Hold-mode stillness threshold — reject if motion is too high during the record window.
 HOLD_STILL_ACCEL = 1.2   # m/s² dynamic
@@ -58,18 +63,20 @@ HOLD_DURATION_S  = 1.0
 # raw signal in replay.mjs and tune the game's per-file constants):
 #   bowl_swing, tennis_forehand, tennis_backhand, bat_swing
 GESTURE_MODES = {
-    # ---- boxing classifier, priority ----
+    # ---- boxing classifier, PRIMARY (what the demo actually reads) ----
+    # Simplified to jab-vs-block. Hook / uppercut classification was too
+    # sensitive to wrist-mount rotation; the game now treats every detected
+    # swing as a hit and varies the mascot's animation for flavor.
     "jab":              "dyn",
-    "hook":             "dyn",
-    "uppercut":         "dyn",
     "block":            "hold",
     "idle":             "hold",
-    # ---- boxing polish ----
+    # ---- everything below is optional, kept for replay + future retunes ----
+    "hook":             "dyn",
+    "uppercut":         "dyn",
     "dodge_left":       "dyn",
     "dodge_right":      "dyn",
     "dodge_back":       "dyn",
     "idle_twist":       "dyn",
-    # ---- raw-detector inspection (optional) ----
     "bowl_swing":       "dyn",
     "tennis_forehand":  "dyn",
     "tennis_backhand":  "dyn",
