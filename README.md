@@ -44,6 +44,12 @@ Try to beat soup as many times before he get angi D:<
 
 ![SoupBomb](docs/img/soup-bomb.png)
 
+## Hardware
+
+Soup Sports is played using motion trackers made of a Seeed Studio Xiao ESP32 C3 and an MPU 5060 accelerometer. The tracker is powered using a 1500mAh LiPo cell, managed by the ESP. The tracker is mounted inside a 3D printed case mounted onto the users arm, just below the wrist. It mounts easily using wide zip ties, but is designed for velcro or other reusable methods that insert into the gap and easily stay there.
+
+![Motion Tracker](docs/img/motion-tracker.png)
+
 ## Architecture
 
 ```
