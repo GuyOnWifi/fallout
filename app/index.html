@@ -108,7 +108,7 @@
   .title-block { text-align:center; margin: 0.2vh 0 0.2vh; }
   @media (max-width: 760px) { .title-block { margin-top: 14px; } }
   h1 {
-    font-size: clamp(36px, 5.2vw, 68px);
+    font-size: clamp(28px, 4.2vw, 54px);
     font-weight: 900; letter-spacing:-.04em; margin:0; line-height:.95;
     color: var(--cream);
     text-shadow:
@@ -120,7 +120,7 @@
                  0 4px 0 #7a2a10,
                  0 6px 20px rgba(43,30,20,.35); }
   .subhead {
-    margin-top: 10px; font-size: clamp(13px, 1.2vw, 16px);
+    margin-top: 6px; font-size: clamp(12px, 1.05vw, 14px);
     color: var(--ink); font-weight: 600; letter-spacing: .01em;
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
   }
@@ -299,44 +299,49 @@
   }
 
   /* ────────── game cards ────────── */
+  /* Seven cards → single-row 7-column grid on desktop so nothing wraps to a
+     second row and clips the footer. Cards get compact so they still fit
+     comfortably in the viewport. */
   .games {
-    display:grid; gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    max-width: 1050px; width:100%; margin: 0 auto;
+    display:grid; gap: 10px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    max-width: 1280px; width:100%; margin: 0 auto;
   }
+  @media (max-width: 1080px) { .games { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  @media (max-width: 620px)  { .games { grid-template-columns: repeat(2, minmax(0,1fr)); } }
   .card {
     position:relative; display:block; text-decoration:none;
-    padding: 16px 16px 14px;
+    padding: 12px 12px 10px;
     background: var(--cream);
     border: 3px solid var(--ink);
-    border-radius: 18px;
+    border-radius: 16px;
     color: var(--ink);
     box-shadow:
-      0 6px 0 var(--ink),
-      0 12px 24px rgba(28,42,58,.2);
+      0 5px 0 var(--ink),
+      0 10px 20px rgba(28,42,58,.18);
     transition: transform 180ms cubic-bezier(.3,.7,.3,1), box-shadow 180ms;
     overflow: hidden;
   }
   .card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 9px 0 var(--ink), 0 18px 30px rgba(28,42,58,.28);
+    box-shadow: 0 8px 0 var(--ink), 0 16px 26px rgba(28,42,58,.26);
   }
   .card .icon {
-    width: 44px; height: 44px; margin-bottom: 8px;
+    width: 36px; height: 36px; margin-bottom: 6px;
     display:flex; align-items:center; justify-content:center;
     background: var(--card-accent, var(--hot));
     border: 2.5px solid var(--ink);
-    border-radius: 13px;
+    border-radius: 11px;
     box-shadow: 0 3px 0 var(--ink);
     transform: rotate(-3deg);
   }
   .card:nth-child(2n) .icon { transform: rotate(2.5deg); }
-  .card .icon svg { display:block; }
+  .card .icon svg { display:block; width: 22px; height: 22px; }
   .card .name {
-    font-size: 18px; font-weight: 900; letter-spacing:-.02em; margin-bottom: 4px;
+    font-size: 15px; font-weight: 900; letter-spacing:-.02em; margin-bottom: 3px;
   }
   .card .desc {
-    font-size: 11.5px; letter-spacing: .01em; color: var(--ink-soft);
+    font-size: 10.5px; letter-spacing: .01em; color: var(--ink-soft);
     line-height: 1.4; font-weight: 600;
   }
   .card .badge {
@@ -577,73 +582,33 @@
 <main>
   <header>
     <div class="brand">
-      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" role="img" aria-label="Soup Sports">
-        <!-- plush console-split mark: chubby cream plush head, red seam left /
-             blue seam right, ~4px cream gap. Body stays cream inside — only
-             outline + eye tint follow the half color. -->
+      <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="30 30 340 200" role="img" aria-label="Soup Sports">
+        <!-- Head-only Soup — same head geometry as the full snowman but
+             cropped to skip the body/paws. Cleaner as a header icon.
+             Full-body version lives at assets/logo.svg for larger uses. -->
         <defs>
-          <path id="logo-body" d="M 196 35.6
-            C 188.5 34.4 180.4 34.8 173.4 36.8
-            C 164.6 39.3 156.2 45.0 149.6 53.6
-            C 145.4 59.0 142.0 64.4 139.6 70.8
-            C 137.0 77.8 135.0 84.8 134.2 92.2
-            C 133.4 99.6 134.0 107.2 136.2 114.8
-            C 138.4 122.4 142.6 129.4 149.0 135.8
-            C 155.0 141.8 162.8 146.8 171.2 149.8
-            C 179.2 152.6 188.2 154.0 196 153.6
-            L 196 35.6 Z"/>
-          <path id="logo-ear" d="M 145 56
-            C 141.5 44.5 144.5 32 153.5 26
-            C 162 20.5 173 22.5 179 30.5
-            C 183 36 185 43 185.5 50
-            C 172.5 44 157 46 145 56 Z"/>
-          <path id="logo-ear-pad" d="M 152 46
-            C 150 37.5 153 29.5 159.5 26.5
-            C 165.5 23.8 172 26.3 175.5 32.5
-            C 178 37 179.3 42.5 179.6 47
-            C 169.5 42 159.5 43 152 46 Z"/>
+          <clipPath id="logo-clip-l"><rect x="0"   y="0" width="198" height="400"/></clipPath>
+          <clipPath id="logo-clip-r"><rect x="202" y="0" width="198" height="400"/></clipPath>
         </defs>
-        <!-- cream seam filler so the gap reads cream, not page bg -->
-        <rect x="197" y="35" width="6" height="118" rx="3" fill="#fbf3e0"/>
-        <!-- left half (strawberry seam) -->
-        <g stroke="#d13c48" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
-          <use href="#logo-ear"/>
-          <use href="#logo-ear-pad" fill="#fffcf1" stroke="none"/>
-          <use href="#logo-body"/>
-        </g>
-        <!-- right half (blueberry seam), mirrored -->
-        <g transform="matrix(-1 0 0 1 400 0)"
-           stroke="#7a95d9" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
-          <use href="#logo-ear"/>
-          <use href="#logo-ear-pad" fill="#fffcf1" stroke="none"/>
-          <use href="#logo-body"/>
-        </g>
-        <!-- flat inner shading, lower-right volume -->
-        <path d="M 260.5 98
-          C 261.6 109 258.8 120.4 251.8 130
-          C 244.6 140 233.6 147.2 220.5 150.4
-          C 232.4 144.8 241.8 136.8 247.6 126.4
-          C 252.4 117.8 254.4 108 253.4 98.4 Z"
-          fill="#1c2a3a" opacity="0.09"/>
-        <path d="M 196 151.4
-          C 185 151.6 174 149.8 164.6 145.6
-          C 174.4 148 185.6 149 196 148.6 Z"
-          fill="#1c2a3a" opacity="0.06"/>
-        <!-- pearly highlight arc, upper-left roundness -->
-        <path d="M 148 72 C 151 63 156.5 55.5 164 50"
-              fill="none" stroke="#fffdf4" stroke-width="5" stroke-linecap="round"/>
-        <!-- cheeks -->
-        <ellipse cx="154" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
-        <ellipse cx="246" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
-        <!-- shy low-set eyes, tinted per half -->
-        <ellipse cx="185.5" cy="104" rx="4" ry="4.6" fill="#8a2530"/>
-        <ellipse cx="214.5" cy="104" rx="4" ry="4.6" fill="#435490"/>
-        <!-- tiny nose bump over the seam -->
-        <ellipse cx="200" cy="108.5" rx="2.6" ry="2.2" fill="#1c2a3a"/>
+        <!-- ears -->
+        <circle cx="164" cy="56" r="19" fill="#c9a878" stroke="#e60012" stroke-width="5"/>
+        <circle cx="236" cy="56" r="19" fill="#c9a878" stroke="#0088cc" stroke-width="5"/>
+        <!-- head -->
+        <circle cx="200" cy="104" r="60" fill="#fbf3e0"/>
+        <circle cx="200" cy="104" r="60" fill="none" stroke="#e60012" stroke-width="6"
+                clip-path="url(#logo-clip-l)"/>
+        <circle cx="200" cy="104" r="60" fill="none" stroke="#0088cc" stroke-width="6"
+                clip-path="url(#logo-clip-r)"/>
+        <!-- face patch -->
+        <ellipse cx="200" cy="127" rx="38" ry="27" fill="#b98b6a"/>
+        <!-- eyes + nose -->
+        <circle cx="181" cy="120" r="7" fill="#1c2a3a"/>
+        <circle cx="219" cy="120" r="7" fill="#1c2a3a"/>
+        <circle cx="200" cy="133" r="6.5" fill="#1c2a3a"/>
         <!-- wordmark -->
-        <text x="200" y="202" text-anchor="middle"
+        <text x="200" y="215" text-anchor="middle"
               font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"
-              font-weight="700" font-size="34" letter-spacing="0.5"
+              font-weight="700" font-size="30" letter-spacing="0.5"
               fill="#1c2a3a">Soup Sports</text>
       </svg>
     </div>
@@ -736,6 +701,20 @@
       </div>
       <div class="name">Soup Ninja</div>
       <div class="desc">swing to slice the fruit, don't chop the bombs</div>
+    </a>
+    <a class="card" href="slugger.html" style="--card-accent: #f2c14d;">
+      <div class="badge">1 to 4 players</div>
+      <div class="icon">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <!-- strength-tester: bell on top, vertical tube, level indicator -->
+          <path d="M9.4 6.4 C9.4 4 11 3 13 3 C15 3 16.6 4 16.6 6.4 Z" fill="#fbf3e0"/>
+          <rect x="10.9" y="8" width="4.2" height="15" rx="2.1" fill="#fbf3e0"/>
+          <path d="M8.6 14.6 L10.9 14.6 M15.1 14.6 L17.4 14.6"/>
+          <rect x="10.9" y="13" width="4.2" height="3.2" rx="1.4" fill="#2b1e14" stroke="none"/>
+        </svg>
+      </div>
+      <div class="name">Soup Slugger</div>
+      <div class="desc">one big punch. how hard can you hit?</div>
     </a>
     <a class="card" href="punch_bomb.html" style="--card-accent: #d84a4a;">
       <div class="badge">2 to 4 players</div>

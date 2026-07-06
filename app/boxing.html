@@ -28,8 +28,8 @@
        joycon color; Player B gets the red. Applied to HUD labels, HP bars
        (below `--hp-good`), and the center-screen gesture flash so a glance
        tells you who just threw the punch. */
-    --p1: #0088cc;       /* player A — Switch blue */
-    --p2: #e60012;       /* player B — Switch red  */
+    --p1: #e60012;       /* player A — Switch red  */
+    --p2: #0088cc;       /* player B — Switch blue */
     --hp-good: var(--vine);
     --stam:    var(--gold);
     --combo:   var(--hot);
@@ -527,9 +527,10 @@ import { showLoader } from './loader.js';
 
 showLoader({ game: 'boxing', tips: [
   'move your hand back before punching, the classifier needs to see the wind-up',
-  'jab and hook feel similar, exaggerate the arc on hook to help',
-  'uppercut is your palm-up rising punch, the follow-through matters',
-  'stamina drops with each punch, mix it up',
+  'raise your arm sharply upward to block — a well-timed block absorbs the hit AND stuns the attacker',
+  'block is your best counter — bait a jab, block it, then punch while they whiff',
+  'jabs are fast but weak, hooks and uppercuts hit harder — mix them for combos',
+  'stamina drops with each punch, don\'t just spam',
 ] });
 
 // ══════════════════════════ Scene ══════════════════════════
@@ -976,11 +977,13 @@ loader.load(
     // Player A tinted blue (Switch joycon blue) to match HUD; Player B (opp)
     // tinted red. Face_patch + eyes_nose left default so they still read as
     // "soup" and not "grape / apple."
+    // Player A (LHS HUD) → red mascot. Player B (opp) → blue. Matches the
+    // scoreboard convention across every game.
     attachSoup(player, setupSoup(gltf.scene.clone(true), {
-      body: 0x0088cc, paws: 0x005080, ears: 0x005080, tail: 0x005080,
+      body: 0xe60012, paws: 0x8b0009, ears: 0x8b0009, tail: 0x8b0009,
     }));
     attachSoup(opp, setupSoup(gltf.scene.clone(true), {
-      body: 0xe60012, paws: 0x8b0009, ears: 0x8b0009, tail: 0x8b0009,
+      body: 0x0088cc, paws: 0x005080, ears: 0x005080, tail: 0x005080,
     }));
     log('mascots loaded');
   },
@@ -1180,7 +1183,7 @@ refreshHud();
 
 // Player colors mirror the Switch joycons — blue for A, red for B — so a
 // glance at the center flash tells you who just landed a hit.
-const PLAYER_COLOR = { A: '#0088cc', B: '#e60012' };
+const PLAYER_COLOR = { A: '#e60012', B: '#0088cc' };
 function popGesture(name, power, letter) {
   // No "A" / "B" prefix — the color alone (blue = A, red = B) says who.
   $gest.textContent = `${name} ${Math.round(power*100)}`;
@@ -1649,19 +1652,10 @@ const dispatcher = new ArmDispatcher((armId, g) => {
   applyGesture(g, armId);
 });
 
-// Block polling — extend blockingUntil while the wristband holds still.
-// The classifier flips blockActive on/off; we translate that into a
-// grace-windowed timestamp on the player's state so landImpact can check
-// with a simple `blockingUntil >= now - 200` and land the reward.
-const BLOCK_GRACE_MS = 250;
-function pollBlocks() {
-  const now = performance.now();
-  const armA = pairing.armForPlayer('A');
-  const armB = pairing.armForPlayer('B');
-  if (armA != null && dispatcher.isBlocking(armA)) state.p1.blockingUntil = now + BLOCK_GRACE_MS;
-  if (armB != null && dispatcher.isBlocking(armB)) state.p2.blockingUntil = now + BLOCK_GRACE_MS;
-}
-setInterval(pollBlocks, 40);
+// Block is triggered ONLY by the explicit `block` gesture emitted from the
+// classifier's peak detector. `applyGesture` sets blockingUntil directly.
+// The old still-pose auto-block polling was removed — it made blocking
+// happen just from holding your arm still, which killed the skill layer.
 
 // Log every rejected swing too — so "why didn't my punch fire?" is answerable
 // from the same widget. Reasons:

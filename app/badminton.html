@@ -54,8 +54,8 @@
     display:flex; flex-direction:column; align-items:center;
     padding: 8px 20px 6px; min-width: 130px;
   }
-  #scoreboard .col.A .label { color: var(--hot); text-shadow: 0 2px 0 #a5471d; }
-  #scoreboard .col.B .label { color: var(--ruin-blue); text-shadow: 0 2px 0 #1c3350; }
+  #scoreboard .col.A .label { color: #e60012; text-shadow: 0 2px 0 #8b0009; }
+  #scoreboard .col.B .label { color: #0088cc; text-shadow: 0 2px 0 #005080; }
   #scoreboard .label { font-size: 13px; letter-spacing:.14em;
                        text-transform: uppercase; font-weight: 800; }
   #scoreboard .games { font-size: 32px; font-weight: 900; line-height: 1;
@@ -218,7 +218,7 @@
             transition:opacity 120ms, transform 200ms; pointer-events:none;
             color: var(--hot); z-index:96; text-align:center; }
   #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-  #banner.b   { color: var(--ruin-blue); }
+  #banner.b   { color: #0088cc; }
   #banner.miss{ color: var(--gold); }
   #banner .sub { display:block; font-size: clamp(18px, 4.5vw, 28px); margin-top: 6px;
                  font-weight: 800; letter-spacing:.02em; text-transform: none;
@@ -793,9 +793,9 @@ loader.load('assets/mascot.glb', (gltf) => {
     // NO rotation.y on the mascot itself — the parent group soupA handles the
     // 180° turn. Stacking both rotations here reproduces DEVLOG §11's
     // upside-down-mascot / invisible-mascot bug.
-    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0x0088cc);
-    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x005080);
-    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0x0088cc);
+    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0xe60012);
+    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x8b0009);
+    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0xe60012);
     soupA.remove(phA); soupA.add(a);
     mascot.A.mesh = a; mascot.A.paws = aPaws;
     applyToonToSoup(a, 2.0);
@@ -808,9 +808,9 @@ loader.load('assets/mascot.glb', (gltf) => {
     // no y-flip: mascot faces +z by default → toward the net
     // Player B — warm cream/taupe (matches boxing's CPU tint), visually
     // distinct from player A's hot-orange without breaking the palette.
-    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0xe60012);
-    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x8b0009);
-    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0xe60012);
+    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0x0088cc);
+    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x005080);
+    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0x0088cc);
     soupB.remove(phB); soupB.add(b);
     mascot.B.mesh = b; mascot.B.paws = bPaws;
     applyToonToSoup(b, 2.0);
@@ -832,7 +832,10 @@ const cork = new THREE.Mesh(
   new THREE.SphereGeometry(0.08, 14, 10),
   new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.5 })
 );
-cork.position.y = -0.05;
+// Cork = heavy end, always leads. In idle-fall the cork sits DOWN and the
+// feather cone spreads UP. The whole ball group rotates in flight so the
+// cork always points along the velocity vector (see updateBall).
+cork.position.y = 0.05;    // cork sits above center (leading end pointing +y)
 ball.add(cork);
 const feathers = new THREE.Mesh(
   new THREE.ConeGeometry(0.14, 0.24, 10, 1, true),
@@ -840,7 +843,11 @@ const feathers = new THREE.Mesh(
     color: 0xffffff, roughness: 0.7, side: THREE.DoubleSide,
     emissive: 0xb96cd9, emissiveIntensity: 0.08 })
 );
-feathers.position.y = 0.07;
+// Cone geometry defaults to base-down / apex-up. We want cone apex at the
+// cork end and cone base flaring out AWAY from the cork (feathers trail).
+// So flip the cone and position it BELOW the cork.
+feathers.rotation.x = Math.PI;
+feathers.position.y = -0.07;
 ball.add(feathers);
 // Faint magenta band where feathers meet the cork.
 const feathRing = new THREE.Mesh(
@@ -848,7 +855,7 @@ const feathRing = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ color: 0xb96cd9, roughness: 0.4 })
 );
 feathRing.rotation.x = Math.PI / 2;
-feathRing.position.y = -0.02;
+feathRing.position.y = 0.02;
 ball.add(feathRing);
 ball.position.set(0, 1.0, BASE_Z_A);
 scene.add(ball);
@@ -972,6 +979,9 @@ const state = {
   lastHitter: 'A',        // who struck the shuttle last (server for serves)
   crossedNet: false,      // has the shuttle already crossed z=0 this stroke?
   rallyDecided: false,    // guard so decideXxx fires only once
+  arriveTime: 0,          // ms when the shuttle reaches the receiver
+  hittableStart: 0,       // hit window opens
+  hittableEnd: 0,         // hit window closes
   camShake: { until: 0, amp: 0 },
   pvp: false,
   cpuControls: null,
@@ -1187,77 +1197,85 @@ function startServe() {
 // UNDERHAND serve (not enforced from IMU — we can't detect underhand vs
 // overhand off a wrist swing alone). Represented by a high-arc low-speed
 // launch that peaks and drops into the diagonal service box.
-function launchServe(server, power, roll) {
-  const box = state.serverBox;
-  const from = ball.position.clone();
-  // Target roughly mid-service-box on the diagonal side.
-  const xSign = serveTargetXSign(server, box);
-  const aim   = THREE.MathUtils.clamp(roll / 45, -1, 1);
-  const targetX = xSign * (halfW_S / 2) + aim * 0.4;
-  const targetZ = server === 'A'
-    ? -(SHORT_SERVICE + (HALF_L - SHORT_SERVICE) * 0.55)
-    :  (SHORT_SERVICE + (HALF_L - SHORT_SERVICE) * 0.55);
-  const dx = targetX - from.x, dz = targetZ - from.z;
-  const horizLen = Math.hypot(dx, dz);
-  const dirH = { x: dx / (horizLen || 1), z: dz / (horizLen || 1) };
-  // Underhand geometry: contact ~0.8m, high arc.
-  const pitchDeg = 38 + (1 - power) * 6;    // 38–44°
-  const pitch    = pitchDeg * Math.PI / 180;
-  const speed    = 15 + power * 5;          // 15–20 m/s
-  const hSpd = Math.cos(pitch) * speed;
-  const vSpd = Math.sin(pitch) * speed;
-  state.ballVel.set(dirH.x * hSpd, vSpd, dirH.z * hSpd);
+// Timing-based flight — no ballistics, no drag. Same architecture tennis
+// uses: shuttle lerps hitter→target on a smooth parabolic arc over a
+// fixed duration. Whether the receiver "returns" is judged by whether
+// they swing inside the hit window centered on arrival.
+//
+// Real quadratic-drag physics turned out to be untunable — the shuttle
+// either died at the net or overshot the baseline. Timing lets us tune
+// difficulty with a single knob (hit window width).
+const flight = {
+  from:       new THREE.Vector3(),
+  to:         new THREE.Vector3(),
+  startMs:    0,
+  durationMs: 0,
+  arcHeight:  3.0,
+};
+
+function launchTimingBased(from, to, hitter, receiver, isServe, durationMs, power) {
+  flight.from.copy(from);
+  flight.to.copy(to);
+  flight.startMs = performance.now();
+  flight.durationMs = durationMs;
+  // Higher arc for softer shots — reads like a lob; lower for power drives.
+  // Also always clears the 1.524m net because both endpoints are player-
+  // height and the peak is at durationMs/2.
+  flight.arcHeight = 3.0 + (1 - power) * 2.5;
+  ball.position.copy(from);
   state.mode        = 'in_flight';
-  state.isServe     = true;
-  state.lastHitter  = server;
-  state.headingTo   = otherPlayer(server);
+  state.isServe     = isServe;
+  state.lastHitter  = hitter;
+  state.headingTo   = receiver;
   state.crossedNet  = false;
   state.rallyDecided = false;
-  fireHitConfirm(from, power * 0.5);
-  shakeCamera(power * 0.4);
-  spawnImpactBurst(from, power * 0.7);
-  spawnSwingStreaks(from, state.ballVel);
-  fovPunch(power * 0.8);
-  anim[server].swingStart = performance.now();
+  state.ballVel.set(0, 0, 0);
   clearTrail();
+  fireHitConfirm(from, power * (isServe ? 0.5 : 1));
+  shakeCamera(power * (isServe ? 0.4 : 0.7));
+  spawnImpactBurst(from, power * (isServe ? 0.7 : 1));
+  const dirVec = to.clone().sub(from);
+  spawnSwingStreaks(from, dirVec);
+  fovPunch(power * (isServe ? 0.8 : 1));
+  anim[hitter].swingStart = performance.now();
+  // Hit window centered on arrival — wider for softer shots.
+  state.arriveTime    = flight.startMs + durationMs;
+  const windowHalf    = 260 - power * 90;   // 260 ms → 170 ms
+  state.hittableStart = state.arriveTime - windowHalf;
+  state.hittableEnd   = state.arriveTime + windowHalf;
 }
 
-// Rally return: fast, low-arc drive.
+function launchServe(server, power, roll) {
+  const from = ball.position.clone();
+  // Land the shuttle AT the receiver's mascot position — timing-based
+  // means the ball needs to be reachable at arrival time. Small aim
+  // offset from wrist roll for variety.
+  const receiver = otherPlayer(server);
+  const receiverPos = mascotPos(receiver);
+  const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
+  const target = new THREE.Vector3(
+    receiverPos.x + aim * 0.8,
+    1.5,   // land at chest-ish height so return arc is natural
+    receiverPos.z + (receiver === 'A' ? -0.4 : 0.4)
+  );
+  // Serves are slow underhand — 1200 ms at max power, 1600 ms at zero.
+  const durationMs = 1600 - power * 400;
+  launchTimingBased(from, target, server, receiver, true, durationMs, power);
+}
+
 function launchRally(hitter, power, roll) {
   const target = otherPlayer(hitter);
-  const from = ball.position.clone();
+  const receiverPos = mascotPos(target);
   const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
-  const targetX = aim * (halfW_S - 0.4);
-  const baseZ = baselineZFor(target);
-  // High power → deeper into court. Low power → drop shot near net.
-  const targetZ = target === 'A'
-    ?  (SHORT_SERVICE + (HALF_L - SHORT_SERVICE) * (0.3 + power * 0.6))
-    : -(SHORT_SERVICE + (HALF_L - SHORT_SERVICE) * (0.3 + power * 0.6));
-  const dx = targetX - from.x, dz = targetZ - from.z;
-  const horizLen = Math.hypot(dx, dz);
-  const dirH = { x: dx / (horizLen || 1), z: dz / (horizLen || 1) };
-  // Flatter for smashes, higher for clears. Speeds reduced so returns
-  // reliably land inside the receiver's court instead of overshooting the
-  // baseline — the shuttle's drag model was under-predicting range.
-  const pitchDeg = 18 + (1 - power) * 24;   // 18–42° (higher arc than before)
-  const pitch    = pitchDeg * Math.PI / 180;
-  const speed    = 16 + power * 12;         // 16–28 m/s (was 22–45)
-  const hSpd = Math.cos(pitch) * speed;
-  const vSpd = Math.sin(pitch) * speed;
-  state.ballVel.set(dirH.x * hSpd, vSpd, dirH.z * hSpd);
-  state.mode        = 'in_flight';
-  state.isServe     = false;
-  state.lastHitter  = hitter;
-  state.headingTo   = target;
-  state.crossedNet  = false;
-  state.rallyDecided = false;
-  fireHitConfirm(from, power);
-  shakeCamera(power * 0.7);
-  spawnImpactBurst(from, power);
-  spawnSwingStreaks(from, state.ballVel);
-  fovPunch(power);
-  anim[hitter].swingStart = performance.now();
-  clearTrail();
+  const to = new THREE.Vector3(
+    receiverPos.x + aim * 0.8,
+    1.5,
+    receiverPos.z + (target === 'A' ? -0.4 : 0.4)
+  );
+  const from = ball.position.clone();
+  // Rally shots faster than serves: 900-1300 ms.
+  const durationMs = 1300 - power * 400;
+  launchTimingBased(from, to, hitter, target, false, durationMs, power);
 }
 
 function cpuSwing() {
@@ -1407,32 +1425,40 @@ function awardPoint(winner, subtitle) {
 }
 
 // ═══════════════════════ Physics tick ═══════════════════════
-// Extreme aerodynamic drag: quadratic-drag-lite. Per 60fps frame we scale
-// velocity by clamp(1 − 0.0018·speed, 0.95, 0.998). For real dt we raise the
-// factor to (dt·60). Net effect: 45 m/s serve sheds ~half its speed in the
-// first metre of flight and drops near-vertically at the end.
+// Timing-based flight — no physics. Shuttle lerps from flight.from to
+// flight.to over flight.durationMs with a parabolic y arc so the visual
+// still reads as a lofted shuttle. On arrival, if receiver hasn't swung
+// in the hit window, they lose the point.
 function updateBall(dt) {
   if (state.mode !== 'in_flight') return;
-  const prev = ball.position.clone();
 
-  // Gravity.
-  state.ballVel.y -= G_ACCEL * dt;
+  const now = performance.now();
+  const rawP = (now - flight.startMs) / flight.durationMs;
+  const p = Math.min(1, Math.max(0, rawP));
 
-  // Aerodynamic drag (feathered shuttle bleeds speed fast when fast, mild when slow).
-  const speed = state.ballVel.length();
-  const dragPerFrame = Math.max(0.95, Math.min(0.998, 1 - 0.0018 * speed));
-  const dragFactor = Math.pow(dragPerFrame, dt * 60);
-  state.ballVel.multiplyScalar(dragFactor);
+  // Linear x/z from start to target.
+  ball.position.x = flight.from.x + (flight.to.x - flight.from.x) * p;
+  ball.position.z = flight.from.z + (flight.to.z - flight.from.z) * p;
+  // Parabolic y: peaks at p=0.5.
+  const baseY = flight.from.y + (flight.to.y - flight.from.y) * p;
+  ball.position.y = baseY + 4 * flight.arcHeight * p * (1 - p);
 
-  ball.position.addScaledVector(state.ballVel, dt);
-
-  // Shuttle orientation: cork leads, feathers trail. +y aligned to −velocity.
-  const spd = state.ballVel.length();
+  // Shuttle orientation: point cork along velocity direction. Use finite
+  // differences on the parabolic arc so the shuttle nose-dives realistically
+  // at the tail of the flight.
+  const dY = (flight.to.y - flight.from.y) + 4 * flight.arcHeight * (1 - 2 * p);
+  const dXZ = Math.hypot(flight.to.x - flight.from.x, flight.to.z - flight.from.z);
+  const dirVec = new THREE.Vector3(
+    (flight.to.x - flight.from.x) / flight.durationMs * 1000,
+    dY / flight.durationMs * 1000,
+    (flight.to.z - flight.from.z) / flight.durationMs * 1000
+  );
+  const spd = dirVec.length();
   if (spd > 0.1) {
-    const dir  = state.ballVel.clone().normalize();
-    const up   = new THREE.Vector3(0, 1, 0);
-    const axis = new THREE.Vector3().crossVectors(up, dir.clone().negate()).normalize();
-    const ang  = Math.acos(THREE.MathUtils.clamp(up.dot(dir.clone().negate()), -1, 1));
+    const dir = dirVec.normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const axis = new THREE.Vector3().crossVectors(up, dir).normalize();
+    const ang = Math.acos(THREE.MathUtils.clamp(up.dot(dir), -1, 1));
     if (isFinite(ang) && axis.lengthSq() > 0.0001) {
       ball.quaternion.setFromAxisAngle(axis, ang);
     }
@@ -1445,45 +1471,29 @@ function updateBall(dt) {
   ballShadow.scale.setScalar(s);
   ballShadow.material.opacity = 0.28 * s;
 
-  if (state.rallyDecided) return;
-
-  // Net crossing.
-  if (!state.crossedNet && Math.sign(prev.z) !== Math.sign(ball.position.z) && prev.z !== 0) {
-    // Linear-interp x/y at z=0.
-    const tCross = prev.z / (prev.z - ball.position.z);
-    const yAtNet = prev.y + (ball.position.y - prev.y) * tCross;
-    const xAtNet = prev.x + (ball.position.x - prev.x) * tCross;
-    if (yAtNet < NET_H_CENTER || Math.abs(xAtNet) > halfW_D + 0.1) {
-      decideNetFault(state.lastHitter);
-      return;
-    }
+  // Mark net-crossing based on p — the arc peaks at p=0.5 and crosses
+  // z=0 somewhere in between, definitionally clearing the net because
+  // arcHeight guarantees peak > NET_H_CENTER.
+  if (!state.crossedNet && p > 0.5) {
     state.crossedNet = true;
   }
 
-  // Ground contact — no bounce, rally ends.
-  if (ball.position.y <= 0.06) {
-    ball.position.y = 0.06;
-    state.ballVel.set(0, 0, 0);
-    decideGroundLanding();
-    return;
+  // CPU auto-swings around arrival time.
+  if (!state.pvp && state.cpuControls === state.headingTo && !state.rallyDecided) {
+    if (now >= state.arriveTime - 40 && Math.random() < 1) {
+      state.rallyDecided = true;
+      cpuSwing();
+    }
   }
 
-  // CPU return: decide when shuttle is on CPU's side, coming down, close-ish.
-  if (!state.pvp && state.cpuControls === state.headingTo && state.crossedNet) {
-    const cpu = state.cpuControls;
-    const rp  = mascotPos(cpu);
-    const onCpuSide = cpu === 'A' ? ball.position.z > 0.5 : ball.position.z < -0.5;
-    const nearY     = ball.position.y < 2.0 && state.ballVel.y < 3.5;
-    const nearXZ    = Math.hypot(ball.position.x - rp.x, ball.position.z - rp.z) < 4.0;
-    if (onCpuSide && nearY && nearXZ) {
-      // Snapshot; freeze state so we don't retrigger next tick.
-      state.rallyDecided = true;
-      setTimeout(() => {
-        // Unfreeze — cpuSwing decides return vs miss.
-        state.rallyDecided = false;
-        cpuSwing();
-      }, 60);
+  // Hit window expired → receiver failed to return in time.
+  if (now > state.hittableEnd && !state.rallyDecided) {
+    if (state.isServe) {
+      awardPoint(state.lastHitter, `${state.headingTo.toLowerCase()} couldn't reach the serve`);
+    } else {
+      awardPoint(state.lastHitter, `${state.headingTo.toLowerCase()} missed the return`);
     }
+    state.rallyDecided = true;
   }
 }
 
@@ -1499,30 +1509,24 @@ function handleSwing(player, { power, roll, forehand }) {
   }
 
   // Return: only the swing of the player the shuttle is heading to counts.
+  // Timing-based — swing inside the hit window centered on arrival = good.
   if (state.mode === 'in_flight') {
     if (player !== state.headingTo) return;
-    // Hittable if shuttle is on receiver's side (or crossing) and close enough.
-    const receiver = player;
-    const rp       = mascotPos(receiver);
-    const onSide   = receiver === 'A' ? ball.position.z > -0.5 : ball.position.z < 0.5;
-    const dist     = Math.hypot(ball.position.x - rp.x, ball.position.z - rp.z);
-    const yOK      = ball.position.y > 0.15 && ball.position.y < 4.0;
-    const inRange  = onSide && yOK && dist < 3.6 && state.crossedNet;
-    if (inRange) {
-      state.rally++;
-      refreshScore();
-      popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
-                 forehand ? '#ff9663' : '#37628a');
-      sfx.rally(power);
-      // Snap shuttle to receiver's paw so the return visually connects.
-      ball.position.set(rp.x + 0.2, Math.max(0.9, ball.position.y),
-                        rp.z + (receiver === 'A' ? -0.25 : 0.25));
-      launchRally(receiver, power, roll);
-    } else {
-      popGesture('whiff', '#f4c95d');
-      anim[player].missStart = performance.now();
-      awardPoint(otherPlayer(player), `${player.toLowerCase()} whiffed`);
+    const now = performance.now();
+    if (now < state.hittableStart) {
+      popGesture('too early', '#ff9663');
+      return;
     }
+    if (now > state.hittableEnd || state.rallyDecided) {
+      popGesture('too late', '#f4c95d');
+      return;
+    }
+    state.rally++;
+    refreshScore();
+    popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
+               forehand ? '#ff9663' : '#37628a');
+    sfx.rally(power);
+    launchRally(player, power, roll);
     return;
   }
 }

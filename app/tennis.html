@@ -54,8 +54,8 @@
     display:flex; flex-direction:column; align-items:center;
     padding: 8px 20px 6px; min-width: 130px;
   }
-  #scoreboard .col.A .label { color: var(--hot); text-shadow: 0 2px 0 #a5471d; }
-  #scoreboard .col.B .label { color: var(--ruin-blue); text-shadow: 0 2px 0 #1c3350; }
+  #scoreboard .col.A .label { color: #e60012; text-shadow: 0 2px 0 #8b0009; }
+  #scoreboard .col.B .label { color: #0088cc; text-shadow: 0 2px 0 #005080; }
   #scoreboard .label { font-size: 13px; letter-spacing:.14em;
                        text-transform: uppercase; font-weight: 800; }
   #scoreboard .games { font-size: 32px; font-weight: 900; line-height: 1;
@@ -190,8 +190,8 @@
     opacity: 1;
     transform: translate(-50%, 0);
   }
-  #serve-indicator[data-server="A"] { background: #0088cc; }   /* Player A blue */
-  #serve-indicator[data-server="B"] { background: #e60012; }   /* Player B red  */
+  #serve-indicator[data-server="A"] { background: #e60012; }   /* Player A red  */
+  #serve-indicator[data-server="B"] { background: #0088cc; }   /* Player B blue */
 
   /* ── Hit confirm ── */
   .hit-confirm { position:absolute; inset:0;
@@ -244,7 +244,7 @@
             transition:opacity 120ms, transform 200ms; pointer-events:none;
             color: var(--hot); z-index:96; text-align:center; }
   #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-  #banner.b   { color: var(--ruin-blue); }
+  #banner.b   { color: #0088cc; }
   #banner.miss{ color: var(--gold); }
   #banner .sub { display:block; font-size: clamp(18px, 4.5vw, 28px); margin-top: 6px;
                  font-weight: 800; letter-spacing:.02em; text-transform: none;
@@ -769,6 +769,31 @@ const soupB = new THREE.Group();
 soupB.position.set(0, 0, BASE_Z_B);
 scene.add(soupB);
 
+// Floating serve arrow — a downward-pointing cone that hovers over the
+// mascot whose turn it is to serve. Bobs gently. Hides between points.
+const serveArrow = (() => {
+  const g = new THREE.Group();
+  const coneGeo = new THREE.ConeGeometry(0.28, 0.55, 4);
+  const coneMat = new THREE.MeshStandardMaterial({ color: 0xe60012, emissive: 0x330000, roughness: 0.5 });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  cone.rotation.x = Math.PI;        // point DOWN
+  cone.rotation.y = Math.PI / 4;    // rotate 45° so the pyramid faces are diamond-facing
+  g.add(cone);
+  g.visible = false;
+  g.userData.cone = cone;
+  scene.add(g);
+  return g;
+})();
+function updateServeArrow() {
+  if (!serveArrow.visible) return;
+  const owner = state.server === 'A' ? soupA : soupB;
+  serveArrow.position.x = owner.position.x;
+  serveArrow.position.z = owner.position.z;
+  serveArrow.position.y = 2.7 + Math.sin(performance.now() * 0.005) * 0.12;
+  serveArrow.userData.cone.material.color.setHex(state.server === 'A' ? 0xe60012 : 0x0088cc);
+}
+function showServeArrow(show) { serveArrow.visible = show; }
+
 // Ground shadow blobs under each mascot (tracked to x/z every frame).
 const blobA = makeGroundBlob(0.55, 0.02);
 const blobB = makeGroundBlob(0.55, 0.02);
@@ -789,9 +814,9 @@ loader.load('assets/mascot.glb', (gltf) => {
     a.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     a.scale.setScalar(MASCOT_SCALE);
     a.rotation.x = -Math.PI / 2;
-    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0x0088cc);
-    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x005080);
-    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0x0088cc);
+    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0xe60012);
+    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x8b0009);
+    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0xe60012);
     soupA.remove(phA); soupA.add(a);
     mascot.A.mesh = a; mascot.A.paws = aPaws;
     applyToonToSoup(a, 2.0);
@@ -800,9 +825,9 @@ loader.load('assets/mascot.glb', (gltf) => {
     b.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     b.scale.setScalar(MASCOT_SCALE);
     b.rotation.x = -Math.PI / 2;
-    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0xe60012);
-    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x8b0009);
-    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0xe60012);
+    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0x0088cc);
+    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x005080);
+    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0x0088cc);
     soupB.remove(phB); soupB.add(b);
     mascot.B.mesh = b; mascot.B.paws = bPaws;
     applyToonToSoup(b, 2.0);
@@ -1193,6 +1218,8 @@ function startServe() {
   // Big blue/red plaque above the server so you can see whose turn it is
   // even if you're not reading the prompt pill.
   showServeIndicator(state.server);
+  // 3D floating arrow that hovers above the serving mascot until they hit.
+  showServeArrow(true);
   // CPU serves after a beat.
   if (!state.pvp && state.cpuControls === state.server) {
     setTimeout(() => {
@@ -1229,6 +1256,8 @@ const flight = {
 };
 
 function launchTimingBased(from, to, hitter, receiver, isServe, durationMs, power) {
+  // Hide the serve arrow — it lives above the SERVER until they hit.
+  showServeArrow(false);
   flight.from.copy(from);
   flight.to.copy(to);
   flight.startMs = performance.now();
@@ -1262,25 +1291,31 @@ function launchTimingBased(from, to, hitter, receiver, isServe, durationMs, powe
 function launchServe(server, power, roll) {
   const box = serveTargetBox(server, state.servingFrom);
   bt.serveTargetBox = box;
-  const center = boxCenter(box);
-  const aim = THREE.MathUtils.clamp(roll / 60, -1, 1);
-  const boxHalfX = (box.xMax - box.xMin) / 2;
-  center.x += aim * (boxHalfX - 0.3);
   const from = serverStartPos(server, state.servingFrom);
+  // Serve lands AT the receiver's position, not deep in their box —
+  // timing-based means they need the ball reachable when it arrives.
+  const receiver = otherPlayer(server);
+  const receiverPos = mascotPos(receiver);
+  const aim = THREE.MathUtils.clamp(roll / 60, -1, 1);
+  const target = new THREE.Vector3(receiverPos.x + aim * 0.8, 1.0, receiverPos.z);
   // Serve duration: 750 ms at max power, 1050 ms at zero — matches classic
   // "hard serve is fast, weak serve floats" feel.
   const durationMs = 1050 - power * 300;
-  launchTimingBased(from, center, server, otherPlayer(server), true, durationMs, power);
+  launchTimingBased(from, target, server, receiver, true, durationMs, power);
 }
 
 function launchReturn(swinger, power, roll) {
   const target = otherPlayer(swinger);
+  // Land the ball RIGHT AT the receiver's racket position — since the game
+  // is timing-based now, the ball needs to be reachable at arrival time.
+  // Landing "deep in their court" leaves them chasing a spot they can't get
+  // to; the racket connects when the ball reaches them, and their mascot is
+  // planted at BASE_Z_{A,B}, roughly at chest height (1.0 m).
+  const receiverPos = mascotPos(target);
   const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
-  const targetX = aim * (SINGLES_HALF - 0.6);
-  const targetBaselineZ = baselineZFor(target);
-  const depth = 1.5 + power * (Math.abs(targetBaselineZ) - 2.5);
-  const targetZ = target === 'A' ? +depth : -depth;
-  const to = new THREE.Vector3(targetX, BALL_R, targetZ);
+  const targetX = receiverPos.x + aim * 0.8;   // small lateral drift from roll
+  const targetZ = receiverPos.z;               // right at the receiver
+  const to = new THREE.Vector3(targetX, 1.0, targetZ);
   const from = ball.position.clone();
   // Rally duration: 800-1100 ms scaled by power.
   const durationMs = 1100 - power * 300;
@@ -1658,6 +1693,7 @@ function tick() {
   lastT = now;
 
   updateBall(dt);
+  updateServeArrow();
 
   // Ball glued to server between points.
   if (state.mode === 'serve_wait') {

@@ -117,18 +117,33 @@ const WIN_INNER =
 // Each loop is 1.6 s.
 
 const SCENES = {
-  // Arm snaps forward-and-down (jab), speed-line "→" trail flashes.
+  // Boxing loop: JAB phase (arm forward + speed lines) alternating with
+  // BLOCK phase (arm raised upward as a guard). Timing split 50/50 across
+  // the 1.6s loop so newbies see both gestures once each per cycle.
   boxing: `
     ${soup(64, 80)}
-    <g class="ss-l-jab" style="transform-origin:90px 80px">
+    <!-- Arm — same rect + fist. Its transform is driven by ss-l-box-arm
+         which combines the jab-thrust and block-raise into one keyframe
+         loop. transform-origin at the shoulder joint. -->
+    <g class="ss-l-box-arm" style="transform-origin:90px 80px">
       <rect class="lc si" x="84" y="74" width="38" height="13" rx="6.5"/>
       <circle class="lc si" cx="126" cy="80" r="10"/>
     </g>
+    <!-- Jab trail (right arrow) — visible only during the jab half. -->
     <g class="ss-l-jab-trail ln si" stroke="#fffdf5" stroke-width="3.5">
       <path d="M 148,86 h 34 m -10,-8 l 10,8 l -10,8"/>
       <path d="M 144,68 h 18" opacity=".55"/>
       <path d="M 144,104 h 18" opacity=".55"/>
-    </g>`,
+    </g>
+    <!-- Block cue: upward arrow + "BLOCK" caption — visible only during
+         the block half. Positioned above the raised arm. -->
+    <g class="ss-l-block-cue ln si" stroke="#fffdf5" stroke-width="3.5">
+      <path d="M 132,32 v -20 m -8,10 l 8,-10 l 8,10" fill="none"/>
+    </g>
+    <text class="ss-l-block-label" x="132" y="60"
+          text-anchor="middle" font-family="Fredoka, Nunito, sans-serif"
+          font-weight="800" font-size="14" fill="#fffdf5"
+          stroke="#1c2a3a" stroke-width="2" paint-order="stroke">BLOCK</text>`,
 
   // Arm winds behind the body (drawn under the mascot, so the wind-up is
   // occluded), swings underhand through; gold ball releases at the bottom of
@@ -219,7 +234,7 @@ const PAIR_COPY =
   `<span class="ss-pb">red is player B</span>.`;
 
 const PLAY_COPY = {
-  boxing:    'jab to attack. raise your arm up to block — a well-timed block stuns your opponent.',
+  boxing:    'jab forward to attack. sharply raise your arm to block — a well-timed block stuns the attacker.',
   bowling:   'swing underhand and let go at the low point.',
   tennis:    'swing forehand or backhand when the ball is near.',
   badminton: 'light flicks for the shuttle, wait for it to drop.',
@@ -393,19 +408,34 @@ const CSS = `
 .ss-l-sB1 { animation: ss-l-sB1 4s linear infinite; }
 @keyframes ss-l-sB1 { 0%, 49% { opacity: 0; } 50%, 100% { opacity: 1; } }
 
-/* boxing: jab forward-and-down, snap back */
-.ss-l-jab { animation: ss-l-jab 1.6s ease-in-out infinite; }
-@keyframes ss-l-jab {
-  0%, 8%    { transform: translate(0,0) rotate(0deg); }
-  20%, 34%  { transform: translate(30px,8px) rotate(10deg); }
-  52%, 100% { transform: translate(0,0) rotate(0deg); }
+/* boxing: combined jab + block loop.
+   First half of the loop (0–50%) is the jab thrust; second half (50–100%)
+   is the upward block raise. Idle / rest at 0% and 100% keep both ends
+   symmetric so the loop reads cleanly. */
+.ss-l-box-arm { animation: ss-l-box-arm 2.6s ease-in-out infinite; }
+@keyframes ss-l-box-arm {
+  /* --- rest --- */
+  0%       { transform: translate(0,0) rotate(0deg); }
+  /* --- jab phase --- */
+  10%, 24% { transform: translate(30px,8px) rotate(10deg); }
+  40%      { transform: translate(0,0) rotate(0deg); }
+  /* --- block phase --- */
+  55%, 78% { transform: translate(-4px,-38px) rotate(-72deg); }
+  92%, 100%{ transform: translate(0,0) rotate(0deg); }
 }
-.ss-l-jab-trail { animation: ss-l-jab-trail 1.6s ease-out infinite; }
+.ss-l-jab-trail { animation: ss-l-jab-trail 2.6s ease-out infinite; }
 @keyframes ss-l-jab-trail {
-  0%, 12%   { opacity: 0; transform: translateX(-8px); }
-  22%, 36%  { opacity: 1; transform: translateX(6px); }
-  50%, 100% { opacity: 0; transform: translateX(10px); }
+  0%       { opacity: 0; transform: translateX(-8px); }
+  12%, 24% { opacity: 1; transform: translateX(6px); }
+  35%, 100%{ opacity: 0; transform: translateX(10px); }
 }
+.ss-l-block-cue { animation: ss-l-block-cue 2.6s ease-out infinite; }
+@keyframes ss-l-block-cue {
+  0%, 45%   { opacity: 0; transform: translateY(6px); }
+  58%, 80%  { opacity: 1; transform: translateY(0); }
+  90%, 100% { opacity: 0; transform: translateY(-4px); }
+}
+.ss-l-block-label { animation: ss-l-block-cue 2.6s ease-out infinite; }
 
 /* bowling: wind back, underhand swing, release */
 .ss-l-bowl-arm { animation: ss-l-bowl-arm 1.6s ease-in-out infinite; }

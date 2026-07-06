@@ -54,8 +54,8 @@
     display:flex; flex-direction:column; align-items:center;
     padding: 8px 20px 6px; min-width: 130px;
   }
-  #scoreboard .col.A .label { color: var(--hot); text-shadow: 0 2px 0 #a5471d; }
-  #scoreboard .col.B .label { color: var(--ruin-blue); text-shadow: 0 2px 0 #1c3350; }
+  #scoreboard .col.A .label { color: #e60012; text-shadow: 0 2px 0 #8b0009; }
+  #scoreboard .col.B .label { color: #0088cc; text-shadow: 0 2px 0 #005080; }
   #scoreboard .label { font-size: 13px; letter-spacing:.14em;
                        text-transform: uppercase; font-weight: 800; }
   #scoreboard .games { font-size: 32px; font-weight: 900; line-height: 1;
@@ -64,7 +64,8 @@
                        color: var(--ink-soft); font-weight: 800; }
   #scoreboard .serve-dot { font-size: 12px; margin-top: 2px; color: transparent;
                            font-weight: 900; letter-spacing:.1em; }
-  #scoreboard .col.serving .serve-dot { color: var(--vine-deep); }
+  #scoreboard .col.A.serving .serve-dot { color: #e60012; }
+  #scoreboard .col.B.serving .serve-dot { color: #0088cc; }
   #scoreboard .col.serving .games { text-shadow: 0 3px 0 rgba(74,148,64,.35); }
   #scoreboard .mid {
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -143,6 +144,19 @@
             color: var(--ink); white-space:nowrap;
             transition: opacity 220ms; }
   #prompt.hidden { opacity: 0; }
+  /* "SWING NOW" flash: cue that the ball is inside the receiver's hit
+     window right now. Text goes bright green + slight pulse so the player
+     knows exactly when to strike. Removed when window closes. */
+  #prompt.swing-cue {
+    background: #d8f0c8; color: #1c3a0e;
+    border-color: #1c3a0e;
+    box-shadow: 0 3px 0 #1c3a0e, 0 0 0 4px rgba(108,184,90,.35);
+    animation: swingPulse 240ms ease-in-out infinite alternate;
+  }
+  @keyframes swingPulse {
+    from { transform: translateX(-50%) scale(1);    }
+    to   { transform: translateX(-50%) scale(1.06); }
+  }
 
   /* First-time swing hint — sits just under the prompt pill, fades after the
      first detected swing (body.has-gestured). Cream text with an ink outline
@@ -216,9 +230,9 @@
             text-transform:uppercase; opacity:0;
             text-shadow:0 6px 0 var(--ink), 0 10px 32px rgba(28,42,58,.4);
             transition:opacity 120ms, transform 200ms; pointer-events:none;
-            color: var(--hot); z-index:96; text-align:center; }
+            color: #e60012; z-index:96; text-align:center; }
   #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-  #banner.b   { color: var(--ruin-blue); }
+  #banner.b   { color: #0088cc; }
   #banner.miss{ color: var(--gold); }
   #banner .sub { display:block; font-size: clamp(18px, 4.5vw, 28px); margin-top: 6px;
                  font-weight: 800; letter-spacing:.02em; text-transform: none;
@@ -319,7 +333,7 @@
 
 <div id="sparkles"></div>
 <div id="prompt">connect the hub to start</div>
-<div id="howto">swing your wristband like a racket</div>
+<div id="howto">swing your wristband like a paddle</div>
 <div id="gesture"></div>
 <div id="banner"></div>
 <div class="hit-confirm" id="hit-confirm">
@@ -364,12 +378,12 @@ showLoader({ game: 'pingpong', tips: [
 // ═══════════════════════ Three.js scene ═══════════════════════
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x4fc0e3);
-scene.fog = new THREE.Fog(0x4fc0e3, 30, 90);
+scene.fog = new THREE.Fog(0x4fc0e3, 12, 45);
 
-// Side-elevated view so both baselines fit in frame.
+// Low, close side view — the table fills the frame, meadow stays backdrop.
 const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
-const camHome = new THREE.Vector3(5.5, 5.0, 9.5);
-const camLook = new THREE.Vector3(0, 0.6, 0);
+const camHome = new THREE.Vector3(3, 2.8, 4);
+const camLook = new THREE.Vector3(0, 1, 0);
 camera.position.copy(camHome);
 camera.lookAt(camLook);
 
@@ -396,15 +410,20 @@ const rimWarm = new THREE.DirectionalLight(0xffe4b0, 0.5);
 rimWarm.position.set(-4, 6, -8);
 scene.add(rimWarm);
 
-// ── Court dimensions ──
-// Player A on +z (near) half. Player B on -z (far) half. Net at z=0.
-const COURT_W = 3.6;
-const COURT_L = 8.0;
-const HALF_L  = COURT_L / 2;
-const halfW   = COURT_W / 2;
+// ── Table dimensions (ITTF regulation: 2.74 m × 1.525 m, surface 0.76 m) ──
+// LONG axis runs along z. Player A at the +z SHORT end, player B at -z.
+// Net at z=0. All gameplay x/z bounds are the table's, not a court's.
+const TABLE_L = 2.74;                 // long axis (z)
+const TABLE_W = 1.525;                // short axis (x)
+const TABLE_H = 0.76;                 // playing-surface height
+const HALF_L  = TABLE_L / 2;          // 1.37 — the table baseline
+const halfW   = TABLE_W / 2;
+const BALL_R  = 0.06;
+const REST_Y  = TABLE_H + BALL_R;     // ball sitting on the table
 
+// Ground under the table — kept as-is, but no painted lines.
 const court = new THREE.Mesh(
-  new THREE.PlaneGeometry(COURT_W + 3.0, COURT_L + 4.0),
+  new THREE.PlaneGeometry(TABLE_W + 5.0, TABLE_L + 7.0),
   new THREE.MeshStandardMaterial({ color: 0xebd9a8, roughness: 0.9 })
 );
 court.rotation.x = -Math.PI/2;
@@ -418,7 +437,19 @@ outer.rotation.x = -Math.PI/2;
 outer.position.y = -0.02;
 scene.add(outer);
 
-function addLine(x1, z1, x2, z2, thickness = 0.08) {
+// ── The table ──
+const tableGroup = new THREE.Group();
+const TOP_T = 0.05;   // tabletop slab thickness
+const tableTop = new THREE.Mesh(
+  new THREE.BoxGeometry(TABLE_W, TOP_T, TABLE_L),
+  new THREE.MeshStandardMaterial({ color: 0x0d5aa8, roughness: 0.5 })
+);
+tableTop.position.y = TABLE_H - TOP_T / 2;   // top face lands exactly at TABLE_H
+tableGroup.add(tableTop);
+
+// White markings painted on the surface: border stripe + center service
+// line along the LONG axis.
+function addTableLine(x1, z1, x2, z2, thickness) {
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
   const mesh = new THREE.Mesh(
@@ -426,37 +457,62 @@ function addLine(x1, z1, x2, z2, thickness = 0.08) {
     new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })
   );
   mesh.rotation.x = -Math.PI/2;
-  mesh.position.set((x1+x2)/2, 0.01, (z1+z2)/2);
   mesh.rotation.z = -Math.atan2(dz, dx);
-  scene.add(mesh);
+  mesh.position.set((x1+x2)/2, TABLE_H + 0.002, (z1+z2)/2);
+  tableGroup.add(mesh);
 }
-addLine(-halfW, -HALF_L, -halfW,  HALF_L);
-addLine( halfW, -HALF_L,  halfW,  HALF_L);
-addLine(-halfW, -HALF_L,  halfW, -HALF_L);
-addLine(-halfW,  HALF_L,  halfW,  HALF_L);
-addLine(-halfW, -HALF_L/2, halfW, -HALF_L/2);
-addLine(-halfW,  HALF_L/2, halfW,  HALF_L/2);
-addLine(0, -HALF_L/2, 0, HALF_L/2);
+const EDGE_T = 0.03;
+addTableLine(-halfW + EDGE_T/2, -HALF_L, -halfW + EDGE_T/2,  HALF_L, EDGE_T);
+addTableLine( halfW - EDGE_T/2, -HALF_L,  halfW - EDGE_T/2,  HALF_L, EDGE_T);
+addTableLine(-halfW, -HALF_L + EDGE_T/2,  halfW, -HALF_L + EDGE_T/2, EDGE_T);
+addTableLine(-halfW,  HALF_L - EDGE_T/2,  halfW,  HALF_L - EDGE_T/2, EDGE_T);
+addTableLine(0, -HALF_L, 0, HALF_L, 0.02);   // center line, long axis
 
-// ── Net ──
+// Four wooden legs, corner-inset, table height down to the grass.
+const legGeo = new THREE.CylinderGeometry(0.045, 0.045, TABLE_H - TOP_T, 12);
+const legMat = new THREE.MeshStandardMaterial({ color: 0x5a4a3d, roughness: 0.85 });
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  const leg = new THREE.Mesh(legGeo, legMat);
+  leg.position.set(sx * (halfW - 0.14), (TABLE_H - TOP_T) / 2, sz * (HALF_L - 0.22));
+  tableGroup.add(leg);
+}
+scene.add(tableGroup);
+
+// ── Net — 15.25 cm regulation, LineSegments mesh grid + white tape + posts ──
 const netGroup = new THREE.Group();
-const netMat = new THREE.MeshStandardMaterial({
-  color: 0xfbf3e0, roughness: 0.9, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
-// Ping-pong net is TINY — a low tape strip stretched across the table.
-const net = new THREE.Mesh(new THREE.PlaneGeometry(COURT_W + 0.4, 0.18), netMat);
-net.position.set(0, 0.09, 0);
-netGroup.add(net);
-const netTop = new THREE.Mesh(
-  new THREE.BoxGeometry(COURT_W + 0.45, 0.03, 0.03),
-  new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.6 })
+const NET_W = TABLE_W + 0.3;     // regulation net overhangs 15 cm each side
+const NET_H = 0.1525;
+const NET_CELL = 0.02;           // ~2 cm mesh cells
+{
+  const pts = [];
+  const nx = Math.floor(NET_W / NET_CELL);          // vertical strands
+  for (let i = 0; i <= nx; i++) {
+    const x = -NET_W/2 + i * NET_CELL;
+    pts.push(x, TABLE_H, 0, x, TABLE_H + NET_H, 0);
+  }
+  const ny = Math.floor(NET_H / NET_CELL);          // horizontal strands
+  for (let j = 0; j <= ny; j++) {
+    const y = TABLE_H + j * NET_CELL;
+    pts.push(-NET_W/2, y, 0, NET_W/2, y, 0);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  netGroup.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    color: 0x1c2a3a, transparent: true, opacity: 0.55 })));
+}
+// White fabric tape along the top edge.
+const netTape = new THREE.Mesh(
+  new THREE.BoxGeometry(NET_W, 0.018, 0.012),
+  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 })
 );
-netTop.position.set(0, 0.18, 0);
-netGroup.add(netTop);
-const postGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.22, 10);
+netTape.position.set(0, TABLE_H + NET_H, 0);
+netGroup.add(netTape);
+// Two small posts clamped to the table edges.
+const postGeo = new THREE.CylinderGeometry(0.014, 0.014, NET_H + 0.03, 10);
 const postMat = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.7 });
 [-1, 1].forEach(s => {
   const post = new THREE.Mesh(postGeo, postMat);
-  post.position.set(s * (halfW + 0.2), 0.11, 0);
+  post.position.set(s * (NET_W / 2), TABLE_H + (NET_H + 0.03) / 2 - 0.015, 0);
   netGroup.add(post);
 });
 scene.add(netGroup);
@@ -691,10 +747,10 @@ function updateFovPunch(now) {
 // Two identical soup mascots, retinted per player. Both loaded from the same
 // GLB — see soup/HANDOFF.md. Placeholder shows until the GLB lands.
 const MASCOT_SCALE = 0.012;
-// Ping-pong mascots stand BEHIND the (short) table, not on it. Push them
-// past the baseline so the paddle swing meets the ball above the table edge.
-const BASE_Z_A =  HALF_L + 1.4;   // player A near baseline (+z)
-const BASE_Z_B = -HALF_L - 1.4;   // player B far  baseline (-z)
+// Mascots stand on the GROUND at the SHORT ends of the table, a step behind
+// the ±1.37 m baseline. The table is between them at chest height.
+const BASE_Z_A =  2.2;   // player A near short end (+z)
+const BASE_Z_B = -2.2;   // player B far  short end (-z)
 
 function makePlaceholder(tint) {
   const g = new THREE.Group();
@@ -729,8 +785,34 @@ scene.add(soupB);
 const blobA = makeGroundBlob(0.5, 0.02);
 const blobB = makeGroundBlob(0.5, 0.02);
 
-const phA = makePlaceholder(0xff9663); soupA.add(phA);
-const phB = makePlaceholder(0xf6e9c9); soupB.add(phB);
+// Floating serve arrow — downward cone hovering over whoever serves next
+// (pattern copied from tennis.html). Red for player A, blue for player B.
+// Hidden the moment the ball launches.
+const serveArrow = (() => {
+  const g = new THREE.Group();
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.22, 0.45, 4),
+    new THREE.MeshStandardMaterial({ color: 0xe60012, emissive: 0x330000, roughness: 0.5 }));
+  cone.rotation.x = Math.PI;        // point DOWN
+  cone.rotation.y = Math.PI / 4;    // diamond-facing pyramid faces
+  g.add(cone);
+  g.visible = false;
+  g.userData.cone = cone;
+  scene.add(g);
+  return g;
+})();
+function updateServeArrow() {
+  if (!serveArrow.visible) return;
+  const owner = state.server === 'A' ? soupA : soupB;
+  serveArrow.position.x = owner.position.x;
+  serveArrow.position.z = owner.position.z;
+  serveArrow.position.y = 2.0 + Math.sin(performance.now() * 0.005) * 0.1;
+  serveArrow.userData.cone.material.color.setHex(state.server === 'A' ? 0xe60012 : 0x0088cc);
+}
+function showServeArrow(show) { serveArrow.visible = show; }
+
+const phA = makePlaceholder(0xe60012); soupA.add(phA);   // A = red
+const phB = makePlaceholder(0x0088cc); soupB.add(phB);   // B = blue
 
 const mascot = { A: { mesh: null, paws: null }, B: { mesh: null, paws: null } };
 const anim = {
@@ -741,7 +823,7 @@ const anim = {
 const loader = new GLTFLoader();
 loader.load('assets/mascot.glb', (gltf) => {
   try {
-    // Player A — near baseline, hot orange, faces -z (toward net/B)
+    // Player A — near short end, RED (#e60012), faces -z (toward net/B)
     const a = gltf.scene.clone(true);
     a.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     a.scale.setScalar(MASCOT_SCALE);
@@ -749,24 +831,22 @@ loader.load('assets/mascot.glb', (gltf) => {
     // NO rotation.y on the mascot itself — the parent group soupA handles the
     // 180° turn. Stacking both rotations here reproduces DEVLOG §11's
     // upside-down-mascot / invisible-mascot bug.
-    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0x0088cc);
-    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x005080);
-    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0x0088cc);
+    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0xe60012);
+    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0x8b0009);
+    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0xe60012);
     soupA.remove(phA); soupA.add(a);
     mascot.A.mesh = a; mascot.A.paws = aPaws;
     applyToonToSoup(a, 2.0);
 
-    // Player B — far baseline, teal-blue, faces +z (toward net/A)
+    // Player B — far short end, BLUE (#0088cc), faces +z (toward net/A)
     const b = gltf.scene.clone(true);
     b.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
     b.scale.setScalar(MASCOT_SCALE);
     b.rotation.x = -Math.PI / 2;
     // no y-flip: mascot faces +z by default → toward the net
-    // Player B — warm cream/taupe (matches boxing's CPU tint), visually
-    // distinct from player A's hot-orange without breaking the palette.
-    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0xe60012);
-    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x8b0009);
-    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0xe60012);
+    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0x0088cc);
+    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0x005080);
+    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0x0088cc);
     soupB.remove(phB); soupB.add(b);
     mascot.B.mesh = b; mascot.B.paws = bPaws;
     applyToonToSoup(b, 2.0);
@@ -787,16 +867,26 @@ const ball = new THREE.Mesh(
     color: 0xff5a2c, roughness: 0.35,
     emissive: 0xa5471d, emissiveIntensity: 0.4 })
 );
-ball.position.set(0, 1.0, BASE_Z_A);
+ball.position.set(0, REST_Y, HALF_L - 0.12);   // resting on the table surface
 scene.add(ball);
 
 const ballShadow = new THREE.Mesh(
   new THREE.CircleGeometry(0.09, 16),
-  new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true, opacity: 0.28 })
+  new THREE.MeshBasicMaterial({ color: 0x1c2a3a, transparent: true, opacity: 0.28,
+                                depthWrite: false })
 );
 ballShadow.rotation.x = -Math.PI/2;
-ballShadow.position.y = 0.02;
+ballShadow.position.y = TABLE_H + 0.004;
 scene.add(ballShadow);
+
+// Ball shadow projects onto the table when the ball is over it, the ground
+// otherwise. Returns the surface height under the ball for bounce checks.
+function surfaceUnderBall() {
+  const overTable = Math.abs(ball.position.x) <= halfW
+                 && Math.abs(ball.position.z) <= HALF_L;
+  ballShadow.position.y = overTable ? TABLE_H + 0.004 : 0.02;
+  return overTable ? TABLE_H + BALL_R : BALL_R + 0.01;
+}
 
 // ── Ball trail ──
 const TRAIL_LEN = 40;
@@ -889,8 +979,8 @@ function clearTrail() {
 // Scoring: state.points['A' | 'B'] is 0..3 for 0/15/30/40, or 'AD' after
 // an advantage. Deuce = both at 3. First to 3 games wins the set.
 
-const HITTABLE_MS = 350;      // catchable swing window (was 220 — too tight)
-const HITTABLE_LATE_MS = 90;  // grace after arrival
+const HITTABLE_MS = 550;      // catchable swing window (was 350 — still tight)
+const HITTABLE_LATE_MS = 160; // grace after arrival
 const SET_TARGET = 3;
 const G_ACCEL = 9.8;
 
@@ -1066,11 +1156,20 @@ function launchArc(from, to, flightMs) {
   clearTrail();
 }
 
-function pinBallToServer() {
+// Ball waits ON the server's table edge (not floating mid-air).
+function restBallAtServerEdge() {
   const mp = mascotPos(state.server);
-  // Slight offset in from the baseline + upward hold
-  const zOffset = state.server === 'A' ? -0.3 : 0.3;
-  ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
+  const edgeZ = state.server === 'A' ? (HALF_L - 0.12) : -(HALF_L - 0.12);
+  ball.position.set(
+    THREE.MathUtils.clamp(mp.x, -halfW + 0.1, halfW - 0.1), REST_Y, edgeZ);
+  ballShadow.position.x = ball.position.x;
+  ballShadow.position.z = ball.position.z;
+  surfaceUnderBall();
+  ballShadow.scale.setScalar(1);
+  ballShadow.material.opacity = 0.28;
+}
+function pinBallToServer() {
+  restBallAtServerEdge();
   clearTrail();
 }
 
@@ -1078,6 +1177,7 @@ function startServe() {
   state.mode = 'serve_wait';
   state.headingTo = state.server;   // ball is with server; they'll launch to the other
   pinBallToServer();
+  showServeArrow(true);             // hovers over the server until they hit
   const label = state.server === 'A' ? 'player a' : 'player b';
   setPrompt(`${label} — swing to serve!`);
   // CPU serves automatically after a beat.
@@ -1093,18 +1193,26 @@ function startServe() {
 function processHit(swinger, power, roll) {
   const target = otherPlayer(swinger);
   const from = ball.position.clone();
+  showServeArrow(false);   // ball is live — arrow off
   const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
-  const targetX = aim * (halfW - 0.6);
-  // Land ball a bit inside opponent's baseline, deeper on higher power.
-  const baseZ = baselineZFor(target);
+  const targetX = aim * (halfW - 0.18);
+  // Land the ball ON the opponent's half of the table — deeper on higher
+  // power, but always inside the ±1.37 m baseline.
   const dir = target === 'B' ? -1 : +1;   // deeper into B = more negative z
-  const targetZ = baseZ - dir * (1.2 + (1 - power) * 1.0);
-  const to = new THREE.Vector3(targetX, 1.0, targetZ);
-  // Ball speed roughly halved (was 620-260*power = 360-620 ms; now
-  // 1100-300*power = 800-1100 ms). Gives the receiver a comfortable
-  // ~350-500 ms swing window instead of the tight 220 ms it used to be.
-  const flight = 1100 - power * 300;
+  const targetZ = dir * (0.35 + power * 0.75);
+  const to = new THREE.Vector3(targetX, TABLE_H + BALL_R, targetZ);
+  // Ball speed halved AGAIN vs the last tune: the run is now table-length
+  // (~2-3 m instead of ~8-9 m of court) at a similar 700-1000 ms flight, so
+  // launch velocity drops from ~8-11 m/s to ~3-4.5 m/s.
+  const flight = 1000 - power * 300;
   launchArc(from, to, flight);
+  // launchArc's arrival == the table bounce. Shift the swing window a beat
+  // later so the receiver hits AFTER the bounce (table-tennis bounce rule)
+  // instead of the window closing the instant the ball lands.
+  const BOUNCE_TO_PADDLE_MS = 250;
+  state.arriveTime    += BOUNCE_TO_PADDLE_MS;
+  state.hittableStart += BOUNCE_TO_PADDLE_MS;
+  state.hittableEnd   += BOUNCE_TO_PADDLE_MS;
   state.headingTo = target;
   // Bounce-rule tracking — reset on every hit. The ball must bounce ONCE
   // on the receiver's side of the net before the receiver's swing counts.
@@ -1200,26 +1308,38 @@ function updateBall(dt) {
   pushTrail(ball.position);
   ballShadow.position.x = ball.position.x;
   ballShadow.position.z = ball.position.z;
-  const s = THREE.MathUtils.clamp(1.0 - ball.position.y * 0.3, 0.2, 1.0);
+  const surfY = surfaceUnderBall();   // table when over it, ground otherwise
+  const h = Math.max(0, ball.position.y - surfY);
+  const s = THREE.MathUtils.clamp(1.0 - h * 0.5, 0.2, 1.0);
   ballShadow.scale.setScalar(s);
   ballShadow.material.opacity = 0.28 * s;
 
-  if (ball.position.y <= 0.11 && state.ballVel.y < 0) {
-    ball.position.y = 0.11;
+  if (ball.position.y <= surfY && state.ballVel.y < 0) {
+    const onTable = surfY > TABLE_H;   // vs the ground under/around it
+    ball.position.y = surfY;
     state.ballVel.y = -state.ballVel.y * 0.55;
     state.ballVel.x *= 0.9;
     state.ballVel.z *= 0.9;
-    // Record where the bounce landed for the bounce-rule check.
-    state.bounceCount = (state.bounceCount || 0) + 1;
-    state.bounceSide  = Math.sign(ball.position.z);   // +z = A side, −z = B side
+    if (onTable) {
+      // Record where the table bounce landed for the bounce-rule check.
+      state.bounceCount = (state.bounceCount || 0) + 1;
+      state.bounceSide  = Math.sign(ball.position.z);   // +z = A side, −z = B side
+    } else if (!(state.bounceCount > 0)) {
+      // Hit the ground without ever touching the table → shot was out.
+      const rcv = state.headingTo;
+      awardPoint(rcv, `${otherPlayer(rcv).toLowerCase()} missed the table`);
+      return;
+    }
   }
 
   const now = performance.now();
   const target = state.headingTo;
   const hitter = otherPlayer(target);
 
-  // Sideways out of play → hitter's shot was bad → point to target.
-  if (Math.abs(ball.position.x) > halfW + 0.9) {
+  // Ball flew off the SIDE of the table before bouncing → hitter's shot was
+  // wide. Was `halfW + 0.9` (90cm grace); that's too generous — a wide shot
+  // that clearly missed the table should still count as a miss.
+  if (Math.abs(ball.position.x) > halfW + 0.15) {
     awardPoint(target, `${hitter.toLowerCase()} sent it wide`);
     return;
   }
@@ -1360,7 +1480,8 @@ function handleSwing(player, { power, roll, forehand }) {
   // Serve: only the current server's swing launches the ball.
   if (state.mode === 'serve_wait') {
     if (player !== state.server) return;
-    popGesture(`serve ${Math.round(power*100)}`, '#ff9663');
+    popGesture(`serve ${Math.round(power*100)}`,
+               player === 'A' ? '#e60012' : '#0088cc');
     sfx.serve(power);
     processHit(player, power, roll);
     return;
@@ -1386,7 +1507,7 @@ function handleSwing(player, { power, roll, forehand }) {
       state.rally++;
       refreshScore();
       popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
-                 forehand ? '#ff9663' : '#37628a');
+                 player === 'A' ? '#e60012' : '#0088cc');
       sfx.rally(power);
       processHit(player, power, roll);
     } else {
@@ -1407,20 +1528,33 @@ function tick() {
 
   updateBall(dt);
 
-  // If ball is pinned to server, keep it glued to the server mascot.
+  // Flash the prompt bright green when the ball is inside the receiver's
+  // hit window — the "SWING!" cue. The tight ~200 ms window is much
+  // easier to catch when you can see it opening.
+  if (state.mode === 'in_flight') {
+    const inWindow = now >= state.hittableStart && now <= state.hittableEnd;
+    if (inWindow && !$prompt.classList.contains('swing-cue')) {
+      $prompt._prevText = $prompt.textContent;
+      setPrompt('SWING NOW!');
+      $prompt.classList.add('swing-cue');
+    } else if (!inWindow && $prompt.classList.contains('swing-cue')) {
+      $prompt.classList.remove('swing-cue');
+      if ($prompt._prevText) setPrompt($prompt._prevText);
+    }
+  } else if ($prompt.classList.contains('swing-cue')) {
+    $prompt.classList.remove('swing-cue');
+  }
+
+  // If ball is pinned to server, keep it resting on their table edge.
   if (state.mode === 'serve_wait') {
-    const mp = mascotPos(state.server);
-    const zOffset = state.server === 'A' ? -0.3 : 0.3;
-    ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
-    ballShadow.position.x = ball.position.x;
-    ballShadow.position.z = ball.position.z;
+    restBallAtServerEdge();
   }
 
   // Mascots track the ball's x when it's coming to them.
   if (state.mode === 'in_flight') {
     const target = state.headingTo;
     const tGroup = target === 'A' ? soupA : soupB;
-    const tx = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.5, halfW - 0.5);
+    const tx = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.2, halfW - 0.2);
     tGroup.position.x += (tx - tGroup.position.x) * 3 * dt;
     const other = target === 'A' ? soupB : soupA;
     other.position.x += (0 - other.position.x) * 1.5 * dt;
@@ -1479,6 +1613,7 @@ function tick() {
   blobB.position.x = soupB.position.x; blobB.position.z = soupB.position.z;
   updateImpactFx(dt);
   updateFovPunch(now);
+  updateServeArrow();
   TOON_LIGHT_DIR.value.copy(TOON_KEY_DIR).transformDirection(camera.matrixWorldInverse);
 
   // Cloud drift

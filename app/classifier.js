@@ -225,24 +225,10 @@ export class Classifier {
     const wmag = Math.hypot(gxr, gyr, gzr);
     const nowMs = performance.now();
 
-    // Block detector — always runs, orthogonal to the swing state machine.
-    // A sustained still pose = block; any real motion drops the block.
-    const blockQuiet = dynA < BLOCK_QUIET_ACCEL && wmag < BLOCK_QUIET_GYRO;
-    if (blockQuiet) {
-      if (this._blockQuietFromMs === 0) this._blockQuietFromMs = nowMs;
-      if (!this.blockActive && nowMs - this._blockQuietFromMs >= BLOCK_HOLD_MS) {
-        this.blockActive = true;
-        this.onBlockChange(true);
-      }
-    } else {
-      // Any motion drops the block quickly; we don't want stale blocks
-      // outliving the wearer's actual pose.
-      if (this.blockActive && dynA >= BLOCK_QUIET_ACCEL * 3) {
-        this.blockActive = false;
-        this.onBlockChange(false);
-      }
-      this._blockQuietFromMs = 0;
-    }
+    // NOTE: legacy sustained-still-pose block detector removed. Block is now
+    // an explicit peak-detected GESTURE (upward guard motion: `up ≥ 15,
+    // down ≤ 30, up ≥ 0.8·down`) fired the same way as `jab`. Merely holding
+    // the arm still no longer counts — you have to throw the guard up.
 
     if (this.state === 'COOLDOWN') {
       if (nowMs >= this.tCooldownUntil) this.state = 'IDLE';

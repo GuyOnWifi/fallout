@@ -255,6 +255,10 @@ const state = {
   halves: [],       // {x,y,vx,vy,r,color,rot,vrot,alpha,side}
   slashes: [],      // {y,startMs,side,player,angle}
   splats: [],       // {x,y,r,color,life}
+  sparks: [],       // {x,y,vx,vy,life,max,color} — slash-end sparkles
+  booms: [],        // {x,y,life,max} — expanding ink ring on bomb hit
+  boomFlash: 0,     // seconds of red screen flash remaining
+  boomShake: 0,     // seconds of screen shake remaining
   gameOver: false,
   pvp: false,
 };
@@ -292,21 +296,42 @@ function spawnFruit() {
   const vx = (targetX - x) / (flightT * 1.4);
   state.fruits.push({
     x, y, vx, vy, r,
-    color: bomb ? '#4a9440' : FRUIT_COLORS[(Math.random() * FRUIT_COLORS.length) | 0],
+    color: bomb ? '#101015' : FRUIT_COLORS[(Math.random() * FRUIT_COLORS.length) | 0],
     bomb, alive: true,
     rot: Math.random() * Math.PI * 2,
     vrot: (Math.random() - 0.5) * 5,
   });
 }
 
+// Fixed strike-zone y (fraction of arena height). The persistent guide
+// line lives at this height so players can see WHERE their swings land.
+// Was previously randomized 0.35-0.60 per slash which made "why did I
+// miss?" impossible to answer.
+const STRIKE_Y_FRAC = 0.55;
+
 // ─── slice ───
 function fireSlash(player) {
   if (!state.running || state.gameOver) return;
-  // Blade sweeps a horizontal line across the arena at a random-ish mid-height.
-  // In PvP, player A cuts left half, player B cuts right half. Solo = full.
+  // Blade sweeps a horizontal line at the FIXED strike-zone height. Player
+  // A cuts left half in PvP, player B cuts right half. Solo = full width.
   const side = state.pvp ? (player === 'A' ? 'L' : 'R') : 'F';
-  const y = H * (0.35 + Math.random() * 0.25);
+  const y = H * STRIKE_Y_FRAC;
   state.slashes.push({ y, startMs: performance.now(), side, player });
+  // Sparkle burst at both ends of the streak so the cut reads instantly.
+  const ex0 = side === 'R' ? W / 2 : 0;
+  const ex1 = side === 'L' ? W / 2 : W;
+  for (const ex of [ex0, ex1]) {
+    const dir = ex === ex0 ? 1 : -1;
+    for (let i = 0; i < 6; i++) {
+      state.sparks.push({
+        x: ex, y: y + (Math.random() - 0.5) * 10,
+        vx: dir * (40 + Math.random() * 180),
+        vy: (Math.random() - 0.5) * 240,
+        life: 0.22 + Math.random() * 0.16, max: 0.38,
+        color: Math.random() < 0.5 ? '#ffffff' : PAL.gold,
+      });
+    }
+  }
   // Immediately test hit against all in-flight fruits inside the band + half.
   for (const f of state.fruits) {
     if (!f.alive) continue;
@@ -327,6 +352,10 @@ function sliceFruit(f, player, sliceY) {
     const remaining = player === 'A' ? state.livesA : state.livesB;
     sfx.bombSlash();
     kickBanner();
+    // BOOM burst: red screen flash + shake + expanding ink shockwave ring.
+    state.booms.push({ x: f.x, y: f.y, life: 0.5, max: 0.5 });
+    state.boomFlash = 0.22;
+    state.boomShake = 0.3;
     if (remaining <= 0) {
       if (player === 'A') state.slimedA = true;
       else                state.slimedB = true;
@@ -394,6 +423,7 @@ function tick(now) {
   // Physics
   for (const f of state.fruits) {
     if (!f.alive) continue;
+    if (f.demo) { f.rot += f.vrot * dt; continue; }  // ?bombdemo: pinned in place
     f.vy += GRAVITY * dt;
     f.x += f.vx * dt; f.y += f.vy * dt;
     f.rot += f.vrot * dt;
@@ -405,10 +435,18 @@ function tick(now) {
     h.rot += h.vrot * dt;
     h.alpha -= dt * 0.9;
   }
+  for (const sp of state.sparks) {
+    sp.x += sp.vx * dt; sp.y += sp.vy * dt;
+    sp.vy += GRAVITY * 0.5 * dt;
+  }
   state.fruits = state.fruits.filter(f => f.alive);
   state.halves = state.halves.filter(h => h.alpha > 0 && h.y < H + 100);
   state.splats = state.splats.filter(s => (s.life -= dt) > 0);
   state.slashes = state.slashes.filter(s => now - s.startMs < SLASH_ACTIVE_MS);
+  state.sparks = state.sparks.filter(sp => (sp.life -= dt) > 0);
+  state.booms = state.booms.filter(b => (b.life -= dt) > 0);
+  if (state.boomFlash > 0) state.boomFlash = Math.max(0, state.boomFlash - dt);
+  if (state.boomShake > 0) state.boomShake = Math.max(0, state.boomShake - dt);
 
   if (bannerKickT > 0) bannerKickT -= dt;
 
@@ -420,13 +458,45 @@ requestAnimationFrame(tick);
 function render() {
   ctx.clearRect(0, 0, W, H);
 
-  // Faint arena mid-line in PvP
+  // Screen shake while a bomb boom is live.
+  ctx.save();
+  if (state.boomShake > 0) {
+    const m = state.boomShake * 16;
+    ctx.translate((Math.random() * 2 - 1) * m, (Math.random() * 2 - 1) * m);
+  }
+
+  // Half tints — left is player A red, right is player B blue (PvP only).
   if (state.pvp) {
-    ctx.strokeStyle = 'rgba(28,42,58,.18)';
-    ctx.setLineDash([6, 8]);
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(230,0,18,0.03)';
+    ctx.fillRect(0, 0, W / 2, H);
+    ctx.fillStyle = 'rgba(0,136,204,0.03)';
+    ctx.fillRect(W / 2, 0, W / 2, H);
+  }
+
+  // Faint dashed arena mid-line — always drawn (solo + PvP) so "where the
+  // arena splits" is legible before a second player even pairs in.
+  ctx.strokeStyle = 'rgba(28,42,58,.18)';
+  ctx.setLineDash([6, 8]);
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Persistent horizontal STRIKE ZONE guide — anything crossing this y at
+  // the moment a swing fires gets sliced. Draws a translucent band and a
+  // bolder middle line so players learn "wait for the fruit to hit here."
+  const sy = H * STRIKE_Y_FRAC;
+  ctx.fillStyle = 'rgba(244, 201, 93, 0.08)';
+  ctx.fillRect(0, sy - SLASH_HALF, W, SLASH_HALF * 2);
+  ctx.strokeStyle = 'rgba(244, 201, 93, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([12, 10]);
+  ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // A/B half badges in the top corners (PvP only — solo has no player B).
+  if (state.pvp) {
+    drawHalfBadge(34, 96, 'A', PAL.hot);
+    drawHalfBadge(W - 34, 96, 'B', PAL.ruinBlue);
   }
 
   // Splats (behind fruits)
@@ -464,7 +534,9 @@ function render() {
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(0, 0, f.r * 1.9, 0, Math.PI * 2); ctx.fill();
     }
-    ctx.rotate(f.rot);
+    // Bombs only wobble — a full spin whirls the fuse around and the
+    // silhouette starts reading as a dark fruit. Fuse stays up = bomb.
+    ctx.rotate(f.bomb ? Math.sin(f.rot) * 0.18 : f.rot);
     drawFruit(f.r, f.color, f.bomb);
     ctx.restore();
   }
@@ -480,12 +552,54 @@ function render() {
     ctx.strokeStyle = col; ctx.globalAlpha = alpha * 0.35;
     ctx.lineWidth = 24; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(x0, s.y); ctx.lineTo(x1, s.y); ctx.stroke();
-    // Core
-    ctx.strokeStyle = PAL.cream; ctx.globalAlpha = alpha;
-    ctx.lineWidth = 6;
+    // Core — bright white streak, edge to edge of the swinger's half.
+    ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = alpha;
+    ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(x0, s.y); ctx.lineTo(x1, s.y); ctx.stroke();
     ctx.globalAlpha = 1;
   }
+
+  // Slash-end sparkles
+  for (const sp of state.sparks) {
+    const p = Math.max(0, sp.life / sp.max);
+    ctx.globalAlpha = p;
+    ctx.fillStyle = sp.color;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, 1.2 + p * 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Bomb shockwave rings — expanding ink ring with a cream echo inside.
+  for (const b of state.booms) {
+    const p = 1 - b.life / b.max;            // 0 → 1 over lifetime
+    const rad = 24 + p * 190;
+    ctx.globalAlpha = (1 - p) * 0.9;
+    ctx.strokeStyle = PAL.ink;
+    ctx.lineWidth = 12 * (1 - p) + 2;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rad, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = (1 - p) * 0.6;
+    ctx.strokeStyle = PAL.cream;
+    ctx.lineWidth = 5 * (1 - p) + 1;
+    ctx.beginPath(); ctx.arc(b.x, b.y, rad * 0.82, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();   // end screen shake
+
+  // Red flash overlay on bomb hit — drawn unshaken, over everything.
+  if (state.boomFlash > 0) {
+    ctx.fillStyle = `rgba(230,0,18,${(state.boomFlash / 0.22) * 0.28})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function drawHalfBadge(x, y, letter, color) {
+  ctx.fillStyle = PAL.cream;
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '900 17px Fredoka, Nunito, system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(letter, x, y + 1);
 }
 
 function drawFruit(r, color, bomb) {
@@ -505,85 +619,135 @@ function drawFruit(r, color, bomb) {
 }
 
 function drawBomb(r) {
-  // Cartoon dynamite bomb: near-black ball, steel cap, twisted fuse,
-  // lit flame with a spark shower. Pulses at ~4 Hz so it feels alive.
+  // "Bomb-Soup" — the Soup mascot gone dark and dangerous. Near-black round
+  // body keeps the classic bomb silhouette, but two matte dark ears poke up
+  // beside the (smaller) fuse cap, and a dusk-tan face patch on the lower
+  // front carries two GLOWING red eyes. Still instantly "do not slice":
+  // dark body, lit fuse, sparks, ambient red halo. No green, no pink,
+  // no seed/stripe patterning — nothing fruit-like, nothing smiling.
   const t = performance.now() / 1000;
-  const pulse = 1 + 0.18 * Math.sin(t * Math.PI * 2 * 4);
+  const pulse = 1 + 0.2 * Math.sin(t * Math.PI * 8);
 
-  // Ambient red glow behind the body — subtle, radial falloff.
-  const glow = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.55);
-  glow.addColorStop(0, 'rgba(255,80,50,0.20)');
-  glow.addColorStop(1, 'rgba(255,80,50,0)');
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.arc(0, 0, r * 1.55, 0, Math.PI * 2); ctx.fill();
+  // Ambient red danger halo behind the whole body.
+  const halo = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r * 1.5);
+  halo.addColorStop(0, 'rgba(255,70,40,0.28)');
+  halo.addColorStop(1, 'rgba(255,70,40,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(0, 0, r * 1.5, 0, Math.PI * 2); ctx.fill();
 
-  // Round near-black body
+  // Two small matte ears on top, drawn behind the body (Soup silhouette).
+  // Dark greyish-brown fill with a slightly lighter rim — not cute, just Soup.
+  const earR = r * 0.3;
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = '#3a2f28';
+    ctx.strokeStyle = '#4d4038'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(s * r * 0.58, -r * 0.82, earR, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // heavy dark outer edge so the ear still reads bomb-dark against the sky
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(s * r * 0.58, -r * 0.82, earR + 2, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Matte near-black body with heavy pure-black outline. Flat fill on
+  // purpose — shading gradients made the old bomb read as a dark fruit.
   ctx.fillStyle = '#1a1410';
-  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
+  ctx.strokeStyle = '#000000'; ctx.lineWidth = 5;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // Deeper shade on the lower-right so the sphere reads round
-  ctx.fillStyle = 'rgba(15,10,8,0.6)';
-  ctx.beginPath(); ctx.arc(r*0.22, r*0.25, r*0.62, 0, Math.PI * 2); ctx.fill();
-  // Cool-blue sheen, upper-left
-  ctx.strokeStyle = 'rgba(120,140,180,0.35)'; ctx.lineWidth = r * 0.16;
+
+  // White highlight arc, upper-left — the classic cartoon "shiny ball" cue.
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = r * 0.13; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(0, 0, r * 0.66, Math.PI * 1.05, Math.PI * 1.42); ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.55, r * 0.07, 0, Math.PI * 2); ctx.fill();
+
+  // Dusk-tan face patch (Soup's muzzle oval) on the lower front. Muted,
+  // NOT cream — Soup in shadow.
+  ctx.fillStyle = '#6a5240';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.34, r * 0.5, r * 0.36, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Two glowing red eyes on the patch — angry Soup, not friendly ink dots.
+  for (const s of [-1, 1]) {
+    const ex = s * r * 0.24, ey = r * 0.24;
+    const glow = ctx.createRadialGradient(ex, ey, 0, ex, ey, r * 0.22);
+    glow.addColorStop(0, 'rgba(255,85,64,0.35)');
+    glow.addColorStop(1, 'rgba(255,85,64,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(ex, ey, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff5540';
+    ctx.beginPath(); ctx.arc(ex, ey, r * 0.09, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffd0c4';
+    ctx.beginPath(); ctx.arc(ex, ey, r * 0.035, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Scowl: a short flat dark bar where Soup's nose dot would sit.
+  ctx.strokeStyle = '#241a12'; ctx.lineWidth = Math.max(2, r * 0.07);
   ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.arc(0, 0, r * 0.68, Math.PI * 1.05, Math.PI * 1.45); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.1, r * 0.48); ctx.lineTo(r * 0.1, r * 0.48);
+  ctx.stroke();
   ctx.lineCap = 'butt';
 
-  // Metallic cap — small rounded cylinder between body and fuse
-  const cw = r * 0.36, ch = r * 0.26;
-  const capY = -r - ch * 0.75;
-  ctx.fillStyle = '#3a3230'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.roundRect(-cw/2, capY, cw, ch, r * 0.06); ctx.fill(); ctx.stroke();
-  // Cap rim highlight so it reads metallic
-  ctx.strokeStyle = 'rgba(160,170,190,0.4)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-cw/2 + 3, capY + 3); ctx.lineTo(cw/2 - 3, capY + 3); ctx.stroke();
+  // Metallic light-gray cap where the fuse meets the body — narrower than
+  // the old one so the ears stay visible on either side.
+  const cw = r * 0.3, ch = r * 0.26;
+  const capY = -r - ch * 0.7;
+  ctx.fillStyle = '#9aa2ad';
+  ctx.strokeStyle = '#000000'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(-cw / 2, capY, cw, ch, r * 0.07); ctx.fill(); ctx.stroke();
+  // Darker lower band + bright top rim = simple metal read.
+  ctx.fillStyle = '#6b737d';
+  ctx.fillRect(-cw / 2 + 2, capY + ch * 0.55, cw - 4, ch * 0.35);
+  ctx.strokeStyle = '#d8dee6'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-cw / 2 + 3, capY + 3); ctx.lineTo(cw / 2 - 3, capY + 3); ctx.stroke();
 
-  // Twisted fuse wire curling out of the cap
-  const fx = r * 0.18, fy = capY - ch * 1.7;
+  // Bright yellow-orange fuse curling up out of the cap. Thick and loud.
+  const fx = r * 0.32, fy = capY - r * 0.55;
   ctx.lineCap = 'round';
-  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3.5;
+  ctx.strokeStyle = '#ff9d2e'; ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.moveTo(0, capY);
-  ctx.quadraticCurveTo(r * 0.42, capY - ch * 1.1, fx, fy);
+  ctx.moveTo(0, capY + 2);
+  ctx.quadraticCurveTo(r * 0.52, capY - r * 0.35, fx, fy);
   ctx.stroke();
-  // Dashed darker overlay = twist in the wire
-  ctx.strokeStyle = '#5a4426'; ctx.lineWidth = 1.6;
-  ctx.setLineDash([2.5, 3]);
+  // Hot yellow core down the middle of the fuse.
+  ctx.strokeStyle = '#ffdf6b'; ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, capY);
-  ctx.quadraticCurveTo(r * 0.42, capY - ch * 1.1, fx, fy);
+  ctx.moveTo(0, capY + 2);
+  ctx.quadraticCurveTo(r * 0.52, capY - r * 0.35, fx, fy);
   ctx.stroke();
-  ctx.setLineDash([]);
   ctx.lineCap = 'butt';
 
-  // Flame at the fuse tip — hot core, orange middle, red-orange outer.
-  const fr = r * 0.22 * pulse;
+  // Animated flame at the fuse tip — red-orange halo, orange body, hot core.
+  const fr = r * 0.24 * pulse;
   ctx.globalAlpha = 0.55;
-  ctx.fillStyle = '#ff6b3a';
-  ctx.beginPath(); ctx.arc(fx, fy, fr * 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.75;
-  ctx.fillStyle = '#ff9663';
-  ctx.beginPath(); ctx.arc(fx, fy - fr * 0.12, fr, 0, Math.PI * 2); ctx.fill();
-  ctx.globalAlpha = 0.95;
-  ctx.fillStyle = '#fff9c0';
-  ctx.beginPath(); ctx.arc(fx, fy - fr * 0.2, fr * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff5a26';
+  ctx.beginPath(); ctx.arc(fx, fy, fr * 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#ffa53d';
+  ctx.beginPath();
+  ctx.ellipse(fx, fy - fr * 0.35, fr * 0.85, fr * 1.15, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.globalAlpha = 1;
+  ctx.fillStyle = '#fff6c8';
+  ctx.beginPath(); ctx.arc(fx, fy - fr * 0.2, fr * 0.45, 0, Math.PI * 2); ctx.fill();
 
-  // Spark shower — 3 to 5 tiny stars scattered around the tip each frame.
+  // Sparkle particles around the tip — 3-5 gold flecks, some as 4-point stars.
   const sparkCount = 3 + Math.floor(Math.random() * 3);
   for (let i = 0; i < sparkCount; i++) {
-    const sx = fx + (Math.random() * 8 - 4) * pulse;
-    const sy = fy + (Math.random() * 8 - 4) * pulse;
-    const sr = (0.9 + Math.random() * 1.3) * pulse;
-    ctx.fillStyle = Math.random() < 0.5 ? '#f4c95d' : '#ffb14d';
+    const sx = fx + (Math.random() * 10 - 5) * pulse;
+    const sy = fy + (Math.random() * 10 - 5) * pulse;
+    const sr = (0.9 + Math.random() * 1.4) * pulse;
+    ctx.fillStyle = Math.random() < 0.5 ? '#ffdf6b' : '#ffb14d';
     ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
-    // Occasional 4-point star twinkle
-    if (Math.random() < 0.4) {
-      ctx.strokeStyle = '#fff9c0'; ctx.lineWidth = 1;
+    if (Math.random() < 0.45) {
+      ctx.strokeStyle = '#fff6c8'; ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(sx - sr * 2.2, sy); ctx.lineTo(sx + sr * 2.2, sy);
-      ctx.moveTo(sx, sy - sr * 2.2); ctx.lineTo(sx, sy + sr * 2.2);
+      ctx.moveTo(sx - sr * 2.4, sy); ctx.lineTo(sx + sr * 2.4, sy);
+      ctx.moveTo(sx, sy - sr * 2.4); ctx.lineTo(sx, sy + sr * 2.4);
       ctx.stroke();
     }
   }
@@ -614,6 +778,8 @@ function startRound() {
   state.slimedA = false; state.slimedB = false;
   state.fruits.length = 0; state.halves.length = 0;
   state.slashes.length = 0; state.splats.length = 0;
+  state.sparks.length = 0; state.booms.length = 0;
+  state.boomFlash = 0; state.boomShake = 0;
   state.gameOver = false;
   state.running = true;
   state.startedMs = performance.now();
@@ -795,6 +961,21 @@ addEventListener('keydown', (e) => {
     startRound();
   }
 });
+
+// Dev: ?bombdemo pins one big bomb at screen center (no gravity) so the
+// bomb art can be reviewed/screenshotted without waiting on random spawns.
+if (location.search.includes('bombdemo')) {
+  // Wait out the auto startRound (400ms) which clears state.fruits.
+  setTimeout(() => {
+    for (const [dx, r] of [[-90, 42], [90, 24]]) {
+      state.fruits.push({
+        x: W / 2 + dx, y: H / 2, vx: 0, vy: 0, r,
+        color: '#101015', bomb: true, alive: true,
+        rot: 0, vrot: 0.6, demo: true,
+      });
+    }
+  }, 600);
+}
 
 // No GLB here — module reaching the end means we're booted; dismiss loader.
 document.body.classList.add('game-active');

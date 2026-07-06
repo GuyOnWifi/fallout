@@ -72,7 +72,7 @@
   @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
 
   /* Lobby + game-over hide the in-round HUD pieces */
-  body.in-lobby #prompt, body.in-lobby #danger-wrap { display:none; }
+  body.in-lobby #prompt, body.in-lobby #timer-wrap { display:none; }
 
   /* ── Scoreboard (top-center) ──────────────────────── */
   #scoreboard {
@@ -81,9 +81,9 @@
   }
   @media (max-width: 640px) {
     #scoreboard { top: 64px; }
-    #danger-wrap { top: 170px !important; }
-    #round-points { top: 218px !important; }
-    #lobby { padding-top: 168px !important; }
+    #timer-wrap { top: 178px !important; }
+    #round-points { top: 226px !important; }
+    #lobby { padding-top: 148px !important; }
   }
   .player-pill {
     position:relative;
@@ -123,6 +123,10 @@
     text-shadow: 0 2px 0 var(--cream-deep);
     margin-top: 2px;
   }
+  .player-pill .pstash {
+    font-size: 11px; font-weight: 800; line-height: 1;
+    color: var(--vine-deep); margin-top: 3px; min-height: 12px;
+  }
   .player-pill.boomed {
     animation: boomShake 0.5s ease-in-out;
   }
@@ -134,14 +138,15 @@
     80% { transform: translate(4px, -2px) rotate(2deg); }
   }
 
-  /* ── Danger meter ─────────────────────────────────── */
-  #danger-wrap {
+  /* ── Timer bar (was the danger meter — the true bomb ratio is never
+        displayed anymore; Soup's redness is the only bomb cue) ── */
+  #timer-wrap {
     position:absolute; top:130px; left:50%;
     transform:translateX(-50%);
     z-index: 90; width: 60vw; max-width: 900px;
     pointer-events:none;
   }
-  #danger-label {
+  #timer-label {
     text-align:center;
     font-size: 11px; font-weight: 900;
     letter-spacing: .28em; text-transform: uppercase;
@@ -149,7 +154,7 @@
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
     margin-bottom: 6px;
   }
-  #danger-bar-container {
+  #timer-bar-container {
     height: 26px; width: 100%;
     background: var(--cream);
     border: 3px solid var(--ink);
@@ -158,21 +163,21 @@
     overflow:hidden;
     position:relative;
   }
-  #danger-bar {
+  #timer-bar {
     height: 100%; width: 0%;
     background: linear-gradient(90deg, var(--gold) 0%, var(--gold) 60%, var(--hot) 100%);
     border-radius: 999px;
-    transition: width 220ms cubic-bezier(.2,1.4,.4,1), background 200ms;
+    transition: width 80ms linear, background 200ms;
   }
-  #danger-bar-container.hot #danger-bar {
+  #timer-bar-container.hot #timer-bar {
     background: linear-gradient(90deg, var(--hot), #ff4d1a);
   }
-  #danger-bar-container.hot { animation: dangerPulse .35s ease-in-out infinite; }
+  #timer-bar-container.hot { animation: dangerPulse .35s ease-in-out infinite; }
   @keyframes dangerPulse {
     50% { box-shadow: 0 4px 0 var(--ink), 0 0 24px var(--hot); }
   }
 
-  /* Round-pending points pill */
+  /* Round-pending points pill (current holder's unbanked stash) */
   #round-points {
     position:absolute; top:180px; left:50%;
     transform:translateX(-50%);
@@ -195,7 +200,7 @@
     100% { transform: translateX(-50%) scale(1); }
   }
 
-  /* Bank hold indicator */
+  /* Eat-it hold indicator (hold still to eat the punch) */
   #bank-wrap {
     position: absolute; bottom: 140px; left: 50%;
     transform: translateX(-50%);
@@ -223,6 +228,25 @@
     height:100%; width:0%;
     background: linear-gradient(90deg, var(--vine), var(--vine-deep));
     transition: width 60ms linear;
+  }
+
+  /* Eat-it button (shown during your throw window) */
+  #eat-btn { position:absolute; bottom: 76px; left:50%;
+             transform:translateX(-50%); z-index: 96; display:none; }
+
+  /* Floating +N score popups at the point of impact */
+  .pt-pop {
+    position:absolute; z-index: 118; pointer-events:none;
+    transform: translate(-50%, 0);
+    font-weight: 900; font-size: 30px; letter-spacing: -.02em;
+    color: var(--gold);
+    text-shadow: 0 3px 0 var(--ink), 0 6px 14px rgba(28,42,58,.35);
+    animation: ptRise 0.9s ease-out forwards;
+  }
+  @keyframes ptRise {
+    0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+    18%  { transform: translate(-50%, -14px) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, -95px) scale(1); opacity: 0; }
   }
 
   /* Prompt bar (bottom center) */
@@ -292,7 +316,7 @@
     position:absolute; inset:0; z-index: 140;
     display:flex; flex-direction:column; align-items:center;
     justify-content:space-between;
-    padding: 12vh 16px 12vh;
+    padding: 9vh 16px 9vh;
     pointer-events:none;
   }
   .lobby-controls {
@@ -301,22 +325,23 @@
   #lobby.hidden { display:none; }
   #lobby-title {
     font-weight:900; letter-spacing:-.04em;
-    font-size: clamp(56px, 10vw, 140px);
+    font-size: clamp(44px, 8vw, 110px);
     color: var(--cream);
     text-shadow: 0 6px 0 var(--ruin-blue),
                  0 10px 30px rgba(28,42,58,.4);
     line-height: .9; text-align:center;
   }
   #lobby-title small {
-    display:block; font-size: 16px; letter-spacing: .02em;
+    display:block; font-size: 15px; letter-spacing: .02em;
     color: var(--ink); font-weight:700;
-    margin-top: 18px;
+    margin-top: 14px;
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
   }
   #lobby-title .accent {
     color: var(--hot);
     text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4);
   }
+
   #howto {
     max-width: 480px;
     margin: 0 8px;
@@ -341,7 +366,7 @@
   }
   #howto li::marker { color: var(--hot); }
   #howto b { color: var(--hot); font-weight: 800; }
-  @media (max-height: 640px) { #howto { display: none; } }
+  @media (max-height: 720px) { #howto { display: none; } }
   #player-picker {
     display:flex; align-items:center; gap: 14px;
     padding: 12px 22px;
@@ -417,16 +442,18 @@
 
 <div id="scoreboard"></div>
 
-<div id="danger-wrap">
-  <div id="danger-label">Danger</div>
-  <div id="danger-bar-container"><div id="danger-bar"></div></div>
+<div id="timer-wrap">
+  <div id="timer-label">throw window</div>
+  <div id="timer-bar-container"><div id="timer-bar"></div></div>
 </div>
 <div id="round-points">+0 pts</div>
 
 <div id="bank-wrap">
-  <div id="bank-label">holding to bank</div>
+  <div id="bank-label">holding to eat it</div>
   <div id="bank-bar-container"><div id="bank-bar"></div></div>
 </div>
+
+<button id="eat-btn" class="ss-btn">🍜 eat it — forfeit stash</button>
 
 <div id="prompt">throw a punch to start</div>
 
@@ -436,16 +463,17 @@
 
 <div id="lobby">
   <div id="lobby-title">SOUP <span class="accent">BOMB</span>
-    <small>push your luck, bank before Soup blows</small>
+    <small id="lobby-sub">punch, pass, don't get caught holding him</small>
   </div>
   <div id="howto">
-    <h2>how to play</h2>
+    <h2>hot potato — how to play</h2>
     <ul>
-      <li>take turns with one wristband, hand it over when your turn ends</li>
-      <li>on your turn, punch Soup. every punch adds points to your turn stash, and harder punches score more</li>
-      <li>Soup has a hidden fuse. the more you punch him this turn, the closer he gets to exploding</li>
-      <li>if he blows up on your punch, <b>your whole stash for the turn is gone</b></li>
-      <li>hold your arm still for a second to bank your stash and pass the band</li>
+      <li>soup is the potato. <b>punch him</b> and he flies to the next player</li>
+      <li>when he lands on you, you have <b>~2 seconds</b> to punch him back — too slow and he blows up on you</li>
+      <li>every punch adds points to your stash. harder punches score more, so wind up if you dare</li>
+      <li>the more he's been punched this round, the closer he is to going off. watch him <b>flicker between colors</b> — cream, orange, red — but the actual boom point is random</li>
+      <li>if he explodes on you, <b>your stash is gone</b> — everyone else banks theirs</li>
+      <li>too scared? hold still (or hit eat it) to <b>eat the punch</b>: no boom, but you forfeit your whole stash</li>
       <li>first to 100 banked points wins, or the biggest bank after 5 rounds</li>
     </ul>
   </div>
@@ -460,7 +488,7 @@
   </div>
 </div>
 
-<div id="devhint">keys · space punch · b bank · n boom · r reset</div>
+<div id="devhint">keys · space punch · e eat it · n boom · r reset</div>
 
 <script type="importmap">
 { "imports": {
@@ -476,19 +504,21 @@ import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 
 // ══════════════════════════ Tuning knobs ══════════════════════════
+// ── Hot potato ──
 const BOMB_MIN = 3;
 const BOMB_MAX = 15;
-const POINTS_PER_PUNCH = 10;          // base points per punch (before power)
-const USE_POWER_SCALING = true;        // if true: 5 + 15*power
-const BANK_HOLD_MS = 1000;             // still-time to trigger a bank
-const BANK_MAX_MOTION = 0.4;           // g dynamic accel budget (deviation from 1g)
-const BANK_MAX_GYRO = 40;              // dps
-const MATCH_LENGTH_ROUNDS = 5;
+const THROW_WINDOW_MS = 2000;          // holder must punch within this or boom
+const MATCH_LENGTH_ROUNDS = 5;         // one round = one potato (until boom/eat)
 const POINTS_TO_WIN = 100;
-const DANGER_METER_MAX_PUNCHES = BOMB_MAX; // visual max — but we scale to hidden bomb count as an estimate
+const EAT_HOLD_MS = 1000;              // still-time to trigger "eat the punch"
+const EAT_MAX_MOTION = 0.4;            // g dynamic accel budget (deviation from 1g)
+const EAT_MAX_GYRO = 40;               // dps
+// ── Shared ──
+const USE_POWER_SCALING = true;        // if true: 5 + 15*power
+const POINTS_PER_PUNCH = 10;
 const BETWEEN_PLAYER_DELAY_MS = 1600;
 const BOOM_HOLD_MS = 1800;
-const BANK_LOCKOUT_AFTER_PUNCH_MS = 350; // small refractory so the punch swing doesn't accidentally register as still-then-still
+const EAT_LOCKOUT_AFTER_PUNCH_MS = 350;
 const G = 9.80665;
 
 // ══════════════════════════ Scene ══════════════════════════
@@ -640,13 +670,29 @@ loader.load('assets/mascot.glb', (gltf) => {
   mascot.baseScaleY = 1;
 });
 
+// ── Nervousness tint: cream → hot orange → deep red as the hidden fuse
+//    burns down. This is the ONLY bomb cue — there is no numeric meter.
+const COL_CREAM = new THREE.Color(0xfbf3e0);
+const COL_HOT   = new THREE.Color(0xff9663);
+const COL_RED   = new THREE.Color(0xb3261e);
+const tintScratch = new THREE.Color();
+function nervousTint(vis) {
+  // vis in [0,1]. Two-segment lerp: cream→hot for the first half,
+  // hot→deep-red for the second.
+  if (vis < 0.5) tintScratch.lerpColors(COL_CREAM, COL_HOT, vis * 2);
+  else tintScratch.lerpColors(COL_HOT, COL_RED, (vis - 0.5) * 2);
+  return tintScratch;
+}
+
 // ══════════════════════════ DOM refs ══════════════════════════
 const $scoreboard = document.getElementById('scoreboard');
-const $dangerBar = document.getElementById('danger-bar');
-const $dangerBarC = document.getElementById('danger-bar-container');
+const $timerBar = document.getElementById('timer-bar');
+const $timerBarC = document.getElementById('timer-bar-container');
+const $timerLabel = document.getElementById('timer-label');
 const $roundPts = document.getElementById('round-points');
 const $bankWrap = document.getElementById('bank-wrap');
 const $bankBar = document.getElementById('bank-bar');
+const $eatBtn = document.getElementById('eat-btn');
 const $prompt = document.getElementById('prompt');
 const $banner = document.getElementById('banner');
 const $boomFlash = document.getElementById('boom-flash');
@@ -657,14 +703,15 @@ const $status = document.getElementById('connect'); // hub pill doubles as statu
 
 // ══════════════════════════ Game state ══════════════════════════
 const S = {
-  phase: 'LOBBY',           // LOBBY | ROUND_START | PUNCHING | BOOM | BANK | BETWEEN | GAME_OVER
+  gen: 0,                   // match generation — invalidates stale timers on reset
+  phase: 'LOBBY',           // LOBBY | ROUND_START | PUNCHING | BOOM | EAT | BETWEEN | GAME_OVER
   numPlayers: 2,
-  players: [],              // [{ total }]
-  currentPlayer: 0,
+  players: [],              // [{ total, stash }]
+  holder: 0,                // who's holding soup RIGHT NOW
   round: 0,
-  hiddenBombCount: 0,       // per-turn bomb threshold, randomized
-  punchesThisTurn: 0,
-  roundPoints: 0,
+  hiddenBombCount: 0,       // per-round bomb threshold, randomized, never displayed
+  punchesThisRound: 0,      // shared punch count across all players this round
+  throwDeadline: 0,         // perf.now() by which holder must punch
   camShake: { until: 0, amp: 0 },
   screenFlash: { until: 0 },
   boomStartedAt: 0,
@@ -672,19 +719,38 @@ const S = {
 
 function makePlayers(n) {
   S.players = [];
-  for (let i = 0; i < n; i++) S.players.push({ total: 0 });
+  for (let i = 0; i < n; i++) S.players.push({ total: 0, stash: 0 });
 }
 
 function rollBomb() {
   return BOMB_MIN + Math.floor(Math.random() * (BOMB_MAX - BOMB_MIN + 1));
 }
 
+// setTimeout that dies silently if the match was reset in the meantime.
+function later(ms, fn) {
+  const gen = S.gen;
+  setTimeout(() => { if (S.gen === gen) fn(); }, ms);
+}
+
+function punchPoints(power) {
+  return USE_POWER_SCALING
+    ? Math.round(5 + 15 * Math.max(0.2, Math.min(1, power)))
+    : POINTS_PER_PUNCH;
+}
+
+function inRound() {
+  return S.phase !== 'LOBBY' && S.phase !== 'GAME_OVER';
+}
+
 function renderScoreboard() {
   $scoreboard.innerHTML = '';
   for (let i = 0; i < S.players.length; i++) {
     const p = document.createElement('div');
-    p.className = 'player-pill' + (i === S.currentPlayer && S.phase !== 'LOBBY' && S.phase !== 'GAME_OVER' ? ' current' : '');
-    p.innerHTML = `<div class="plabel">P${i+1}</div><div class="pscore">${S.players[i].total}</div>`;
+    p.className = 'player-pill' + (i === S.holder && inRound() ? ' current' : '');
+    const stash = S.players[i].stash > 0 ? `+${S.players[i].stash}` : '';
+    p.innerHTML = `<div class="plabel">P${i+1}</div>` +
+                  `<div class="pscore">${S.players[i].total}</div>` +
+                  `<div class="pstash">${stash}</div>`;
     $scoreboard.appendChild(p);
   }
 }
@@ -693,18 +759,11 @@ function setPrompt(text) {
   $prompt.textContent = text;
 }
 
-function updateDanger() {
-  // Estimated danger: percent of BOMB_MAX (the crowd doesn't know the true cap).
-  const pct = Math.min(1, S.punchesThisTurn / DANGER_METER_MAX_PUNCHES);
-  $dangerBar.style.width = (pct * 100).toFixed(1) + '%';
-  if (pct >= 0.8) $dangerBarC.classList.add('hot');
-  else $dangerBarC.classList.remove('hot');
-}
-
 function updateRoundPoints() {
-  if (S.phase === 'PUNCHING' && S.roundPoints > 0) {
+  const stash = S.players[S.holder] ? S.players[S.holder].stash : 0;
+  if (S.phase === 'PUNCHING' && stash > 0) {
     $roundPts.classList.add('show');
-    $roundPts.textContent = `+${S.roundPoints} pts`;
+    $roundPts.textContent = `+${stash} pts`;
     $roundPts.classList.remove('tick');
     void $roundPts.offsetWidth;
     $roundPts.classList.add('tick');
@@ -718,13 +777,33 @@ function popBanner(text, sub, color) {
   $banner.style.color = color || 'var(--gold)';
   $banner.classList.remove('pop'); void $banner.offsetWidth;
   $banner.classList.add('pop');
-  setTimeout(() => $banner.classList.remove('pop'), 1400);
+  clearTimeout(popBanner._t);
+  popBanner._t = setTimeout(() => $banner.classList.remove('pop'), 1200);
 }
 
 function shakeCamera(amp, ms) {
   const now = performance.now();
   S.camShake.amp = Math.max(S.camShake.amp, amp);
   S.camShake.until = Math.max(S.camShake.until, now + ms);
+}
+
+// Floating "+N" popup at the mascot's screen position.
+const popupScratch = new THREE.Vector3();
+function spawnScorePopup(text) {
+  popupScratch.set(
+    soupGroup.position.x + (Math.random() - 0.5) * 0.5,
+    soupGroup.position.y + 1.1 + Math.random() * 0.5,
+    soupGroup.position.z + 0.4
+  ).project(camera);
+  const x = ( popupScratch.x * 0.5 + 0.5) * innerWidth;
+  const y = (-popupScratch.y * 0.5 + 0.5) * innerHeight;
+  const el = document.createElement('div');
+  el.className = 'pt-pop';
+  el.textContent = text;
+  el.style.left = x.toFixed(0) + 'px';
+  el.style.top  = y.toFixed(0) + 'px';
+  $particles.appendChild(el);
+  setTimeout(() => el.remove(), 950);
 }
 
 // ══════════════════════════ Explosion (canvas particles) ══════════════════════════
@@ -797,43 +876,143 @@ function fireConfetti() {
 
 // ══════════════════════════ Game flow ══════════════════════════
 function beginMatch() {
+  S.gen++;
+  if (S.numPlayers < 2) {
+    S.numPlayers = 2;
+    $pcount.textContent = S.numPlayers;
+  }
   makePlayers(S.numPlayers);
-  S.currentPlayer = 0;
+  S.holder = 0;
   S.round = 0;
   S.phase = 'BETWEEN';
   document.body.classList.remove('in-lobby');
   $lobby.classList.add('hidden');
   renderScoreboard();
-  startTurn();
+  startPotatoRound();
 }
 
-function startTurn() {
+// ── Hot potato ─────────────────────────────────────────────
+function startPotatoRound() {
   S.hiddenBombCount = rollBomb();
-  S.punchesThisTurn = 0;
-  S.roundPoints = 0;
+  S.punchesThisRound = 0;
+  for (const p of S.players) p.stash = 0;
+  S.holder = S.round % S.players.length; // rotate who starts holding
   S.phase = 'ROUND_START';
-  bankHold.stillMs = 0;
-  bankHold.lockedUntil = performance.now() + 400; // small warm-up
-  updateDanger();
+  eatHold.stillMs = 0;
+  eatHold.lockedUntil = performance.now() + 400; // small warm-up
+  $timerLabel.textContent = 'throw window';
   updateRoundPoints();
   renderScoreboard();
-  popBanner(`PLAYER ${S.currentPlayer + 1}`, "you're up", 'var(--hot)');
-  setPrompt(`player ${S.currentPlayer + 1}, start punching`);
-  // Small pause then live
-  setTimeout(() => {
+  popBanner(`PLAYER ${S.holder + 1}`, 'you start — throw it!', 'var(--hot)');
+  setPrompt(`player ${S.holder + 1} — throw it!`);
+  later(900, () => {
     if (S.phase === 'ROUND_START') {
       S.phase = 'PUNCHING';
-      setPrompt('punch for points, hold still to bank');
+      S.throwDeadline = performance.now() + THROW_WINDOW_MS;
     }
-  }, 900);
+  });
 }
 
-function nextTurn() {
-  S.currentPlayer++;
-  if (S.currentPlayer >= S.players.length) {
-    S.currentPlayer = 0;
-    S.round++;
+function potatoPunch(power) {
+  S.punchesThisRound += 1;
+  const scored = punchPoints(power);
+  S.players[S.holder].stash += scored;
+  spawnScorePopup(`+${scored}`);
+
+  // A punch always breaks the eat-hold.
+  eatHold.stillMs = 0;
+  eatHold.lockedUntil = performance.now() + EAT_LOCKOUT_AFTER_PUNCH_MS;
+  $bankWrap.classList.remove('show');
+
+  triggerHit(power);
+  shakeCamera(0.06 + 0.2 * Math.min(1, power), 260);
+
+  // Bomb check — the puncher who crosses the hidden count eats the blast.
+  if (S.punchesThisRound >= S.hiddenBombCount) {
+    updateRoundPoints();
+    renderScoreboard();
+    detonate(S.holder, 'boom');
+    return;
   }
+
+  // ★ THE HOT-POTATO PASS: soup immediately flies to the next player.
+  S.holder = (S.holder + 1) % S.players.length;
+  S.throwDeadline = performance.now() + THROW_WINDOW_MS;
+  popBanner(`PLAYER ${S.holder + 1}`, 'throw it back!', 'var(--hot)');
+  setPrompt(`player ${S.holder + 1} — throw it back!`);
+  updateRoundPoints();
+  renderScoreboard();
+}
+
+function detonate(victim, reason) {
+  if (S.phase !== 'PUNCHING' && S.phase !== 'ROUND_START') return;
+  S.phase = 'BOOM';
+  S.boomStartedAt = performance.now();
+
+  // Victim's stash is gone; everyone else banks theirs.
+  S.players[victim].stash = 0;
+  for (let i = 0; i < S.players.length; i++) {
+    if (i === victim) continue;
+    if (S.players[i].stash > 0) {
+      S.players[i].total += S.players[i].stash;
+      S.players[i].stash = 0;
+    }
+  }
+  renderScoreboard();
+  updateRoundPoints();
+
+  // Scoreboard shake on the victim
+  const pill = $scoreboard.children[victim];
+  if (pill) {
+    pill.classList.remove('boomed'); void pill.offsetWidth;
+    pill.classList.add('boomed');
+    setTimeout(() => pill.classList.remove('boomed'), 600);
+  }
+  popBanner('BOOM',
+            reason === 'timeout'
+              ? `too slow, player ${victim + 1} — stash gone`
+              : `player ${victim + 1} set him off — stash gone`,
+            'var(--gold)');
+  fireExplosion();
+  // Hide Soup during the explosion
+  if (mascot.root) {
+    mascot.root.visible = false;
+    mascot.hidden = true;
+  }
+  setPrompt(`boom — player ${victim + 1} lost their stash`);
+  later(BOOM_HOLD_MS, () => {
+    if (mascot.root) mascot.root.visible = true;
+    mascot.hidden = false;
+    endPotatoRound();
+  });
+}
+
+// "Eat the punch" — the holder opts out of the hot potato. No boom, but
+// they forfeit their entire stash; everyone else banks theirs.
+function eatIt() {
+  if (S.phase !== 'PUNCHING') return;
+  S.phase = 'EAT';
+  const eater = S.holder;
+  S.players[eater].stash = 0;
+  for (let i = 0; i < S.players.length; i++) {
+    if (i === eater) continue;
+    if (S.players[i].stash > 0) {
+      S.players[i].total += S.players[i].stash;
+      S.players[i].stash = 0;
+    }
+  }
+  renderScoreboard();
+  updateRoundPoints();
+  $bankWrap.classList.remove('show');
+  popBanner('ATE IT', `player ${eater + 1} folds — stash forfeited`, 'var(--vine)');
+  setPrompt(`player ${eater + 1} ate the punch`);
+  // Soup relieved shrug — he lives another round.
+  mascot.shrugUntil = performance.now() + 800;
+  later(BETWEEN_PLAYER_DELAY_MS, () => endPotatoRound());
+}
+
+function endPotatoRound() {
+  S.round++;
   const winnerByPoints = S.players.find(p => p.total >= POINTS_TO_WIN);
   const outOfRounds = S.round >= MATCH_LENGTH_ROUNDS;
   if (winnerByPoints || outOfRounds) {
@@ -841,62 +1020,34 @@ function nextTurn() {
     return;
   }
   S.phase = 'BETWEEN';
-  setPrompt(`player ${S.currentPlayer + 1}, get ready`);
-  setTimeout(() => startTurn(), BETWEEN_PLAYER_DELAY_MS);
+  setPrompt(`round ${S.round + 1} — get ready`);
+  later(BETWEEN_PLAYER_DELAY_MS, () => startPotatoRound());
 }
 
+// ── Match end ──────────────────────────────────────────────
 function endMatch() {
   S.phase = 'GAME_OVER';
-  // Winner = highest total. Ties broken by lower index (first player).
+  S.holder = 0;
   let winIdx = 0, best = -1;
   for (let i = 0; i < S.players.length; i++) {
     if (S.players[i].total > best) { best = S.players[i].total; winIdx = i; }
   }
-  const allZero = S.players.every(p => p.total === 0);
   renderScoreboard();
-  updateDanger();
   updateRoundPoints();
-  if (allZero) {
+
+  if (S.players.every(p => p.total === 0)) {
     popBanner('EVERYONE BOOMED', 'punch to run it back', 'var(--hot)');
   } else {
-    popBanner(`PLAYER ${winIdx + 1} WINS`, `${best} points banked`, 'var(--gold)');
+    popBanner(`PLAYER ${winIdx + 1} WINS`, `${best} points`, 'var(--gold)');
     fireConfetti();
   }
   setPrompt('throw a punch to play again');
 }
 
+// ── Punch entry point ──────────────────────────────────────
 function punchOnce(power) {
   if (S.phase !== 'PUNCHING') return;
-  S.punchesThisTurn += 1;
-  const scored = USE_POWER_SCALING
-    ? Math.round(5 + 15 * Math.max(0.2, Math.min(1, power)))
-    : POINTS_PER_PUNCH;
-  S.roundPoints += scored;
-
-  // Cancel any pending bank — a punch always breaks stillness.
-  bankHold.stillMs = 0;
-  bankHold.lockedUntil = performance.now() + BANK_LOCKOUT_AFTER_PUNCH_MS;
-  $bankWrap.classList.remove('show');
-
-  // Soup hit reaction
-  triggerHit(power);
-
-  updateDanger();
-  updateRoundPoints();
-
-  // Screen shake scaling with punch count (early subtle → later wild)
-  const growth = Math.min(1, S.punchesThisTurn / BOMB_MAX);
-  shakeCamera(0.04 + growth * 0.28, 240 + growth * 220);
-
-  // Prompt tension
-  if (S.punchesThisTurn >= BOMB_MIN) {
-    setPrompt(S.punchesThisTurn >= BOMB_MAX - 2 ? "he's about to blow, bank now" : 'punch for points, hold still to bank');
-  }
-
-  // Bomb check — MUST be the last thing so animation state settles first.
-  if (S.punchesThisTurn >= S.hiddenBombCount) {
-    detonate();
-  }
+  potatoPunch(power);
 }
 
 function triggerHit(power) {
@@ -906,85 +1057,36 @@ function triggerHit(power) {
   soupVel.y += 0.2 * power;
 }
 
-function detonate() {
-  S.phase = 'BOOM';
-  S.boomStartedAt = performance.now();
-  // Wipe round points for this player
-  S.roundPoints = 0;
-  updateRoundPoints();
-  // Scoreboard shake
-  const pill = $scoreboard.children[S.currentPlayer];
-  if (pill) {
-    pill.classList.remove('boomed'); void pill.offsetWidth;
-    pill.classList.add('boomed');
-    setTimeout(() => pill.classList.remove('boomed'), 600);
-  }
-  popBanner('BOOM', 'turn points gone', 'var(--gold)');
-  fireExplosion();
-  // Hide Soup during the explosion
-  if (mascot.root) {
-    mascot.root.visible = false;
-    mascot.hidden = true;
-  }
-  setPrompt('boom, that turn is gone');
-  setTimeout(() => {
-    if (mascot.root) mascot.root.visible = true;
-    mascot.hidden = false;
-    nextTurn();
-  }, BOOM_HOLD_MS);
-}
-
-function bank() {
-  if (S.phase !== 'PUNCHING') return;
-  S.phase = 'BANK';
-  const banked = S.roundPoints;
-  S.players[S.currentPlayer].total += banked;
-  renderScoreboard();
-  // Pop the banked total so the score change lands visually.
-  const pill = $scoreboard.children[S.currentPlayer];
-  const ps = pill && pill.querySelector('.pscore');
-  if (ps) ps.classList.add('pop');
-  popBanner(`BANKED ${banked}`, `player ${S.currentPlayer+1} total ${S.players[S.currentPlayer].total}`, 'var(--vine)');
-  setPrompt(`player ${S.currentPlayer+1} banked ${banked}`);
-  // Soup relieved shrug
-  mascot.shrugUntil = performance.now() + 800;
-  $bankWrap.classList.remove('show');
-  setTimeout(() => nextTurn(), BETWEEN_PLAYER_DELAY_MS);
-}
-
-// ══════════════════════════ Bank hold detector ══════════════════════════
-const bankHold = {
+// ══════════════════════════ Eat-it hold detector ══════════════════════════
+// Hot potato only: hold your arm still for EAT_HOLD_MS during your throw
+// window to eat the punch instead of throwing it.
+const eatHold = {
   stillMs: 0,
   lastSampleT: 0,
   lockedUntil: 0,
 };
 
 function feedRawSample(armId, s) {
-  // ignore samples from arms we don't care about — accept any arm; the
-  // "current player" holds the band. We look at the union across all arms
-  // so that the still window fires only when NO arm is moving.
-  // Practical impl: track most-recent motion timestamp across arms; if no
-  // arm moved for BANK_HOLD_MS, fire bank.
   if (S.phase !== 'PUNCHING') return;
   const now = performance.now();
-  if (now < bankHold.lockedUntil) return;
+  if (now < eatHold.lockedUntil) return;
 
   const aMag = Math.hypot(s.ax, s.ay, s.az); // m/s²
   const gMag = Math.hypot(s.gx, s.gy, s.gz); // dps
   const aDev = Math.abs(aMag - G) / G;       // deviation from 1g, in g-units
-  const still = (aDev <= BANK_MAX_MOTION) && (gMag <= BANK_MAX_GYRO);
+  const still = (aDev <= EAT_MAX_MOTION) && (gMag <= EAT_MAX_GYRO);
 
-  const dt = bankHold.lastSampleT ? (now - bankHold.lastSampleT) : 20;
-  bankHold.lastSampleT = now;
+  const dt = eatHold.lastSampleT ? (now - eatHold.lastSampleT) : 20;
+  eatHold.lastSampleT = now;
 
   if (still) {
-    bankHold.stillMs = Math.min(BANK_HOLD_MS, bankHold.stillMs + dt);
+    eatHold.stillMs = Math.min(EAT_HOLD_MS, eatHold.stillMs + dt);
   } else {
-    bankHold.stillMs = 0;
+    eatHold.stillMs = 0;
   }
 
   // UI update
-  const frac = bankHold.stillMs / BANK_HOLD_MS;
+  const frac = eatHold.stillMs / EAT_HOLD_MS;
   if (frac > 0.05) {
     $bankWrap.classList.add('show');
     $bankBar.style.width = (frac * 100).toFixed(0) + '%';
@@ -992,23 +1094,22 @@ function feedRawSample(armId, s) {
     $bankWrap.classList.remove('show');
   }
 
-  if (bankHold.stillMs >= BANK_HOLD_MS) {
-    bank();
+  if (eatHold.stillMs >= EAT_HOLD_MS) {
+    eatIt();
   }
 }
 
 // Fallback UI decay tick — if no samples flowing (no hardware / dev mode),
-// gradually drain the bank meter so it doesn't get stuck.
+// gradually drain the hold meter so it doesn't get stuck.
 setInterval(() => {
   if (S.phase !== 'PUNCHING') {
-    bankHold.stillMs = 0;
+    eatHold.stillMs = 0;
     $bankWrap.classList.remove('show');
     return;
   }
-  // If we haven't received a sample in >200ms, decay slowly.
-  if (performance.now() - bankHold.lastSampleT > 200) {
-    bankHold.stillMs = Math.max(0, bankHold.stillMs - 8);
-    const frac = bankHold.stillMs / BANK_HOLD_MS;
+  if (performance.now() - eatHold.lastSampleT > 200) {
+    eatHold.stillMs = Math.max(0, eatHold.stillMs - 8);
+    const frac = eatHold.stillMs / EAT_HOLD_MS;
     if (frac <= 0.05) $bankWrap.classList.remove('show');
     else $bankBar.style.width = (frac * 100).toFixed(0) + '%';
   }
@@ -1022,7 +1123,25 @@ function tick() {
   lastT = now;
   const tSec = now / 1000;
 
-  // Spring Soup toward home
+  // ── Throw-window timeout: too slow → boom on the holder.
+  if (S.phase === 'PUNCHING' && now > S.throwDeadline) {
+    detonate(S.holder, 'timeout');
+  }
+
+  // ── Timer bar (repurposed danger meter — never shows the bomb ratio)
+  if (S.phase === 'PUNCHING') {
+    const frac = Math.max(0, Math.min(1, (S.throwDeadline - now) / THROW_WINDOW_MS));
+    $timerBar.style.width = (frac * 100).toFixed(1) + '%';
+    $timerBarC.classList.toggle('hot', frac < 0.3);
+  } else {
+    $timerBar.style.width = '0%';
+    $timerBarC.classList.remove('hot');
+  }
+
+  // ── Eat-it button visibility (live throw window only)
+  $eatBtn.style.display = S.phase === 'PUNCHING' ? 'inline-flex' : 'none';
+
+  // Spring Soup toward home (mass-spring damped)
   soupVel.x += (soupHome.x - soupGroup.position.x) * 40 * dt;
   soupVel.y += (soupHome.y - soupGroup.position.y) * 45 * dt;
   soupVel.z += (soupHome.z - soupGroup.position.z) * 40 * dt;
@@ -1038,8 +1157,21 @@ function tick() {
     const squish = 1 + Math.sin(tSec * 2) * 0.03;
     m.position.y = mascot.baseY + bob;
 
-    // Hit: shake x + red flash
+    // ── Body color ──
+    // Nervous redness = the ONLY bomb cue. Visible redness is deliberately
+    // noisy: ±15% multiplicative jitter per frame so players can't read the
+    // exact odds off his face.
+    let baseColorSet = false;
+    if (S.hiddenBombCount > 0 &&
+        (S.phase === 'PUNCHING' || S.phase === 'ROUND_START' || S.phase === 'BOOM')) {
+      const redness = Math.min(1, S.punchesThisRound / S.hiddenBombCount);
+      const vis = Math.max(0, Math.min(1, redness * (0.85 + Math.random() * 0.30)));
+      if (mascot.bodyMat) mascot.bodyMat.color.copy(nervousTint(vis));
+      baseColorSet = true;
+    }
+
     if (now < mascot.hitUntil) {
+      // Impact: squash + red flash.
       m.position.x = (Math.random() - 0.5) * 0.10;
       if (mascot.bodyMat) mascot.bodyMat.color.setHex(0xff4444);
       m.scale.y = mascot.baseScaleY * (1 - 0.08);
@@ -1049,21 +1181,22 @@ function tick() {
       const wiggle = Math.sin(shrugP * Math.PI * 6) * 0.08;
       m.position.x = wiggle;
       m.position.y = mascot.baseY + Math.sin(shrugP * Math.PI) * 0.15;
-      if (mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+      if (!baseColorSet && mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
       const paws = m.getObjectByName ? m.getObjectByName('paws') : null;
       if (paws) paws.rotation.x = Math.sin(shrugP * Math.PI) * 0.6;
       m.scale.y = mascot.baseScaleY * squish;
     } else {
       m.position.x = 0;
-      if (mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+      if (!baseColorSet && mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
       m.scale.y = mascot.baseScaleY * squish;
       const paws = m.getObjectByName ? m.getObjectByName('paws') : null;
       if (paws) paws.rotation.x = 0;
     }
 
-    // Growing pre-boom tension: subtle horizontal jitter as we approach bomb
-    if (S.phase === 'PUNCHING' && S.punchesThisTurn > 0) {
-      const tension = Math.min(1, S.punchesThisTurn / DANGER_METER_MAX_PUNCHES);
+    // Growing pre-boom tension: subtle horizontal jitter as the fuse burns.
+    if (S.phase === 'PUNCHING' &&
+        S.punchesThisRound > 0 && S.hiddenBombCount > 0) {
+      const tension = Math.min(1, S.punchesThisRound / S.hiddenBombCount);
       m.position.x += (Math.random() - 0.5) * 0.02 * tension;
       m.rotation.y = Math.sin(now / 60) * 0.05 * tension;
     } else {
@@ -1133,13 +1266,18 @@ function onPunchDetected(power, armId) {
 }
 
 function restartMatch() {
+  S.gen++;
   S.phase = 'LOBBY';
+  S.holder = 0;
+  if (mascot.root) mascot.root.visible = true;
+  mascot.hidden = false;
   document.body.classList.add('in-lobby');
-  // Clear particles
+  // Clear particles + popups
   $particles.innerHTML = '';
   $lobby.classList.remove('hidden');
+  soupVel.set(0, 0, 0);
+  makePlayers(S.numPlayers);
   renderScoreboard();
-  updateDanger();
   updateRoundPoints();
   setPrompt('throw a punch to start');
 }
@@ -1183,6 +1321,7 @@ document.getElementById('pplus').addEventListener('click', () => {
 document.getElementById('lobby-cta').addEventListener('click', () => {
   if (S.phase === 'LOBBY') beginMatch();
 });
+$eatBtn.addEventListener('click', () => eatIt());
 
 // ── Dev shortcuts ──
 addEventListener('keydown', (e) => {
@@ -1190,10 +1329,10 @@ addEventListener('keydown', (e) => {
   if (k === ' ' || e.code === 'Space') {
     e.preventDefault();
     onPunchDetected(0.6 + Math.random() * 0.4, 0);
-  } else if (k === 'b') {
-    if (S.phase === 'PUNCHING') bank();
+  } else if (k === 'e' || k === 'b') { // 'b' kept for muscle memory (was bank)
+    eatIt();
   } else if (k === 'n') {
-    if (S.phase === 'PUNCHING') detonate();
+    if (S.phase === 'PUNCHING') detonate(S.holder, 'boom');
   } else if (k === 'r') {
     restartMatch();
   }
@@ -1202,8 +1341,10 @@ addEventListener('keydown', (e) => {
 // Initial paint
 makePlayers(S.numPlayers);
 renderScoreboard();
-updateDanger();
 updateRoundPoints();
+
+// Dev/debug hook (read-only inspection from the console)
+window.__pb = { S, mascot, soupGroup };
 </script>
 </body>
 </html>

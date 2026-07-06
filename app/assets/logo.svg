@@ -1,83 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" width="400" height="220" role="img" aria-label="Soup Sports">
-  <!-- Soup Sports logo — plush console-split mark.
-       Chubby cream plush head split down the middle: left seam strawberry red
-       #d13c48, right seam blueberry blue #7a95d9, ~4px cream gap between the
-       halves. Body stays cream #fbf3e0 inside — only the outline + eye tint
-       follow the half color. Slightly wavy hand-drawn silhouette, teddy-bear
-       ears with lighter inner pads, shy low-set eyes, pink cheeks #f7b8c4,
-       tiny ink nose bridging the seam, flat inner shading (no filter blurs). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" role="img" aria-label="Soup Sports">
+  <!-- Soup Sports logo — the real Soup, console-split.
+       Two-body snowman: small cream head circle stacked on a bigger cream
+       body circle (drawn after the body so the head's outline reads as a
+       separate ball). Two small tan ears on the top of the head, a tan
+       face patch (bear-muzzle oval) on the front of the head carrying
+       three ink dots (two eyes + a nose), and two tan paw circles on the
+       front of the body. Outlines split down the middle Nintendo-Switch
+       style: left half strawberry red #e60012, right half blueberry blue
+       #0088cc, 4px unstroked cream seam (x 198-202) between them.
+       Flat illustration — no gradients, no filter/shadow blurs. -->
 
   <defs>
-    <!-- left-half geometry; the right half reuses it mirrored about x=200 -->
-    <path id="ss-body" d="M 196 35.6
-      C 188.5 34.4 180.4 34.8 173.4 36.8
-      C 164.6 39.3 156.2 45.0 149.6 53.6
-      C 145.4 59.0 142.0 64.4 139.6 70.8
-      C 137.0 77.8 135.0 84.8 134.2 92.2
-      C 133.4 99.6 134.0 107.2 136.2 114.8
-      C 138.4 122.4 142.6 129.4 149.0 135.8
-      C 155.0 141.8 162.8 146.8 171.2 149.8
-      C 179.2 152.6 188.2 154.0 196 153.6
-      L 196 35.6 Z"/>
-    <path id="ss-ear" d="M 145 56
-      C 141.5 44.5 144.5 32 153.5 26
-      C 162 20.5 173 22.5 179 30.5
-      C 183 36 185 43 185.5 50
-      C 172.5 44 157 46 145 56 Z"/>
-    <path id="ss-ear-pad" d="M 152 46
-      C 150 37.5 153 29.5 159.5 26.5
-      C 165.5 23.8 172 26.3 175.5 32.5
-      C 178 37 179.3 42.5 179.6 47
-      C 169.5 42 159.5 43 152 46 Z"/>
+    <!-- half-plane clips; the 4px unclipped seam reads cream -->
+    <clipPath id="ss-clip-l"><rect x="0"   y="0" width="198" height="400"/></clipPath>
+    <clipPath id="ss-clip-r"><rect x="202" y="0" width="198" height="400"/></clipPath>
   </defs>
 
-  <!-- cream seam filler so the gap between halves reads cream, not page bg -->
-  <rect x="197" y="35" width="6" height="118" rx="3" fill="#fbf3e0"/>
+  <!-- ── ears: small tan blobs on top of the head, drawn behind it ── -->
+  <circle cx="164" cy="56" r="19" fill="#c9a878" stroke="#e60012" stroke-width="5"/>
+  <circle cx="236" cy="56" r="19" fill="#c9a878" stroke="#0088cc" stroke-width="5"/>
 
-  <!-- ── left half (strawberry seam) ── -->
-  <g stroke="#d13c48" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
-    <use href="#ss-ear"/>
-    <use href="#ss-ear-pad" fill="#fffcf1" stroke="none"/>
-    <use href="#ss-body"/>
-  </g>
+  <!-- ── body: the big lower ball ── -->
+  <circle cx="200" cy="247" r="94" fill="#fbf3e0"/>
+  <circle cx="200" cy="247" r="94" fill="none" stroke="#e60012" stroke-width="6"
+          clip-path="url(#ss-clip-l)"/>
+  <circle cx="200" cy="247" r="94" fill="none" stroke="#0088cc" stroke-width="6"
+          clip-path="url(#ss-clip-r)"/>
 
-  <!-- ── right half (blueberry seam), mirrored ── -->
-  <g transform="matrix(-1 0 0 1 400 0)"
-     stroke="#7a95d9" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
-    <use href="#ss-ear"/>
-    <use href="#ss-ear-pad" fill="#fffcf1" stroke="none"/>
-    <use href="#ss-body"/>
-  </g>
+  <!-- ── paws: small tan circles on the front of the body ── -->
+  <circle cx="159" cy="243" r="22" fill="#c9a878"/>
+  <circle cx="241" cy="243" r="22" fill="#c9a878"/>
 
-  <!-- inner shading: flat semi-transparent ink, lower-right volume -->
-  <path d="M 260.5 98
-    C 261.6 109 258.8 120.4 251.8 130
-    C 244.6 140 233.6 147.2 220.5 150.4
-    C 232.4 144.8 241.8 136.8 247.6 126.4
-    C 252.4 117.8 254.4 108 253.4 98.4 Z"
-    fill="#1c2a3a" opacity="0.09"/>
-  <path d="M 196 151.4
-    C 185 151.6 174 149.8 164.6 145.6
-    C 174.4 148 185.6 149 196 148.6 Z"
-    fill="#1c2a3a" opacity="0.06"/>
+  <!-- ── head: the small upper ball, overlapping the body slightly ── -->
+  <circle cx="200" cy="104" r="60" fill="#fbf3e0"/>
+  <circle cx="200" cy="104" r="60" fill="none" stroke="#e60012" stroke-width="6"
+          clip-path="url(#ss-clip-l)"/>
+  <circle cx="200" cy="104" r="60" fill="none" stroke="#0088cc" stroke-width="6"
+          clip-path="url(#ss-clip-r)"/>
 
-  <!-- pearly highlight arc, upper-left roundness -->
-  <path d="M 148 72 C 151 63 156.5 55.5 164 50"
-        fill="none" stroke="#fffdf4" stroke-width="5" stroke-linecap="round"/>
+  <!-- ── face patch: tan muzzle oval low on the front of the head ── -->
+  <ellipse cx="200" cy="127" rx="38" ry="27" fill="#b98b6a"/>
 
-  <!-- cheeks -->
-  <ellipse cx="154" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
-  <ellipse cx="246" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
-
-  <!-- shy low-set eyes, tinted per half -->
-  <ellipse cx="185.5" cy="104" rx="4" ry="4.6" fill="#8a2530"/>
-  <ellipse cx="214.5" cy="104" rx="4" ry="4.6" fill="#435490"/>
-
-  <!-- tiny nose bump over the seam -->
-  <ellipse cx="200" cy="108.5" rx="2.6" ry="2.2" fill="#1c2a3a"/>
+  <!-- ── face: two eyes + a nose, ink dots on the patch ── -->
+  <circle cx="181" cy="120" r="7" fill="#1c2a3a"/>
+  <circle cx="219" cy="120" r="7" fill="#1c2a3a"/>
+  <circle cx="200" cy="133" r="6.5" fill="#1c2a3a"/>
 
   <!-- ── wordmark ── -->
-  <text x="200" y="202" text-anchor="middle"
+  <text x="200" y="382" text-anchor="middle"
         font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"
         font-weight="700" font-size="34" letter-spacing="0.5"
         fill="#1c2a3a">Soup Sports</text>

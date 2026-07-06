@@ -60,9 +60,4 @@ export class ArmDispatcher {
 
   /** For debug/HUD: which arm IDs have we ever received? */
   connectedArms() { return [...this.armsSeen].sort(); }
-
-  /** True while the wristband on `armId` is holding a still block pose. */
-  isBlocking(armId) {
-    return this.classifiers.get(armId)?.blockActive === true;
-  }
 }
