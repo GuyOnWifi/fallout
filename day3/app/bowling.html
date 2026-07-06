@@ -168,9 +168,11 @@
     100% { transform: translateX(-50%) scale(1); opacity:1; }
   }
 
-  /* Prompt, bottom center above scorecard */
-  #prompt { position:absolute; bottom:64px; left:50%;
-            transform:translateX(-50%); z-index:4;
+  /* Prompt, bottom center above scorecard. Bottom offset must clear
+     the two-row PvP scorecard strip (~110px) — otherwise the pill
+     lands on the P B row and clips both the pill and the row. */
+  #prompt { position:absolute; bottom:150px; left:50%;
+            transform:translateX(-50%); z-index:110;
             padding:10px 20px; background: var(--cream);
             border: 3px solid var(--ink); border-radius: 999px;
             font-weight:700; letter-spacing:.01em;
@@ -179,7 +181,7 @@
             white-space:nowrap; }
 
   /* Peak-charge HUD — small, above prompt. Hidden until a swing arms it. */
-  #charge-wrap { position:absolute; bottom:118px; left:50%;
+  #charge-wrap { position:absolute; bottom:200px; left:50%;
                  transform:translateX(-50%); z-index:4;
                  width:200px; text-align:center; pointer-events:none;
                  font-size:10px; letter-spacing:.22em; font-weight:800;
@@ -394,6 +396,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
 
 // ═══════════════════════ Three.js scene ═══════════════════════
 const SKY_MID = 0x4fc0e3;
@@ -861,6 +864,7 @@ function launchBall(speed, angle) {
     bowlerAnim.releasing = true;
     bowlerAnim.releaseT = 0;
   }
+  sfx.ballRoll();
 }
 
 function standUpAllPins() {
@@ -899,6 +903,7 @@ function resetBall() {
     popBanner('strike', '#ff9663');
     spawnConfetti();
     strikeCelebration();
+    sfx.strike();
   }
   else if (!isTenth && g.rollInFrame === 1 && total === 10) {
     popBanner('spare', '#f4c95d');
@@ -907,6 +912,7 @@ function resetBall() {
   else if (knocked === 0) {
     popBanner('gutter', '#37628a');
     popGutterPuff();
+    sfx.gutter();
     bowlerSlump.active = true;
     bowlerSlump.t = 0;
   }
@@ -983,7 +989,7 @@ function announceTurn() {
   if (pvpMode) {
     popBanner(`player ${activePlayer.toLowerCase()}`, '#37628a');
     promptEl.textContent =
-      `player ${activePlayer.toLowerCase()} — frame ${cur.currentFrame + 1}, ball ${cur.rollInFrame + 1}`;
+      `player ${activePlayer.toLowerCase()} · frame ${cur.currentFrame + 1}`;
   } else {
     promptEl.textContent = 'swing forward and let go';
   }
@@ -1016,6 +1022,7 @@ const PIN_STAND_Y = 0.2;
 function knockPin(pin, impactVel, hitStrength) {
   if (!pin.userData.standing) return;
   pin.userData.standing = false;
+  sfx.pinHit(hitStrength);
 
   pin.userData.vel.copy(impactVel).multiplyScalar(0.35 * hitStrength);
   pin.userData.vel.x += (Math.random() - 0.5) * 1.2;

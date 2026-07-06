@@ -352,6 +352,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
 
 // ═══════════════════════ Three.js scene ═══════════════════════
 const scene = new THREE.Scene();
@@ -1120,6 +1121,7 @@ function handleSwing(player, { power, roll, forehand }) {
   if (state.mode === 'serve_wait') {
     if (player !== state.server) return;
     popGesture(`serve ${Math.round(power*100)}`, '#ff9663');
+    sfx.serve(power);
     processHit(player, power, roll);
     return;
   }
@@ -1133,6 +1135,7 @@ function handleSwing(player, { power, roll, forehand }) {
       refreshScore();
       popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
                  forehand ? '#ff9663' : '#37628a');
+      sfx.rally(power);
       processHit(player, power, roll);
     } else {
       popGesture('miss', '#f4c95d');

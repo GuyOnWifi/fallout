@@ -445,11 +445,9 @@
     <div class="name">Hook</div>
   </div>
   <div class="tut-card uppercut">
-    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M39 27 L39 8"/>
-      <path d="M29 17 L39 6 L49 17"/>
-      <path d="M29 40 C29 33.5 33.5 31 39 31 C44.5 31 49 33.5 49 40 C49 45 44.5 48 39 48 C33.5 48 29 45.5 29 40 Z" fill="#ff9663" stroke-linejoin="round"/>
-      <path d="M44 34 C48.5 34 49.5 39.5 45.5 41.5 C42.5 43 40.5 41 40.5 38.5"/>
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M39 44 L39 12"/>
+      <path d="M27 22 L39 10 L51 22"/>
     </svg>
     <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Uppercut</div>
@@ -495,6 +493,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
 
 // ══════════════════════════ Scene ══════════════════════════
 const SKY_HEX = 0x7bd3ee;
@@ -809,23 +808,32 @@ const $rematch = document.getElementById('rematch');
 
 // ── Tutorial + title lifecycle ────────────────────
 let hasGestured = false;
+// Tutorial is shown early and kept up for a minimum of MIN_TUT_MS so first-time
+// players have time to actually read jab/hook/uppercut before it disappears.
+const MIN_TUT_MS = 4500;
+let tutorialShownAt = 0;
 // Fade the title out shortly after load so Soup is visible even without a hub.
 setTimeout(() => { if (!document.body.classList.contains('game-active')) $title.classList.add('hidden'); }, 2400);
-// Show the tutorial hint after a short delay if no gesture has come in.
-setTimeout(() => { if (!hasGestured) $tut.classList.add('show'); }, 2600);
-// Loop the tutorial in/out on a 6s cycle until the player commits.
-setInterval(() => {
-  if (hasGestured) return;
-  $tut.classList.toggle('show');
-}, 6000);
+// Show the tutorial immediately so first-time players see all three moves
+// before doing anything. It stays visible for at least MIN_TUT_MS even if
+// they punch early — otherwise it flashes past and no one learns the moves.
+setTimeout(() => {
+  $tut.classList.add('show');
+  tutorialShownAt = performance.now();
+}, 400);
 
 function markGestured() {
   if (hasGestured) return;
   hasGestured = true;
-  $tut.classList.remove('show');
-  setTimeout(() => $tut.classList.add('gone'), 600);
   $title.classList.add('hidden');
   document.body.classList.add('game-active');
+  // Hold the tutorial for the remainder of MIN_TUT_MS before fading it out.
+  const shownFor = performance.now() - tutorialShownAt;
+  const remaining = Math.max(0, MIN_TUT_MS - shownFor);
+  setTimeout(() => {
+    $tut.classList.remove('show');
+    setTimeout(() => $tut.classList.add('gone'), 600);
+  }, remaining);
 }
 
 // ── Hit sparks (star particles bursting outward) ──
@@ -947,6 +955,9 @@ function applyGesture(g, armId = 0) {
   }
   markGestured();
   popGesture(g.gesture, g.power);
+  if (g.gesture === 'jab') sfx.punch(g.power);
+  else if (g.gesture === 'hook') sfx.hookImpact(g.power);
+  else if (g.gesture === 'uppercut') sfx.uppercutImpact(g.power);
   const dmgBase = DMG[g.gesture];
   const spec = PUNCH[g.gesture];
   if (!dmgBase || !spec) return;
@@ -1026,6 +1037,7 @@ function landImpact(imp) {
     state.koDir = (gesture === 'hook') ? dir : -1;
     state.koLoser = defender;  // which fighter crumples
     fireKO();
+    sfx.ko();
     log(`KO — player ${attackerIsOpp ? 'B' : 'A'} wins`);
   }
 }

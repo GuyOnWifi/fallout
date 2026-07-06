@@ -805,6 +805,7 @@ addEventListener('resize', () => {
 // ────────── controller pairing ──────────
 import { openSerial, autoOpenSerial } from './serial.js';
 import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
 
 const $slotA = document.querySelector('.slot[data-slot="A"]');
 const $slotB = document.querySelector('.slot[data-slot="B"]');
@@ -859,6 +860,17 @@ function refreshShakeHint() {
     : PAIR_HINT_DEFAULT;
 }
 
+// Play a rising chime whenever a slot transitions empty → filled.
+let _lastSlotA = pairing.armForPlayer('A');
+let _lastSlotB = pairing.armForPlayer('B');
+pairing.onChange(() => {
+  const a = pairing.armForPlayer('A');
+  const b = pairing.armForPlayer('B');
+  if ((a !== null && _lastSlotA === null) || (b !== null && _lastSlotB === null)) {
+    sfx.pairChime();
+  }
+  _lastSlotA = a; _lastSlotB = b;
+});
 pairing.onChange(refreshAll);
 // Poll a couple times a second so the "live" pill drops when packets stop
 // coming (pairing.onChange fires only when a sample lands).

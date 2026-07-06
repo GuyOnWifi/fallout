@@ -190,6 +190,7 @@
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
 import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
 
 // ─── canvas ───
 const canvas = document.getElementById('stage');
@@ -220,7 +221,8 @@ const SPAWN_MIN_MS = 550, SPAWN_MAX_MS = 950;
 const SLASH_HALF = 46;              // px band around blade line
 const SLASH_ACTIVE_MS = 220;
 const BOMB_PROB = 0.14;
-const FRUIT_R_MIN = 34, FRUIT_R_MAX = 48;
+const FRUIT_R_MIN = 22, FRUIT_R_MAX = 42;
+const FRUIT_SMALL_THRESH = 30;    // r < this => small fruit, worth +2 instead of +1
 
 const state = {
   running: false,
@@ -303,11 +305,15 @@ function sliceFruit(f, player, sliceY) {
     else state.slimedB = true;
     popBanner('slimed!', PAL.vine);
     kickBanner();
+    sfx.bombSlash();
     endRound();
     return;
   }
-  if (player === 'A') state.scoreA += 1;
-  else state.scoreB += 1;
+  sfx.slice();
+  // Smaller fruits are harder to hit → worth more.
+  const pts = f.r < FRUIT_SMALL_THRESH ? 2 : 1;
+  if (player === 'A') state.scoreA += pts;
+  else state.scoreB += pts;
   // Split into two halves flying apart vertically.
   const spread = 220 + Math.random() * 80;
   state.halves.push({
@@ -414,6 +420,15 @@ function render() {
     if (!f.alive) continue;
     ctx.save();
     ctx.translate(f.x, f.y);
+    // Danger halo for bombs — subtle pulsing red glow drawn before rotation.
+    if (f.bomb) {
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+      const g = ctx.createRadialGradient(0, 0, f.r * 0.6, 0, 0, f.r * 1.9);
+      g.addColorStop(0, `rgba(255,60,40,${0.28 + pulse * 0.18})`);
+      g.addColorStop(1, 'rgba(255,60,40,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, f.r * 1.9, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.rotate(f.rot);
     drawFruit(f.r, f.color, f.bomb);
     ctx.restore();
@@ -439,6 +454,7 @@ function render() {
 }
 
 function drawFruit(r, color, bomb) {
+  if (bomb) { drawBomb(r); return; }
   // Body
   ctx.fillStyle = color;
   ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
@@ -446,22 +462,41 @@ function drawFruit(r, color, bomb) {
   // Highlight
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.beginPath(); ctx.arc(-r*0.35, -r*0.4, r*0.28, 0, Math.PI * 2); ctx.fill();
-  if (bomb) {
-    // Slime drips — a couple of green blobs hanging off the bottom.
-    ctx.fillStyle = '#4a9440'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(-r*0.4, r*0.9, r*0.22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc( r*0.35, r*0.95, r*0.18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // Grumpy eyes for slime
-    ctx.fillStyle = PAL.ink;
-    ctx.beginPath(); ctx.arc(-r*0.3, -r*0.05, r*0.09, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc( r*0.3, -r*0.05, r*0.09, 0, Math.PI * 2); ctx.fill();
-  } else {
-    // Cute leaf
-    ctx.fillStyle = PAL.vine; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.ellipse(r*0.15, -r*0.95, r*0.28, r*0.14, -0.7, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-  }
+  // Cute leaf
+  ctx.fillStyle = PAL.vine; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(r*0.15, -r*0.95, r*0.28, r*0.14, -0.7, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+}
+
+function drawBomb(r) {
+  // Round dark body
+  ctx.fillStyle = '#2b1e14';
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // Spherical highlight, upper-left
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.beginPath(); ctx.arc(-r*0.38, -r*0.42, r*0.22, 0, Math.PI * 2); ctx.fill();
+  // Square wick/fuse cap on top
+  const cw = r * 0.28, ch = r * 0.22;
+  ctx.fillStyle = '#3d2a1a'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.rect(-cw/2, -r - ch*0.9, cw, ch); ctx.fill(); ctx.stroke();
+  // Fuse string curling up
+  ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, -r - ch*0.9);
+  ctx.quadraticCurveTo(r*0.35, -r - ch*1.8, r*0.15, -r - ch*2.5);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  // Flame sparkle at fuse tip — outer orange, inner yellow
+  const fx = r*0.15, fy = -r - ch*2.5;
+  const fr = r * 0.24;
+  ctx.fillStyle = '#ff9663';
+  ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f4c95d';
+  ctx.beginPath(); ctx.arc(fx - fr*0.15, fy + fr*0.05, fr*0.55, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff3c0';
+  ctx.beginPath(); ctx.arc(fx - fr*0.25, fy + fr*0.1, fr*0.22, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawHalf(r, color, side, bomb) {
