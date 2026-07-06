@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <title>Soup Games — Boxing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
     --sky-top:    #7bd3ee;
@@ -323,6 +326,22 @@
     0%, 100% { transform: translate(0, 14px); opacity:.6; }
     50%      { transform: translate(0, -14px); opacity:1; }
   }
+  /* Keep the three tutorial cards inside a 375px viewport */
+  @media (max-width: 420px) {
+    #tutorial { gap: 4px; padding: 8px 8px; max-width: 94vw; }
+    .tut-card { width: 78px; }
+    .tut-card svg { width: 48px; height: 32px; }
+  }
+
+  /* ── Rematch button (post-KO) ─────────────────────── */
+  #rematch { position:absolute; top:64%; left:50%;
+             transform:translateX(-50%); z-index:98;
+             display:none; font-size:15px; padding:13px 28px; }
+  #rematch.show { display:inline-flex; animation: rematchPop 320ms cubic-bezier(.2,1.5,.3,1); }
+  @keyframes rematchPop {
+    0% { transform: translateX(-50%) scale(.4); opacity:0; }
+    100% { transform: translateX(-50%) scale(1); opacity:1; }
+  }
 
   /* ── Hit sparks (star particles) ──────────────────── */
   #sparks { position:absolute; inset:0; pointer-events:none; z-index:92; overflow:hidden; }
@@ -447,6 +466,7 @@
 <div id="ko-flash"></div>
 <div id="confetti"></div>
 <div id="ko-banner">K.O.<span class="sub">down goes Soup</span></div>
+<button id="rematch" class="ss-btn">play again</button>
 
 <button id="connect" class="ss-btn">connect hub</button>
 <div id="debug-feats">waiting for a punch</div>
@@ -785,6 +805,7 @@ const $sparks = document.getElementById('sparks');
 const $koFlash = document.getElementById('ko-flash');
 const $koBanner = document.getElementById('ko-banner');
 const $confetti = document.getElementById('confetti');
+const $rematch = document.getElementById('rematch');
 
 // ── Tutorial + title lifecycle ────────────────────
 let hasGestured = false;
@@ -856,7 +877,31 @@ function fireKO() {
     $confetti.appendChild(c);
     setTimeout(() => c.remove(), 5200);
   }
+  // Offer the rematch once the celebration has had its beat.
+  setTimeout(() => { if (state.koFired) $rematch.classList.add('show'); }, 1600);
 }
+
+// Reset for another round — same fighters, fresh bars. Any punch thrown
+// after the KO celebration also triggers this, so wristband-only players
+// are never stuck staring at the banner.
+function doRematch() {
+  state.p1 = { hp:100, stamina:100, combo:0 };
+  state.p2 = { hp:100, stamina:100, combo:0 };
+  state.koFired = false;
+  state.koLoser = null;
+  state.lastHitAt = 0;
+  pendingImpacts = [];
+  $koBanner.classList.remove('pop');
+  $rematch.classList.remove('show');
+  for (const f of [player, opp]) {
+    f.act = null;
+    f.flashUntil = 0;
+    f.vel.set(0, 0, 0);
+    f.g.position.copy(f.home);
+  }
+  refreshHud();
+}
+$rematch.addEventListener('click', doRematch);
 
 function refreshHud() {
   $hp1.style.width = state.p1.hp + '%';
@@ -895,7 +940,11 @@ function fireHitFlash(power) {
 }
 
 function applyGesture(g, armId = 0) {
-  if (state.koFired) return; // no more punches after KO
+  if (state.koFired) {
+    // A punch after the KO beat = "run it back".
+    if (performance.now() - state.koRealStart > 2200) doRematch();
+    return;
+  }
   markGestured();
   popGesture(g.gesture, g.power);
   const dmgBase = DMG[g.gesture];

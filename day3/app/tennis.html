@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Sports — Tennis</title>
+<title>Soup Games — Tennis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   /* ── Soup Games palette (from index.html) ── */
   :root {
@@ -72,22 +75,24 @@
   }
   #scoreboard .mid .call { color: var(--ink); font-size: 14px; letter-spacing:.02em;
                            text-transform: none; margin-top: 2px; font-weight: 900; }
+  #scoreboard .games.pop, #scoreboard .point.pop { animation: scorePop 240ms ease-out; }
+  @keyframes scorePop {
+    40% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
 
   #rally-wrap { margin-top:12px; display:flex; justify-content:center; }
   #rally { display:inline-flex; align-items:center; gap:6px;
-           padding:5px 14px; background: rgba(255,255,255,.85);
+           padding:5px 14px; background: var(--cream);
            border-radius: 999px;
            font-size:11px; letter-spacing:.28em; text-transform:uppercase;
            color: var(--ink); font-weight: 800;
-           border: 2px solid rgba(28,42,58,.12);
-           box-shadow: 0 3px 0 rgba(0,0,0,.08);
+           border: 2px solid var(--ink);
+           box-shadow: 0 2px 0 var(--ink);
            transition: background 240ms, color 240ms, transform 200ms,
                        box-shadow 240ms, border-color 240ms; }
-  #rally.streak-1 { background: #fff2d6; border-color: rgba(244,201,93,.55);
-                    box-shadow: 0 3px 0 rgba(244,201,93,.35); }
-  #rally.streak-2 { background: #ffe3b8; color: #7a4a12;
-                    border-color: rgba(255,150,99,.65);
-                    box-shadow: 0 3px 0 rgba(255,150,99,.45); }
+  #rally.streak-1 { background: #fff2d6; }
+  #rally.streak-2 { background: #ffe3b8; color: #7a4a12; }
   #rally.streak-3 { background: linear-gradient(180deg,#ffce7a,#ff9663);
                     color: #fff; border-color: #a5471d;
                     box-shadow: 0 4px 0 #a5471d, 0 0 22px rgba(255,150,99,.65);
@@ -101,14 +106,15 @@
     100% { transform: scale(1.15) rotate(4deg); }
   }
 
-  /* ── Pairing hint (single-player-fallback) ── */
-  #pair-hint { position:absolute; top:120px; left:50%; transform:translateX(-50%);
+  /* ── Pairing hint (single-player fallback) — lives in the HUD flow just
+        below the rally pill so it can never overlap the scoreboard. ── */
+  #pair-hint { display:none; margin-top:8px;
                padding:7px 14px; background: rgba(28,42,58,.7);
                color: var(--cream); border-radius: 999px;
                font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-               font-weight: 800; z-index:99; opacity:0; transition: opacity 260ms;
-               pointer-events:none; }
-  #pair-hint.show { opacity: 1; }
+               font-weight: 800; pointer-events:none;
+               max-width: 92vw; }
+  #pair-hint.show { display:inline-block; }
 
   /* ── Point sparkle shower ── */
   #sparkles { position:absolute; inset:0; overflow:hidden;
@@ -206,7 +212,7 @@
   /* ── Point banner ── */
   #banner { position:absolute; top:42%; left:50%;
             transform:translate(-50%,-50%) scale(1);
-            font-size:64px; font-weight:900; letter-spacing:-.03em;
+            font-size:clamp(34px, 8.5vw, 64px); font-weight:900; letter-spacing:-.03em;
             text-transform:uppercase; opacity:0;
             text-shadow:0 6px 0 var(--ink), 0 10px 32px rgba(28,42,58,.4);
             transition:opacity 120ms, transform 200ms; pointer-events:none;
@@ -214,7 +220,7 @@
   #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
   #banner.b   { color: var(--ruin-blue); }
   #banner.miss{ color: var(--gold); }
-  #banner .sub { display:block; font-size: 28px; margin-top: 6px;
+  #banner .sub { display:block; font-size: clamp(18px, 4.5vw, 28px); margin-top: 6px;
                  font-weight: 800; letter-spacing:.02em; text-transform: none;
                  text-shadow: 0 3px 0 var(--ink); }
 
@@ -308,9 +314,8 @@
     </div>
   </div>
   <div id="rally-wrap"><span id="rally">rally 0</span></div>
+  <div id="pair-hint">only one wristband paired · b is cpu · pair both on menu</div>
 </div>
-
-<div id="pair-hint">only one wristband paired · b is cpu · pair both on menu</div>
 
 <div id="sparkles"></div>
 <div id="prompt">connect the hub to start</div>
@@ -688,7 +693,10 @@ function refreshMode() {
   if (!state.pvp) {
     state.cpuControls = (armB === null) ? 'B' : 'A';
   }
-  document.getElementById('pair-hint').classList.toggle('show', !state.pvp);
+  // Only nag about pairing once at least one wristband has actually been
+  // heard — before that the hint is just noise for a judge walking up.
+  document.getElementById('pair-hint')
+    .classList.toggle('show', !state.pvp && pairing.stats.size > 0);
 }
 
 pairing.onChange(refreshMode);
@@ -740,11 +748,20 @@ function scoreCall() {
   return `${pointLabel(A)}–${pointLabel(B)}`;
 }
 
+// Set a scoreboard number and give it a quick pop when it changes.
+function setScoreNum(el, v) {
+  const s = String(v);
+  if (el.textContent === s) return;
+  el.textContent = s;
+  el.classList.remove('pop'); void el.offsetWidth;
+  el.classList.add('pop');
+}
+
 function refreshScore() {
-  $gamesA.textContent = state.games.A;
-  $gamesB.textContent = state.games.B;
-  $pointA.textContent = pointLabel(state.points.A);
-  $pointB.textContent = pointLabel(state.points.B);
+  setScoreNum($gamesA, state.games.A);
+  setScoreNum($gamesB, state.games.B);
+  setScoreNum($pointA, pointLabel(state.points.A));
+  setScoreNum($pointB, pointLabel(state.points.B));
   $call.textContent = scoreCall();
   $colA.classList.toggle('serving', state.server === 'A');
   $colB.classList.toggle('serving', state.server === 'B');

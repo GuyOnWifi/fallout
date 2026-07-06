@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Games — Soup Ninja</title>
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; position:absolute; inset:0; z-index:1; }
+
+  /* Shared chrome */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
+  }
+  .ss-btn:hover { transform: translateY(-2px); background: var(--cream-warm);
+                  box-shadow: 0 5px 0 var(--ink); }
+  .ss-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--ink); }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
+    animation: none;
+  }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  /* Score/timer card top center */
+  #hud { position:absolute; top:14px; left:50%;
+         transform:translateX(-50%); z-index:100;
+         display:flex; gap:10px; align-items:center;
+         padding:8px 16px 10px; border-radius:16px;
+         background: var(--cream); border:3px solid var(--ink);
+         box-shadow: 0 4px 0 var(--ink);
+         pointer-events:none; }
+  #timer { font-size:26px; font-weight:900; line-height:1;
+           color: var(--ink); letter-spacing:-.02em; min-width:52px;
+           text-align:center; }
+  .sep { width:2px; height:26px; background:var(--ink-soft); opacity:.35;
+         border-radius:2px; }
+  .pscore { display:flex; flex-direction:column; align-items:center; gap:2px;
+            min-width:56px; }
+  .pscore .lbl { font-size:9px; letter-spacing:.14em; font-weight:800;
+                 text-transform:uppercase; color:var(--ink-soft); }
+  .pscore.a .lbl { color:var(--hot); }
+  .pscore.b .lbl { color:var(--ruin-blue); }
+  .pscore .val { font-size:22px; font-weight:900; line-height:1;
+                 color: var(--ink); }
+  #hud.solo .pscore.b, #hud.solo .sep.rt { display:none; }
+  @media (max-width: 640px) { #hud { top: 64px; } }
+
+  /* Prompt bottom-center */
+  #prompt { position:absolute; bottom:20px; left:50%;
+            transform:translateX(-50%); z-index:5;
+            padding:10px 20px; background: var(--cream);
+            border: 3px solid var(--ink); border-radius: 999px;
+            font-weight:700; letter-spacing:.01em;
+            font-size:13px; color: var(--ink);
+            box-shadow: 0 3px 0 var(--ink);
+            white-space:nowrap; }
+
+  /* Pair-hint pill */
+  #pair-hint { position:absolute; bottom:20px; left:16px; z-index:60;
+               font-size:10px; letter-spacing:.06em; font-weight:700;
+               padding:6px 12px; border-radius:999px;
+               background: var(--cream); color: var(--ink);
+               border: 2px solid var(--ink);
+               box-shadow: 0 2px 0 var(--ink);
+               pointer-events:none; opacity:0.85; }
+  #pair-hint.hidden { display:none; }
+
+  /* Big banner */
+  #banner { position:absolute; top:44%; left:50%; z-index:6;
+            transform:translate(-50%,-50%) scale(1);
+            font-size:88px; font-weight:900; letter-spacing:-.03em;
+            text-transform:uppercase; opacity:0;
+            color: var(--cream);
+            text-shadow: 0 6px 0 var(--ruin-blue),
+                         0 8px 32px rgba(28,42,58,.35);
+            transition: opacity 100ms, transform 200ms;
+            pointer-events:none; }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.14); }
+
+  /* Devhint */
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
+  html:not(.dev) #tune-log-wrap, html:not(.dev) #devhint { display:none !important; }
+
+  /* Tune log */
+  #tune-log-wrap {
+    position:absolute; top:16px; left:120px; z-index:131;
+    display:flex; flex-direction:column; gap:6px; max-width:44vw;
+  }
+  #tune-log-controls { display:flex; gap:6px; align-items:center; }
+  #tune-log-controls button {
+    padding:6px 12px; border-radius:8px;
+    background:var(--cream); color:var(--ink);
+    border:2px solid var(--ink); box-shadow:0 2px 0 var(--ink);
+    font:inherit; font-size:11px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+  }
+  #tune-log-controls #tune-log-count {
+    font-family:ui-monospace,Menlo,monospace; font-size:11px;
+    color:var(--cream); background:rgba(28,42,58,.65);
+    padding:4px 10px; border-radius:999px;
+  }
+  #tune-log {
+    width:100%; height:220px; padding:10px 12px;
+    background:rgba(28,42,58,.85); color:#f7f3e6;
+    border:none; border-radius:8px;
+    font-family:ui-monospace,Menlo,monospace;
+    font-size:11px; line-height:1.5; resize:none;
+  }
+  @media (max-width: 640px) { #tune-log-wrap { display:none; } }
+</style>
+</head>
+<body>
+<script>
+  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+    document.documentElement.classList.add('dev');
+  }
+</script>
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+<button id="connect" class="ss-btn">connect hub</button>
+
+<div id="hud" class="solo">
+  <div class="pscore a"><span class="lbl">you</span><span class="val" id="scoreA">0</span></div>
+  <div class="sep"></div>
+  <div id="timer">60</div>
+  <div class="sep rt"></div>
+  <div class="pscore b"><span class="lbl">P B</span><span class="val" id="scoreB">0</span></div>
+</div>
+
+<div id="prompt">swing to slice the soups · don't touch the slime</div>
+<div id="pair-hint" class="hidden">pair on the menu for versus</div>
+<div id="devhint">keys · space slash · r reset</div>
+<div id="banner"></div>
+
+<div id="tune-log-wrap">
+  <div id="tune-log-controls">
+    <button id="tune-log-copy" type="button">copy</button>
+    <button id="tune-log-clear" type="button">clear</button>
+    <span id="tune-log-count">0 rows</span>
+  </div>
+  <textarea id="tune-log" readonly placeholder="each swing logs one row."></textarea>
+</div>
+
+<canvas id="stage"></canvas>
+
+<script type="module">
+import { openSerial, autoOpenSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+import { pairing } from './pairing.js';
+
+// ─── canvas ───
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function fit() {
+  W = innerWidth; H = innerHeight;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+addEventListener('resize', fit); fit();
+
+// ─── palette ───
+const PAL = {
+  ink:'#1c2a3a', cream:'#fbf3e0', creamDeep:'#ecdcb1',
+  hot:'#ff9663', gold:'#f4c95d', vine:'#6cb85a', ruinBlue:'#37628a',
+  water:'#37a7d0',
+};
+const FRUIT_COLORS = [PAL.hot, PAL.gold, PAL.vine, PAL.water, '#f7b8c4'];
+const PLAYER_BLADE = { A: PAL.hot, B: PAL.ruinBlue };
+
+// ─── state ───
+const ROUND_MS = 60_000;
+const GRAVITY = 900;                // px/s^2
+const SPAWN_MIN_MS = 550, SPAWN_MAX_MS = 950;
+const SLASH_HALF = 46;              // px band around blade line
+const SLASH_ACTIVE_MS = 220;
+const BOMB_PROB = 0.14;
+const FRUIT_R_MIN = 34, FRUIT_R_MAX = 48;
+
+const state = {
+  running: false,
+  startedMs: 0,
+  endMs: 0,
+  scoreA: 0, scoreB: 0,
+  slimedA: false, slimedB: false,
+  nextSpawn: 0,
+  fruits: [],       // {x,y,vx,vy,r,color,bomb,alive,spin,rot}
+  halves: [],       // {x,y,vx,vy,r,color,rot,vrot,alpha,side}
+  slashes: [],      // {y,startMs,side,player,angle}
+  splats: [],       // {x,y,r,color,life}
+  gameOver: false,
+  pvp: false,
+};
+
+// ─── HUD refs ───
+const scoreAEl = document.getElementById('scoreA');
+const scoreBEl = document.getElementById('scoreB');
+const timerEl = document.getElementById('timer');
+const promptEl = document.getElementById('prompt');
+const bannerEl = document.getElementById('banner');
+const hudEl = document.getElementById('hud');
+const statusEl = document.getElementById('connect');
+const pairHintEl = document.getElementById('pair-hint');
+
+function popBanner(text, color = PAL.gold) {
+  bannerEl.textContent = text;
+  bannerEl.style.color = color;
+  bannerEl.classList.remove('pop'); void bannerEl.offsetWidth;
+  bannerEl.classList.add('pop');
+  setTimeout(() => bannerEl.classList.remove('pop'), 1600);
+}
+
+// ─── spawning ───
+function spawnFruit() {
+  const bomb = Math.random() < BOMB_PROB;
+  const r = FRUIT_R_MIN + Math.random() * (FRUIT_R_MAX - FRUIT_R_MIN);
+  const fromLeft = Math.random() < 0.5;
+  const x = fromLeft ? (60 + Math.random() * W * 0.35)
+                     : (W - 60 - Math.random() * W * 0.35);
+  const targetX = W / 2 + (Math.random() - 0.5) * W * 0.4;
+  const y = H + 40;
+  // Choose a vertical velocity, derive vx from geometry so it peaks around mid.
+  const vy = -(900 + Math.random() * 250);
+  const flightT = -vy / GRAVITY;   // to peak
+  const vx = (targetX - x) / (flightT * 1.4);
+  state.fruits.push({
+    x, y, vx, vy, r,
+    color: bomb ? '#4a9440' : FRUIT_COLORS[(Math.random() * FRUIT_COLORS.length) | 0],
+    bomb, alive: true,
+    rot: Math.random() * Math.PI * 2,
+    vrot: (Math.random() - 0.5) * 5,
+  });
+}
+
+// ─── slice ───
+function fireSlash(player) {
+  if (!state.running || state.gameOver) return;
+  // Blade sweeps a horizontal line across the arena at a random-ish mid-height.
+  // In PvP, player A cuts left half, player B cuts right half. Solo = full.
+  const side = state.pvp ? (player === 'A' ? 'L' : 'R') : 'F';
+  const y = H * (0.35 + Math.random() * 0.25);
+  state.slashes.push({ y, startMs: performance.now(), side, player });
+  // Immediately test hit against all in-flight fruits inside the band + half.
+  for (const f of state.fruits) {
+    if (!f.alive) continue;
+    if (side === 'L' && f.x > W / 2 + 30) continue;
+    if (side === 'R' && f.x < W / 2 - 30) continue;
+    if (Math.abs(f.y - y) > SLASH_HALF + f.r * 0.6) continue;
+    sliceFruit(f, player, y);
+  }
+}
+
+function sliceFruit(f, player, sliceY) {
+  f.alive = false;
+  // Score — soup-bomb (slime) eliminates the slicer instantly.
+  if (f.bomb) {
+    if (player === 'A') state.slimedA = true;
+    else state.slimedB = true;
+    popBanner('slimed!', PAL.vine);
+    kickBanner();
+    endRound();
+    return;
+  }
+  if (player === 'A') state.scoreA += 1;
+  else state.scoreB += 1;
+  // Split into two halves flying apart vertically.
+  const spread = 220 + Math.random() * 80;
+  state.halves.push({
+    x:f.x, y:f.y, r:f.r, color:f.color,
+    vx: f.vx * 0.6 - spread * 0.3, vy: f.vy * 0.4 - spread,
+    rot:f.rot, vrot: f.vrot - 3, alpha:1, side:-1, bomb:f.bomb,
+  });
+  state.halves.push({
+    x:f.x, y:f.y, r:f.r, color:f.color,
+    vx: f.vx * 0.6 + spread * 0.3, vy: f.vy * 0.4 + spread * 0.4,
+    rot:f.rot, vrot: f.vrot + 3, alpha:1, side:+1, bomb:f.bomb,
+  });
+  // Splat
+  state.splats.push({ x:f.x, y:f.y, r:f.r * 1.3, color:f.color, life:0.5, max:0.5 });
+  updateHUD();
+}
+
+let bannerKickT = 0;
+function kickBanner() { bannerKickT = 0.35; }
+
+function updateHUD() {
+  scoreAEl.textContent = state.scoreA;
+  scoreBEl.textContent = state.scoreB;
+}
+
+// ─── game loop ───
+let lastT = performance.now();
+function tick(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+
+  if (state.running && !state.gameOver) {
+    const remain = state.endMs - now;
+    timerEl.textContent = Math.max(0, Math.ceil(remain / 1000));
+    if (remain <= 0) endRound();
+
+    if (now >= state.nextSpawn) {
+      spawnFruit();
+      state.nextSpawn = now + SPAWN_MIN_MS + Math.random() * (SPAWN_MAX_MS - SPAWN_MIN_MS);
+    }
+  }
+
+  // Physics
+  for (const f of state.fruits) {
+    if (!f.alive) continue;
+    f.vy += GRAVITY * dt;
+    f.x += f.vx * dt; f.y += f.vy * dt;
+    f.rot += f.vrot * dt;
+    if (f.y > H + 80) f.alive = false;
+  }
+  for (const h of state.halves) {
+    h.vy += GRAVITY * dt;
+    h.x += h.vx * dt; h.y += h.vy * dt;
+    h.rot += h.vrot * dt;
+    h.alpha -= dt * 0.9;
+  }
+  state.fruits = state.fruits.filter(f => f.alive);
+  state.halves = state.halves.filter(h => h.alpha > 0 && h.y < H + 100);
+  state.splats = state.splats.filter(s => (s.life -= dt) > 0);
+  state.slashes = state.slashes.filter(s => now - s.startMs < SLASH_ACTIVE_MS);
+
+  if (bannerKickT > 0) bannerKickT -= dt;
+
+  render();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Faint arena mid-line in PvP
+  if (state.pvp) {
+    ctx.strokeStyle = 'rgba(28,42,58,.18)';
+    ctx.setLineDash([6, 8]);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Splats (behind fruits)
+  for (const s of state.splats) {
+    const p = s.life / s.max;
+    ctx.globalAlpha = p * 0.6;
+    ctx.fillStyle = s.color;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r * (1.4 - p * 0.4), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Halves
+  for (const h of state.halves) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, h.alpha);
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.rot);
+    drawHalf(h.r, h.color, h.side, h.bomb);
+    ctx.restore();
+  }
+
+  // Fruits
+  for (const f of state.fruits) {
+    if (!f.alive) continue;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.rot);
+    drawFruit(f.r, f.color, f.bomb);
+    ctx.restore();
+  }
+
+  // Slashes
+  for (const s of state.slashes) {
+    const age = (performance.now() - s.startMs) / SLASH_ACTIVE_MS;
+    const alpha = Math.max(0, 1 - age);
+    const x0 = s.side === 'L' ? 0 : s.side === 'R' ? W/2 : 0;
+    const x1 = s.side === 'L' ? W/2 : W;
+    const col = PLAYER_BLADE[s.player] || PAL.hot;
+    // Glow
+    ctx.strokeStyle = col; ctx.globalAlpha = alpha * 0.35;
+    ctx.lineWidth = 24; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x0, s.y); ctx.lineTo(x1, s.y); ctx.stroke();
+    // Core
+    ctx.strokeStyle = PAL.cream; ctx.globalAlpha = alpha;
+    ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(x0, s.y); ctx.lineTo(x1, s.y); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawFruit(r, color, bomb) {
+  // Body
+  ctx.fillStyle = color;
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // Highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.beginPath(); ctx.arc(-r*0.35, -r*0.4, r*0.28, 0, Math.PI * 2); ctx.fill();
+  if (bomb) {
+    // Slime drips — a couple of green blobs hanging off the bottom.
+    ctx.fillStyle = '#4a9440'; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(-r*0.4, r*0.9, r*0.22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc( r*0.35, r*0.95, r*0.18, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Grumpy eyes for slime
+    ctx.fillStyle = PAL.ink;
+    ctx.beginPath(); ctx.arc(-r*0.3, -r*0.05, r*0.09, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc( r*0.3, -r*0.05, r*0.09, 0, Math.PI * 2); ctx.fill();
+  } else {
+    // Cute leaf
+    ctx.fillStyle = PAL.vine; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(r*0.15, -r*0.95, r*0.28, r*0.14, -0.7, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+  }
+}
+
+function drawHalf(r, color, side, bomb) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = PAL.ink; ctx.lineWidth = 4;
+  ctx.beginPath();
+  // Half circle: side=-1 top half, +1 bottom half
+  if (side < 0) ctx.arc(0, 0, r, Math.PI, 0);
+  else ctx.arc(0, 0, r, 0, Math.PI);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Cream juicy interior
+  ctx.fillStyle = bomb ? '#2a3746' : PAL.cream;
+  ctx.beginPath();
+  if (side < 0) ctx.moveTo(-r, 0), ctx.lineTo(r, 0), ctx.arc(0, 0, r * 0.7, 0, Math.PI, true);
+  else ctx.moveTo(-r, 0), ctx.lineTo(r, 0), ctx.arc(0, 0, r * 0.7, 0, Math.PI, false);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// ─── round control ───
+function startRound() {
+  state.scoreA = 0; state.scoreB = 0;
+  state.slimedA = false; state.slimedB = false;
+  state.fruits.length = 0; state.halves.length = 0;
+  state.slashes.length = 0; state.splats.length = 0;
+  state.gameOver = false;
+  state.running = true;
+  state.startedMs = performance.now();
+  state.endMs = state.startedMs + ROUND_MS;
+  state.nextSpawn = state.startedMs + 400;
+  updateHUD();
+  promptEl.textContent = state.pvp
+    ? 'left side = player a · right side = player b'
+    : 'swing to slice · avoid the bombs';
+  popBanner('go!', PAL.gold);
+}
+
+function endRound() {
+  if (state.gameOver) return;
+  state.running = false;
+  state.gameOver = true;
+  if (state.pvp) {
+    // Slime = instant loss for the slicer.
+    let msg;
+    if (state.slimedA && !state.slimedB)      msg = 'player b wins';
+    else if (state.slimedB && !state.slimedA) msg = 'player a wins';
+    else if (state.slimedA && state.slimedB)  msg = 'both slimed';
+    else msg = state.scoreA === state.scoreB ? 'tie!'
+              : state.scoreA > state.scoreB ? 'player a wins' : 'player b wins';
+    popBanner(msg, PAL.vine);
+    promptEl.textContent = `final ${state.scoreA} to ${state.scoreB} · press R to play again`;
+  } else {
+    if (state.slimedA) {
+      popBanner('slimed!', PAL.vine);
+      promptEl.textContent = `you got slimed at ${state.scoreA} · press R to try again`;
+    } else {
+      popBanner(`${state.scoreA} sliced`, PAL.gold);
+      promptEl.textContent = `time · press R to play again`;
+    }
+  }
+}
+
+// Auto-start on load; keep it looping-friendly for demo.
+setTimeout(startRound, 400);
+
+// ─── serial + swing detection (adapted from bowling.html) ───
+const SWING_ARM_DPS       = 260;
+const SWING_RELEASE_FRAC  = 0.35;
+const SWING_MIN_PEAK_DPS  = 260;
+const SWING_REFRACTORY_MS = 380;
+const SWING_MAX_ACTIVE_MS = 900;
+const SWING_MIN_ACTIVE_MS = 60;
+
+const swing = {
+  0: { phase:'IDLE', peakGyro:0, peakAccel:0, activeStart:0, lockUntil:0 },
+  1: { phase:'IDLE', peakGyro:0, peakAccel:0, activeStart:0, lockUntil:0 },
+};
+// Dynamic per-arm state — any armId, not just 0/1 (MAC-derived after v2).
+function ensureSwing(armId) {
+  if (!swing[armId]) swing[armId] = { phase:'IDLE', peakGyro:0, peakAccel:0, activeStart:0, lockUntil:0 };
+  return swing[armId];
+}
+
+function onRawSample(armId, sample) {
+  const st = ensureSwing(armId);
+  const nowMs = performance.now();
+  if (nowMs < st.lockUntil) return;
+
+  const gyroMag  = Math.hypot(sample.gx, sample.gy, sample.gz);
+  const accelMag = Math.hypot(sample.ax, sample.ay, sample.az);
+
+  switch (st.phase) {
+    case 'IDLE': {
+      if (gyroMag > SWING_ARM_DPS) {
+        st.phase = 'ACTIVE';
+        st.peakGyro = gyroMag;
+        st.peakAccel = accelMag;
+        st.activeStart = nowMs;
+      }
+      break;
+    }
+    case 'ACTIVE': {
+      if (gyroMag > st.peakGyro) st.peakGyro = gyroMag;
+      if (accelMag > st.peakAccel) st.peakAccel = accelMag;
+      const dtActive = nowMs - st.activeStart;
+      const releasing = gyroMag < st.peakGyro * SWING_RELEASE_FRAC
+                     && dtActive > SWING_MIN_ACTIVE_MS
+                     && st.peakGyro > SWING_MIN_PEAK_DPS;
+      if (releasing) {
+        const player = pairing.playerForArm(armId) || (state.pvp ? null : 'A');
+        if (player) {
+          fireSlash(player);
+          logTune('slash', { arm:armId, player, peakGyro:st.peakGyro, peakAccel:st.peakAccel, dtActive });
+        }
+        st.phase = 'IDLE';
+        st.lockUntil = nowMs + SWING_REFRACTORY_MS;
+        st.peakGyro = 0; st.peakAccel = 0;
+      } else if (dtActive > SWING_MAX_ACTIVE_MS) {
+        st.phase = 'IDLE';
+        st.peakGyro = 0; st.peakAccel = 0;
+      }
+      break;
+    }
+  }
+}
+
+// Tune log
+const $tuneLog = document.getElementById('tune-log');
+const $tuneCount = document.getElementById('tune-log-count');
+let tuneRows = 0;
+function logTune(kind, f) {
+  if (!$tuneLog) return;
+  const pad = (v, w=5, p=1) => (typeof v === 'number' ? v.toFixed(p) : String(v)).padStart(w);
+  const row = `${kind.padEnd(8)} arm=${f.arm} p=${f.player} pkGyro=${pad(f.peakGyro,5,0)} pkAcc=${pad(f.peakAccel,5,1)} dt=${pad(f.dtActive,4,0)}\n`;
+  $tuneLog.value += row;
+  $tuneLog.scrollTop = $tuneLog.scrollHeight;
+  tuneRows++;
+  $tuneCount.textContent = `${tuneRows} row${tuneRows === 1 ? '' : 's'}`;
+}
+document.getElementById('tune-log-copy')?.addEventListener('click', async () => {
+  if (!$tuneLog?.value) return;
+  try { await navigator.clipboard.writeText($tuneLog.value); }
+  catch { $tuneLog.select(); document.execCommand('copy'); }
+});
+document.getElementById('tune-log-clear')?.addEventListener('click', () => {
+  $tuneLog.value = ''; tuneRows = 0; $tuneCount.textContent = '0 rows';
+});
+
+// Dispatcher wires per-arm sample stream.
+const dispatcher = new ArmDispatcher(() => {});
+const origOnLine = dispatcher.onLine.bind(dispatcher);
+dispatcher.onLine = (line) => {
+  origOnLine(line);
+  if (!line || line[0] === '#' || line.startsWith('ERR')) return;
+  const parts = line.split(',');
+  let armId = 0, offset = 0;
+  if (parts.length === 10) { armId = +parts[0]; offset = 1; }
+  else if (parts.length !== 9) return;
+  const s = {
+    t_us: +parts[offset],
+    ax: +parts[offset + 1], ay: +parts[offset + 2], az: +parts[offset + 3],
+    gx: +parts[offset + 4], gy: +parts[offset + 5], gz: +parts[offset + 6],
+    roll: +parts[offset + 7], pitch: +parts[offset + 8],
+  };
+  if (!Number.isNaN(s.ax)) onRawSample(armId, s);
+};
+
+function refreshPairing() {
+  const armA = pairing.armForPlayer('A');
+  const armB = pairing.armForPlayer('B');
+  state.pvp = armA !== null && armB !== null;
+  hudEl.classList.toggle('solo', !state.pvp);
+  pairHintEl.classList.toggle('hidden', state.pvp);
+}
+pairing.onChange(refreshPairing);
+refreshPairing();
+
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => { pairing.onLine(line); dispatcher.onLine(line); },
+  onOpen: () => { statusEl.textContent = 'hub connected';
+                  statusEl.classList.add('connected'); },
+  onClose: () => { statusEl.textContent = 'hub disconnected';
+                   statusEl.classList.remove('connected'); },
+  onError: () => { statusEl.textContent = 'hub error, try again';
+                    statusEl.classList.remove('connected'); },
+};
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    statusEl.textContent = 'choosing port…';
+    await openSerial(serialHandlers);
+  } catch { statusEl.textContent = 'connect hub'; }
+});
+autoOpenSerial(serialHandlers).catch(() => {});
+
+// Dev shortcuts
+addEventListener('keydown', (e) => {
+  if (e.key === ' ') {
+    e.preventDefault();
+    fireSlash('A');
+  } else if (e.key === 'b' || e.key === 'B') {
+    fireSlash('B');
+  } else if (e.key === 'r' || e.key === 'R') {
+    startRound();
+  }
+});
+</script>
+</body>
+</html>

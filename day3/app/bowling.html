@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <title>Soup Games — Bowling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
     --sky-top:    #7bd3ee;
@@ -80,6 +83,11 @@
   #score { font-size:34px; font-weight:900; line-height:1;
            color: var(--ink); letter-spacing:-.02em;
            text-shadow: 0 2px 0 var(--cream-deep); }
+  #score.pop { animation: scorePop 220ms ease-out; }
+  @keyframes scorePop {
+    40% { transform: scale(1.28); }
+    100% { transform: scale(1); }
+  }
   #frame { font-size:10px; letter-spacing:.18em; text-transform:uppercase;
            color: var(--ink-soft); font-weight:800; }
   @media (max-width: 640px) {
@@ -141,6 +149,24 @@
                box-shadow: 0 2px 0 var(--ink);
                pointer-events:none; opacity:0.85; }
   #pair-hint.hidden { display:none; }
+  @media (max-width: 640px) {
+    /* keep it off the scorecard strip on phones — tuck under the score card */
+    #pair-hint { bottom:auto; top:132px; left:50%; transform:translateX(-50%);
+                 white-space:nowrap; }
+    /* shrink the 10-frame strip so it fits a 375px screen */
+    #scorecard { transform: translateX(-50%) scale(.76);
+                 transform-origin: 50% 100%; }
+  }
+
+  /* "Bowl again" button — appears on game over so nobody is stuck */
+  #again { position:absolute; bottom:130px; left:50%;
+           transform:translateX(-50%); z-index:110;
+           display:none; font-size:15px; padding:13px 28px; }
+  #again.show { display:inline-flex; animation: againPop 320ms cubic-bezier(.2,1.5,.3,1); }
+  @keyframes againPop {
+    0% { transform: translateX(-50%) scale(.4); opacity:0; }
+    100% { transform: translateX(-50%) scale(1); opacity:1; }
+  }
 
   /* Prompt, bottom center above scorecard */
   #prompt { position:absolute; bottom:64px; left:50%;
@@ -207,7 +233,7 @@
   /* Banner — strike/spare celebrations */
   #banner { position:absolute; top:44%; left:50%; z-index:6;
             transform:translate(-50%,-50%) scale(1);
-            font-size:96px; font-weight:900; letter-spacing:-.03em;
+            font-size:clamp(44px, 12vw, 96px); font-weight:900; letter-spacing:-.03em;
             text-transform:uppercase; opacity:0;
             color: var(--cream);
             text-shadow: 0 6px 0 var(--ruin-blue),
@@ -291,6 +317,7 @@
 </div>
 
 <div id="prompt">swing forward and let go</div>
+<button id="again" class="ss-btn">bowl again</button>
 <div id="scorecard"></div>
 <div id="pair-hint" class="hidden">pair on the menu for versus</div>
 <div id="devhint">keys · space bowl · r reset</div>
@@ -642,6 +669,7 @@ const scorecardEl = document.getElementById('scorecard');
 const tutorialEl = document.getElementById('tutorial');
 const confettiLayer = document.getElementById('confetti-layer');
 const gutterPuffEl = document.getElementById('gutter-puff');
+const againEl = document.getElementById('again');
 
 // ── Frame / scoring state (PvP: one game per player) ──
 function makeGame() {
@@ -786,7 +814,12 @@ function renderScorecard() {
   }
   const cur = active();
   const running = computeCumulativeScores(cur);
-  scoreEl.textContent = running;
+  const newScore = String(running);
+  if (scoreEl.textContent !== newScore) {
+    scoreEl.textContent = newScore;
+    scoreEl.classList.remove('pop'); void scoreEl.offsetWidth;
+    scoreEl.classList.add('pop');
+  }
   if (bothDone() && pvpMode) {
     const ra = computeCumulativeScores(games.A);
     const rb = computeCumulativeScores(games.B);
@@ -926,7 +959,16 @@ function resetBall() {
   if (bothDone() && pvpMode) {
     endPvpGame();
   } else if (active().gameOver && !pvpMode) {
-    promptEl.textContent = "that's the game, press R to bowl again";
+    const total = computeCumulativeScores(active());
+    promptEl.textContent = "that's the game!";
+    // Hold a beat so a last-ball strike/spare banner gets its moment first.
+    setTimeout(() => {
+      if (active().gameOver) {
+        popBanner(`${total} points`, '#6cb85a');
+        spawnConfetti();
+        againEl.classList.add('show');
+      }
+    }, 1200);
   } else if (turnSwitched) {
     announceTurn();
   } else {
@@ -953,7 +995,8 @@ function endPvpGame() {
   const msg = ra === rb ? 'tie!' : (ra > rb ? 'player a wins' : 'player b wins');
   popBanner(msg, '#6cb85a');
   spawnConfetti();
-  promptEl.textContent = `game over — ${ra} to ${rb} · press R to play again`;
+  promptEl.textContent = `game over — ${ra} to ${rb}`;
+  againEl.classList.add('show');
 }
 
 // Strike celebration: all fallen pins do a happy hop after settle
@@ -1319,6 +1362,10 @@ function onRawSample(armId, sample) {
         const angle = Math.max(-1, Math.min(1, rollDelta / SWING_ROLL_MAX_DEG));
         if (ballState === 'ready' && !active().gameOver && armAccepted) {
           launchBall(speed, angle);
+        } else if (armAccepted && (pvpMode ? bothDone() : active().gameOver)) {
+          // Game is over and the player swung again — run it back so
+          // wristband-only players are never stuck at the final banner.
+          resetGame();
         } else if (!armAccepted) {
           logTune('ignored', {
             arm: armId, peakGyro: st.peakGyro, peakAccel: st.peakAccel,
@@ -1442,6 +1489,27 @@ document.getElementById('connect').addEventListener('click', async () => {
 });
 autoOpenSerial(serialHandlers).catch(() => {});
 
+// Full-game reset — used by the R key and the on-screen "bowl again" button.
+function resetGame() {
+  for (const letter of ['A', 'B']) {
+    const g = games[letter];
+    g.frames.length = 0;
+    for (let i = 0; i < 10; i++) g.frames.push({ rolls: [], score: null });
+    g.currentFrame = 0; g.rollInFrame = 0;
+    g.pinsThisFrame = 0; g.gameOver = false;
+  }
+  activePlayer = 'A';
+  standUpAllPins();
+  ball.position.set(0, 0.25, BALL_HOME_Z); ballVel.set(0, 0, 0);
+  ballState = 'ready'; ballInGutter = false;
+  againEl.classList.remove('show');
+  if (pvpMode) announceTurn();
+  else promptEl.textContent = 'swing forward and let go';
+  lastSwingActivityMs = performance.now();
+  renderScorecard();
+}
+againEl.addEventListener('click', resetGame);
+
 // Dev shortcuts
 addEventListener('keydown', (e) => {
   if (e.key === ' ' && ballState === 'ready' && !active().gameOver) {
@@ -1450,22 +1518,7 @@ addEventListener('keydown', (e) => {
     const angle = (Math.random() - 0.5) * 0.4;
     launchBall(power, angle);
   }
-  if (e.key === 'r' || e.key === 'R') {
-    for (const letter of ['A', 'B']) {
-      const g = games[letter];
-      g.frames.length = 0;
-      for (let i = 0; i < 10; i++) g.frames.push({ rolls: [], score: null });
-      g.currentFrame = 0; g.rollInFrame = 0;
-      g.pinsThisFrame = 0; g.gameOver = false;
-    }
-    activePlayer = 'A';
-    standUpAllPins();
-    ball.position.set(0, 0.25, BALL_HOME_Z); ballVel.set(0, 0, 0);
-    ballState = 'ready'; ballInGutter = false;
-    if (pvpMode) announceTurn();
-    else promptEl.textContent = 'swing forward and let go';
-    renderScorecard();
-  }
+  if (e.key === 'r' || e.key === 'R') resetGame();
 });
 </script>
 </body>

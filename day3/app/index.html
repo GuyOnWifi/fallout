@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Soup Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
   /* ────────── cozy meadow palette (softer, hand-drawn feel) ────────── */
   :root {
@@ -151,7 +154,9 @@
   /* ────────── controller pairing strip ────────── */
   #pairing {
     max-width: 640px; width: 100%; margin: 6px auto 8px;
-    display: grid; grid-template-columns: 1fr auto 1fr;
+    /* minmax(0,1fr) so nowrap slot hints can't blow the grid past the
+       viewport on narrow phones (slot B used to clip off-screen at 375px). */
+    display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
     gap: 10px; align-items: stretch;
   }
   .slot {
@@ -250,8 +255,21 @@
   }
 
   @media (max-width: 480px) {
-    #pairing { grid-template-columns: 1fr 1fr; }
-    #swap-slots { grid-column: 1 / -1; order: 3; }
+    #pairing { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+    #swap-slots { grid-column: 1 / -1; order: 3; justify-self: center; }
+  }
+
+  /* "shake me" nudge — plays on empty slot letters while an unclaimed
+     wristband is broadcasting quietly (heard, but not yet shaken hard
+     enough to claim a slot). */
+  .slot.shake-me .letter { animation: shakeMe 1.2s ease-in-out infinite; }
+  @keyframes shakeMe {
+    0%, 55%, 100% { transform: rotate(0deg); }
+    62% { transform: rotate(-10deg) translateY(-1px); }
+    70% { transform: rotate(9deg); }
+    78% { transform: rotate(-7deg); }
+    86% { transform: rotate(5deg); }
+    93% { transform: rotate(-2deg); }
   }
 
   /* ────────── hero mascot canvas ────────── */
@@ -643,16 +661,17 @@
       <div class="name">Soup Tennis</div>
       <div class="desc">hold your nerve and swing when the ball gets close</div>
     </a>
-    <a class="card" href="baseball.html" style="--card-accent: #f4c95d;">
+    <a class="card" href="fruit_ninja.html" style="--card-accent: #f4c95d;">
+      <div class="badge">1 or 2 players</div>
       <div class="icon">
         <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2b1e14" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="13" cy="13" r="8.4" fill="#fbf3e0"/>
-          <path d="M7.6 6.9 C10 9.4 10.3 16 8.1 19.4"/>
-          <path d="M18.6 6.6 C16.2 9.2 15.9 16.4 18.2 19.2"/>
+          <circle cx="10" cy="15" r="6.4" fill="#fbf3e0"/>
+          <path d="M5.6 10.6 L20.4 4.2" stroke-width="2.4"/>
+          <path d="M14.6 12.6 L20 18.2"/>
         </svg>
       </div>
-      <div class="name">Soup Baseball</div>
-      <div class="desc">wait on the pitch and see how far you can send it</div>
+      <div class="name">Soup Ninja</div>
+      <div class="desc">swing to slice the fruit, don't chop the bombs</div>
     </a>
     <a class="card" href="punch_bomb.html" style="--card-accent: #d84a4a;">
       <div class="badge">2 to 4 players</div>
@@ -791,6 +810,8 @@ const $slotA = document.querySelector('.slot[data-slot="A"]');
 const $slotB = document.querySelector('.slot[data-slot="B"]');
 const $swap  = document.getElementById('swap-slots');
 const $pairConnect = document.getElementById('pair-connect');
+const $pairHint = document.getElementById('pair-hint');
+const PAIR_HINT_DEFAULT = $pairHint.textContent;
 
 function refreshSlot($el, letter) {
   const armId = pairing.armForPlayer(letter);
@@ -814,6 +835,28 @@ function refreshAll() {
   refreshSlot($slotB, 'B');
   const both = pairing.armForPlayer('A') !== null && pairing.armForPlayer('B') !== null;
   $swap.disabled = !both;
+  refreshShakeHint();
+}
+
+// "shake me" hint: an unclaimed wristband is broadcasting but hasn't crossed
+// the pairing shake threshold yet — wiggle the empty slot letters and swap
+// the hint copy so the player knows exactly what to do. Suppressed while the
+// band is actually moving (>6 m/s²) so the live jitter feedback shows instead.
+function refreshShakeHint() {
+  let heardQuietBand = false;
+  for (const id of pairing.unassignedArms()) {
+    if (!pairing.isConnected(id, 600)) continue;
+    const st = pairing.stats.get(id);
+    if (st && st.lastPower < 6) { heardQuietBand = true; break; }
+  }
+  const emptyA = pairing.armForPlayer('A') === null;
+  const emptyB = pairing.armForPlayer('B') === null;
+  const show = heardQuietBand && (emptyA || emptyB);
+  $slotA.classList.toggle('shake-me', show && emptyA);
+  $slotB.classList.toggle('shake-me', show && emptyB);
+  $pairHint.textContent = show
+    ? 'wristband spotted — give it a shake to claim a slot!'
+    : PAIR_HINT_DEFAULT;
 }
 
 pairing.onChange(refreshAll);
