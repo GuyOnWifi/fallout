@@ -578,27 +578,68 @@
   <header>
     <div class="brand">
       <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" role="img" aria-label="Soup Sports">
-        <!-- console-split mark: mascot face halved, red left / blue right, 4px gap -->
+        <!-- plush console-split mark: chubby cream plush head, red seam left /
+             blue seam right, ~4px cream gap. Body stays cream inside — only
+             outline + eye tint follow the half color. -->
         <defs>
-          <clipPath id="logo-half-l"><rect x="0"   y="0" width="198" height="220"/></clipPath>
-          <clipPath id="logo-half-r"><rect x="202" y="0" width="198" height="220"/></clipPath>
+          <path id="logo-body" d="M 196 35.6
+            C 188.5 34.4 180.4 34.8 173.4 36.8
+            C 164.6 39.3 156.2 45.0 149.6 53.6
+            C 145.4 59.0 142.0 64.4 139.6 70.8
+            C 137.0 77.8 135.0 84.8 134.2 92.2
+            C 133.4 99.6 134.0 107.2 136.2 114.8
+            C 138.4 122.4 142.6 129.4 149.0 135.8
+            C 155.0 141.8 162.8 146.8 171.2 149.8
+            C 179.2 152.6 188.2 154.0 196 153.6
+            L 196 35.6 Z"/>
+          <path id="logo-ear" d="M 145 56
+            C 141.5 44.5 144.5 32 153.5 26
+            C 162 20.5 173 22.5 179 30.5
+            C 183 36 185 43 185.5 50
+            C 172.5 44 157 46 145 56 Z"/>
+          <path id="logo-ear-pad" d="M 152 46
+            C 150 37.5 153 29.5 159.5 26.5
+            C 165.5 23.8 172 26.3 175.5 32.5
+            C 178 37 179.3 42.5 179.6 47
+            C 169.5 42 159.5 43 152 46 Z"/>
         </defs>
-        <!-- left hemisphere (red) -->
-        <g clip-path="url(#logo-half-l)">
-          <circle cx="162" cy="46" r="16" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
-          <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#e60012" stroke-width="6"/>
-          <ellipse cx="174" cy="92" rx="5.5" ry="7.5" fill="#e60012"/>
-          <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
-          <line x1="195.5" y1="46" x2="195.5" y2="144" stroke="#e60012" stroke-width="5" stroke-linecap="round"/>
+        <!-- cream seam filler so the gap reads cream, not page bg -->
+        <rect x="197" y="35" width="6" height="118" rx="3" fill="#fbf3e0"/>
+        <!-- left half (strawberry seam) -->
+        <g stroke="#d13c48" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
+          <use href="#logo-ear"/>
+          <use href="#logo-ear-pad" fill="#fffcf1" stroke="none"/>
+          <use href="#logo-body"/>
         </g>
-        <!-- right hemisphere (blue) -->
-        <g clip-path="url(#logo-half-r)">
-          <circle cx="238" cy="46" r="16" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
-          <ellipse cx="200" cy="95" rx="60" ry="55" fill="#fbf3e0" stroke="#0088cc" stroke-width="6"/>
-          <ellipse cx="226" cy="92" rx="5.5" ry="7.5" fill="#0088cc"/>
-          <path d="M 179,113 q 21,13 42,0" fill="none" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
-          <line x1="204.5" y1="46" x2="204.5" y2="144" stroke="#0088cc" stroke-width="5" stroke-linecap="round"/>
+        <!-- right half (blueberry seam), mirrored -->
+        <g transform="matrix(-1 0 0 1 400 0)"
+           stroke="#7a95d9" stroke-width="4" stroke-linejoin="round" fill="#fbf3e0">
+          <use href="#logo-ear"/>
+          <use href="#logo-ear-pad" fill="#fffcf1" stroke="none"/>
+          <use href="#logo-body"/>
         </g>
+        <!-- flat inner shading, lower-right volume -->
+        <path d="M 260.5 98
+          C 261.6 109 258.8 120.4 251.8 130
+          C 244.6 140 233.6 147.2 220.5 150.4
+          C 232.4 144.8 241.8 136.8 247.6 126.4
+          C 252.4 117.8 254.4 108 253.4 98.4 Z"
+          fill="#1c2a3a" opacity="0.09"/>
+        <path d="M 196 151.4
+          C 185 151.6 174 149.8 164.6 145.6
+          C 174.4 148 185.6 149 196 148.6 Z"
+          fill="#1c2a3a" opacity="0.06"/>
+        <!-- pearly highlight arc, upper-left roundness -->
+        <path d="M 148 72 C 151 63 156.5 55.5 164 50"
+              fill="none" stroke="#fffdf4" stroke-width="5" stroke-linecap="round"/>
+        <!-- cheeks -->
+        <ellipse cx="154" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
+        <ellipse cx="246" cy="120" rx="10.5" ry="7.5" fill="#f7b8c4"/>
+        <!-- shy low-set eyes, tinted per half -->
+        <ellipse cx="185.5" cy="104" rx="4" ry="4.6" fill="#8a2530"/>
+        <ellipse cx="214.5" cy="104" rx="4" ry="4.6" fill="#435490"/>
+        <!-- tiny nose bump over the seam -->
+        <ellipse cx="200" cy="108.5" rx="2.6" ry="2.2" fill="#1c2a3a"/>
         <!-- wordmark -->
         <text x="200" y="202" text-anchor="middle"
               font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — Fallout Zine #005 template</title>
+<style>
+  /* ────── palette — berry theme ──────
+     Background   #f6ede0  cream
+     White-ish    #fdfaef  highlight
+     Black-ish    #1c2a3a  ink
+     Strawberry   #d13c48  warm berry red
+     Blueberry    #3f5aa8  deep berry blue
+  */
+  :root {
+    --bg:    #f6ede0;
+    --hi:    #fdfaef;
+    --ink:   #1c2a3a;
+    --red:   #d13c48;
+    --blue:  #7a95d9;   /* softer blueberry — muted, lighter */
+  }
+
+  @page { size: A5 portrait; margin: 0; }
+  html, body { margin:0; padding:0; background:#e5e5e5; }
+  body { display:flex; align-items:center; justify-content:center; padding:24px; }
+
+  .page {
+    position: relative;
+    width: 148mm;
+    height: 210mm;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(28,42,58,.18);
+  }
+  @media print {
+    body { background:#fff; padding:0; }
+    .page { box-shadow:none; }
+  }
+
+  /* ─── Split frame: strawberry L (top-left) + blueberry L (bottom-right) ─── */
+  .frame-red-top {
+    position: absolute; top: 0; left: 0;
+    width: 70%; height: 12mm;
+    background: var(--red);
+  }
+  .frame-red-left {
+    position: absolute; top: 0; left: 0;
+    width: 12mm; height: 60%;
+    background: var(--red);
+    border-bottom-right-radius: 8mm;
+  }
+  .frame-blue-bottom {
+    position: absolute; bottom: 0; right: 0;
+    width: 70%; height: 12mm;
+    background: var(--blue);
+  }
+  .frame-blue-right {
+    position: absolute; bottom: 0; right: 0;
+    width: 12mm; height: 60%;
+    background: var(--blue);
+    border-top-left-radius: 8mm;
+  }
+
+  /* ─── One highlight cloud ─── */
+  .cloud {
+    position: absolute; top: 22mm; right: 10mm;
+    width: 44mm; height: 22mm;
+    background: var(--hi);
+    border-radius: 60px;
+    box-shadow: 0 3px 0 rgba(28,42,58,.06);
+  }
+  .cloud::before, .cloud::after {
+    content:""; position:absolute; background: var(--hi); border-radius:50%;
+  }
+  .cloud::before { width:58%; height:110%; top:-45%; left:12%; }
+  .cloud::after  { width:44%; height:92%;  top:-32%; right:14%; }
+
+  /* ─── Header banner in the red top bar ─── */
+  .header {
+    position: absolute;
+    top: 0; left: 12mm; right: 0;
+    height: 12mm;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 6mm;
+    font-size: 8pt; letter-spacing: .14em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .header > *:nth-child(1) { color: var(--hi); }
+  .header > *:nth-child(2) { color: var(--hi); }
+  .header > *:nth-child(3) { color: var(--red); }   /* # 005 sits over the cream */
+  .header .chip {
+    padding: 1.4mm 2.6mm;
+    border: 1.2px solid var(--hi);
+    border-radius: 3mm;
+    font-size: 7pt;
+  }
+
+  /* ─── Title ─── */
+  .title-block {
+    position: absolute;
+    top: 20mm; left: 22mm; right: 22mm;
+  }
+  .title-block .kicker {
+    font-size: 8pt; letter-spacing: .18em;
+    color: var(--ink); opacity: .55;
+    text-transform: uppercase;
+    margin-bottom: 2mm;
+  }
+  .title-block h1 {
+    margin: 0;
+    font-family: "Fredoka", "Nunito", ui-rounded, sans-serif;
+    font-size: 36pt; line-height: .95;
+    font-weight: 800; letter-spacing: -.02em;
+    color: var(--ink);
+  }
+  .title-block h1 .accent { color: var(--red); }
+
+  /* ─── Render slot ─── */
+  .render-slot {
+    position: absolute;
+    top: 54mm; left: 22mm; right: 22mm;
+    height: 96mm;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .render-slot img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .render-slot .placeholder {
+    color: var(--ink); opacity: .45;
+    font-family: "Fredoka", ui-rounded, sans-serif;
+    font-size: 10pt; letter-spacing: .04em;
+    text-align: center;
+    padding: 4mm 6mm;
+    border: 1.5px dashed var(--ink);
+    border-radius: 3mm;
+  }
+
+  /* ─── Callouts (position by editing top/left inline) ─── */
+  .callout {
+    position: absolute;
+    font-family: "SF Mono", ui-monospace, monospace;
+    font-size: 7.5pt; letter-spacing: .02em;
+    color: var(--ink); opacity: .82;
+    line-height: 1.35;
+    max-width: 30mm;
+  }
+  .callout .head {
+    font-weight: 700; opacity: 1;
+    display: block; margin-bottom: 0.5mm;
+    color: var(--ink);
+  }
+
+  /* ─── Tagline ─── */
+  .tagline {
+    position: absolute;
+    left: 22mm; right: 22mm;
+    bottom: 42mm;
+    font-family: "Fredoka", "Nunito", ui-rounded, sans-serif;
+    font-size: 20pt; line-height: 1.1;
+    font-weight: 800;
+    color: var(--ink);
+    text-align: center;
+  }
+  .tagline .soup {
+    color: var(--hi);
+    -webkit-text-stroke: 1.6px var(--ink);
+    text-shadow: 0 2px 0 var(--ink);
+  }
+  .tagline .swing { color: var(--blue); }
+
+  /* ─── QR bottom-left ─── */
+  .qr-block {
+    position: absolute;
+    bottom: 14mm; left: 22mm;
+    display: flex; align-items: flex-end; gap: 4mm;
+  }
+  .qr-block .qr {
+    width: 18mm; height: 18mm;
+    background:
+      repeating-conic-gradient(var(--ink) 0% 25%, transparent 0% 50%) 50% / 3mm 3mm,
+      var(--bg);
+    background-blend-mode: multiply;
+    border: 1.4px solid var(--ink);
+  }
+  .qr-block .label {
+    font-family: "Fredoka", ui-rounded, sans-serif;
+    font-size: 8pt; font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--ink);
+    transform: translateY(-3mm);
+  }
+
+  /* ─── Signature bottom-right ─── */
+  .sig {
+    position: absolute;
+    bottom: 14mm; right: 10mm;
+    text-align: right;
+    font-family: "Fredoka", "Nunito", ui-rounded, sans-serif;
+  }
+  .sig .made-by {
+    font-size: 8pt; letter-spacing: .06em;
+    color: var(--ink); opacity: .55;
+    margin-bottom: 1.5mm;
+  }
+  .sig .name {
+    font-size: 12pt; font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 1.5mm;
+  }
+  .sig .handle {
+    font-size: 8.5pt; font-weight: 600;
+    color: var(--ink); opacity: .7;
+    letter-spacing: .02em;
+  }
+  .sig .flag {
+    display: inline-block; margin-left: 1.5mm; font-size: 12pt;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <!-- Strawberry L: top + left. Blueberry L: bottom + right. -->
+  <div class="frame-red-top"></div>
+  <div class="frame-red-left"></div>
+  <div class="frame-blue-bottom"></div>
+  <div class="frame-blue-right"></div>
+
+  <!-- Single highlight cloud -->
+  <div class="cloud"></div>
+
+  <!-- Header banner -->
+  <div class="header">
+    <span>Fallout Zine / Soup Sports</span>
+    <span class="chip">2.4 GHz</span>
+    <span># 005</span>
+  </div>
+
+  <!-- Title -->
+  <div class="title-block">
+    <div class="kicker">wristband arcade — hardware breakdown</div>
+    <h1>Soup <span class="accent">Sports</span></h1>
+  </div>
+
+  <!-- Render slot (drop your exploded PCB image here) -->
+  <div class="render-slot">
+    <div class="placeholder">
+      exploded-view render<br>
+      goes here (drop your PNG in this slot)
+    </div>
+  </div>
+
+  <!-- Callouts — reposition by editing top/left inline -->
+  <div class="callout" style="top: 58mm; left: 18mm; text-align:right;">
+    <span class="head">XIAO ESP32-S3</span>
+    dual-core radio, native USB, thumbnail-sized
+  </div>
+  <div class="callout" style="top: 78mm; left: 18mm; text-align:right;">
+    <span class="head">MPU6500 IMU</span>
+    accel + gyro at 200 Hz
+  </div>
+  <div class="callout" style="top: 96mm; left: 18mm; text-align:right;">
+    <span class="head">LiPo</span>
+    300 mAh, ~4 h play time
+  </div>
+  <div class="callout" style="top: 58mm; right: 4mm; text-align:left;">
+    <span class="head">Enclosure top</span>
+    milled aluminum shell
+  </div>
+  <div class="callout" style="top: 78mm; right: 4mm; text-align:left;">
+    <span class="head">Radio</span>
+    ESP-NOW peer-to-peer, no wifi
+  </div>
+  <div class="callout" style="top: 96mm; right: 4mm; text-align:left;">
+    <span class="head">Base plate</span>
+    USB-C cutout for charging
+  </div>
+
+  <!-- Tagline -->
+  <div class="tagline">
+    <span class="soup">Wave</span> your arm.<br>
+    Soup takes the <span class="swing">swing</span>.
+  </div>
+
+  <!-- QR -->
+  <div class="qr-block">
+    <div class="qr" title="github.com/GuyOnWifi/fallout"></div>
+    <div class="label">scan me!</div>
+  </div>
+
+  <!-- Signature -->
+  <div class="sig">
+    <div class="made-by">made by</div>
+    <div class="name">Eason Huang</div>
+    <div class="handle">@guyonwifi · 17 y/o<span class="flag">🇨🇦</span></div>
+  </div>
+</div>
+
+</body>
+</html>

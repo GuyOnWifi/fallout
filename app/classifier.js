@@ -330,12 +330,21 @@ export class Classifier {
       this.onSkip('low-wmag', { ...p, threshold: MIN_PEAK_GYRO });
     }
     if (p.dynA >= MIN_PEAK_DYNA && p.wmag >= MIN_PEAK_GYRO) {
-      // Two-gesture model: jab vs block. Block is an upward-guard motion —
-      // the arm rises with almost no downward peak (no wind-up, no arc
-      // back down). Any other peak-detected swing counts as a jab.
-      //   block: up ≥ 22 AND down ≤ 15   (upward-drive dominant)
-      //   jab:   everything else that peaked past MIN_PEAK
-      if (p.up >= 22.0 && p.down <= 15.0) {
+      // Two-gesture model: jab vs block. Retuned against fresh block
+      // training data (tools/data/uppercut.csv, ~20 reps captured under the
+      // label the game calls "block").
+      //
+      // Feature signatures (medians):
+      //   block: up 37, down 24, dynA 46, wHoriz 436
+      //   jab:   up  2, down 51, dynA 88, wHoriz 797
+      //
+      // Two axes cleanly split them:
+      //   1. block has MUCH smaller total motion (dynA + wHoriz) than jab
+      //   2. block has up ≳ down; jab is down-dominant
+      //
+      // Rule: block if (down ≤ 30 AND up ≥ down·0.8 AND up ≥ 15).
+      const blockish = p.down <= 30 && p.up >= 15 && p.up >= p.down * 0.8;
+      if (blockish) {
         gesture = 'block';
       } else {
         gesture = 'jab';
