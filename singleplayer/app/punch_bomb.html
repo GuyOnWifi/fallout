@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Games — Soup Bomb</title>
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
+
+  /* ── Soup Games chrome (shared treatment across pages) ── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
+  }
+  .ss-btn:hover {
+    transform: translateY(-2px);
+    background: var(--cream-warm);
+    box-shadow: 0 5px 0 var(--ink);
+  }
+  .ss-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 var(--ink);
+  }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
+    animation: none;
+  }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  /* Lobby + game-over hide the in-round HUD pieces */
+  body.in-lobby #prompt, body.in-lobby #danger-wrap { display:none; }
+
+  /* ── Scoreboard (top-center) ──────────────────────── */
+  #scoreboard {
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    z-index:100; display:flex; gap:10px; pointer-events:none;
+  }
+  @media (max-width: 640px) {
+    #scoreboard { top: 64px; }
+    #danger-wrap { top: 170px !important; }
+    #round-points { top: 218px !important; }
+    #lobby { padding-top: 168px !important; }
+  }
+  .player-pill {
+    position:relative;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 0 4px 0 var(--ink);
+    padding: 8px 18px 10px;
+    min-width: 120px; text-align:center;
+    transition: transform 180ms, border-color 180ms, box-shadow 180ms;
+  }
+  .player-pill.current {
+    border-color: var(--hot);
+    box-shadow: 0 4px 0 var(--hot), 0 0 0 3px var(--cream), 0 6px 0 var(--ink);
+    transform: translateY(-4px) scale(1.05);
+    background: var(--cream-warm);
+  }
+  .player-pill.current::after {
+    content:"▼";
+    position:absolute; top:-24px; left:50%;
+    transform:translateX(-50%);
+    color: var(--hot);
+    font-size: 20px;
+    text-shadow: 0 2px 0 var(--ink);
+    animation: bob 0.9s ease-in-out infinite;
+  }
+  @keyframes bob { 50% { transform: translate(-50%, 4px); } }
+  .player-pill .plabel {
+    font-size: 10px; font-weight:800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .player-pill.current .plabel { color: var(--hot); }
+  .player-pill .pscore {
+    font-size: 30px; font-weight:900; line-height:1;
+    color: var(--ink); letter-spacing:-.02em;
+    text-shadow: 0 2px 0 var(--cream-deep);
+    margin-top: 2px;
+  }
+  .player-pill.boomed {
+    animation: boomShake 0.5s ease-in-out;
+  }
+  @keyframes boomShake {
+    0%, 100% { transform: translate(0,0); }
+    20% { transform: translate(-6px, 3px) rotate(-3deg); }
+    40% { transform: translate(6px, -3px) rotate(3deg); }
+    60% { transform: translate(-4px, 2px) rotate(-2deg); }
+    80% { transform: translate(4px, -2px) rotate(2deg); }
+  }
+
+  /* ── Danger meter ─────────────────────────────────── */
+  #danger-wrap {
+    position:absolute; top:130px; left:50%;
+    transform:translateX(-50%);
+    z-index: 90; width: 60vw; max-width: 900px;
+    pointer-events:none;
+  }
+  #danger-label {
+    text-align:center;
+    font-size: 11px; font-weight: 900;
+    letter-spacing: .28em; text-transform: uppercase;
+    color: var(--ink);
+    text-shadow: 0 2px 0 rgba(255,255,255,.5);
+    margin-bottom: 6px;
+  }
+  #danger-bar-container {
+    height: 26px; width: 100%;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+    overflow:hidden;
+    position:relative;
+  }
+  #danger-bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--gold) 0%, var(--gold) 60%, var(--hot) 100%);
+    border-radius: 999px;
+    transition: width 220ms cubic-bezier(.2,1.4,.4,1), background 200ms;
+  }
+  #danger-bar-container.hot #danger-bar {
+    background: linear-gradient(90deg, var(--hot), #ff4d1a);
+  }
+  #danger-bar-container.hot { animation: dangerPulse .35s ease-in-out infinite; }
+  @keyframes dangerPulse {
+    50% { box-shadow: 0 4px 0 var(--ink), 0 0 24px var(--hot); }
+  }
+
+  /* Round-pending points pill */
+  #round-points {
+    position:absolute; top:180px; left:50%;
+    transform:translateX(-50%);
+    z-index: 90; pointer-events:none;
+    padding: 6px 16px 8px;
+    background: var(--gold);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    box-shadow: 0 4px 0 var(--ink);
+    font-weight: 900; font-size: 16px;
+    color: var(--ink); letter-spacing: .10em;
+    opacity: 0; transition: opacity 240ms, transform 240ms;
+    transform-origin: center;
+  }
+  #round-points.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  #round-points.tick { animation: pointsTick 260ms ease-out; }
+  @keyframes pointsTick {
+    0% { transform: translateX(-50%) scale(1); }
+    40% { transform: translateX(-50%) scale(1.22); }
+    100% { transform: translateX(-50%) scale(1); }
+  }
+
+  /* Bank hold indicator */
+  #bank-wrap {
+    position: absolute; bottom: 140px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 90; width: 260px; text-align:center;
+    pointer-events:none;
+    opacity: 0; transition: opacity 200ms;
+  }
+  #bank-wrap.show { opacity: 1; }
+  #bank-label {
+    font-size: 11px; font-weight: 900;
+    letter-spacing: .24em; text-transform: uppercase;
+    color: var(--vine-deep);
+    text-shadow: 0 2px 0 rgba(255,255,255,.6);
+    margin-bottom: 5px;
+  }
+  #bank-bar-container {
+    height: 10px; width: 100%;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    box-shadow: 0 3px 0 var(--ink);
+    overflow:hidden;
+  }
+  #bank-bar {
+    height:100%; width:0%;
+    background: linear-gradient(90deg, var(--vine), var(--vine-deep));
+    transition: width 60ms linear;
+  }
+
+  /* Prompt bar (bottom center) */
+  #prompt {
+    position:absolute; bottom: 24px; left:50%;
+    transform:translateX(-50%); z-index: 95;
+    padding: 11px 22px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-weight: 700; letter-spacing: .01em;
+    font-size: 13px; color: var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
+    white-space: nowrap;
+  }
+
+  /* Banner (transient state announcements) */
+  #banner {
+    position:absolute; top: 40%; left:50%;
+    transform:translate(-50%,-50%) scale(.4) rotate(-3deg);
+    z-index: 130; pointer-events:none;
+    font-weight: 900; letter-spacing: -.03em;
+    font-size: clamp(70px, 12vw, 180px);
+    color: var(--gold);
+    text-shadow:
+      0 8px 0 var(--ink),
+      0 14px 40px rgba(28,42,58,.55);
+    opacity: 0; text-align:center; line-height: .9;
+    transition: opacity 180ms, transform 340ms cubic-bezier(.2,1.5,.3,1);
+  }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-2deg); }
+  #banner .sub {
+    display:block; font-size: .16em; letter-spacing: .3em;
+    color: var(--cream); text-shadow: 0 4px 0 var(--ink);
+    margin-top: 12px;
+  }
+
+  /* Explosion flash + particles */
+  #boom-flash {
+    position:absolute; inset:0; z-index:120;
+    background: radial-gradient(circle at 50% 55%,
+                rgba(255,220,120,1) 0%,
+                rgba(255,150,80,0.85) 25%,
+                rgba(255,80,20,0.4) 55%,
+                rgba(255,80,20,0) 80%);
+    opacity: 0; pointer-events:none;
+    transition: opacity 90ms;
+  }
+  #boom-flash.on { opacity: 1; }
+
+  #particles { position:absolute; inset:0; z-index:125;
+               pointer-events:none; overflow:hidden; }
+  .particle {
+    position:absolute; width:14px; height:18px;
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    top:50%; left:50%;
+    animation: partFly 1.4s ease-out forwards;
+  }
+  @keyframes partFly {
+    0%   { transform: translate(-50%,-50%) rotate(0deg); opacity:1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity:0; }
+  }
+
+  /* Lobby overlay */
+  #lobby {
+    position:absolute; inset:0; z-index: 140;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:space-between;
+    padding: 12vh 16px 12vh;
+    pointer-events:none;
+  }
+  .lobby-controls {
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+  }
+  #lobby.hidden { display:none; }
+  #lobby-title {
+    font-weight:900; letter-spacing:-.04em;
+    font-size: clamp(56px, 10vw, 140px);
+    color: var(--cream);
+    text-shadow: 0 6px 0 var(--ruin-blue),
+                 0 10px 30px rgba(28,42,58,.4);
+    line-height: .9; text-align:center;
+  }
+  #lobby-title small {
+    display:block; font-size: 16px; letter-spacing: .02em;
+    color: var(--ink); font-weight:700;
+    margin-top: 18px;
+    text-shadow: 0 2px 0 rgba(255,255,255,.5);
+  }
+  #lobby-title .accent {
+    color: var(--hot);
+    text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4);
+  }
+  #player-picker {
+    display:flex; align-items:center; gap: 14px;
+    padding: 12px 22px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2);
+    pointer-events:auto;
+  }
+  #player-picker .plabel {
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  #player-picker .pcount {
+    font-size: 26px; font-weight: 900; color: var(--ink);
+    min-width: 30px; text-align:center;
+  }
+  #player-picker button {
+    width: 34px; height: 34px; padding: 0;
+    border-radius: 999px;
+    border: 3px solid var(--ink);
+    background: var(--cream-warm);
+    color: var(--ink);
+    font-family: inherit; font-weight: 900; font-size: 20px;
+    line-height: 28px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+  }
+  #player-picker button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  #lobby-cta {
+    padding: 15px 32px;
+    background: var(--hot);
+    color: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: .02em;
+    box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+    text-shadow: 0 2px 0 rgba(0,0,0,.25);
+    pointer-events:auto;
+    animation: ctaPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes ctaPulse { 50% { transform: scale(1.04); } }
+
+  /* Dev hint */
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
+</style>
+</head>
+<body class="in-lobby">
+
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+<button id="connect" class="ss-btn">connect hub</button>
+
+<div id="scoreboard"></div>
+
+<div id="danger-wrap">
+  <div id="danger-label">Danger</div>
+  <div id="danger-bar-container"><div id="danger-bar"></div></div>
+</div>
+<div id="round-points">+0 pts</div>
+
+<div id="bank-wrap">
+  <div id="bank-label">holding to bank</div>
+  <div id="bank-bar-container"><div id="bank-bar"></div></div>
+</div>
+
+<div id="prompt">throw a punch to start</div>
+
+<div id="banner"></div>
+<div id="boom-flash"></div>
+<div id="particles"></div>
+
+<div id="lobby">
+  <div id="lobby-title">SOUP <span class="accent">BOMB</span>
+    <small>push your luck, bank before Soup blows</small>
+  </div>
+  <div class="lobby-controls">
+    <div id="player-picker">
+      <div class="plabel">players</div>
+      <button id="pminus">−</button>
+      <div class="pcount" id="pcount">2</div>
+      <button id="pplus">+</button>
+    </div>
+    <button id="lobby-cta">throw a punch to start</button>
+  </div>
+</div>
+
+<div id="devhint">keys · space punch · b bank · n boom · r reset</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial, autoOpenSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+
+// ══════════════════════════ Tuning knobs ══════════════════════════
+const BOMB_MIN = 3;
+const BOMB_MAX = 15;
+const POINTS_PER_PUNCH = 10;          // base points per punch (before power)
+const USE_POWER_SCALING = true;        // if true: 5 + 15*power
+const BANK_HOLD_MS = 1000;             // still-time to trigger a bank
+const BANK_MAX_MOTION = 0.4;           // g dynamic accel budget (deviation from 1g)
+const BANK_MAX_GYRO = 40;              // dps
+const MATCH_LENGTH_ROUNDS = 5;
+const POINTS_TO_WIN = 100;
+const DANGER_METER_MAX_PUNCHES = BOMB_MAX; // visual max — but we scale to hidden bomb count as an estimate
+const BETWEEN_PLAYER_DELAY_MS = 1600;
+const BOOM_HOLD_MS = 1800;
+const BANK_LOCKOUT_AFTER_PUNCH_MS = 350; // small refractory so the punch swing doesn't accidentally register as still-then-still
+const G = 9.80665;
+
+// ══════════════════════════ Scene ══════════════════════════
+const SKY_HEX = 0x7bd3ee;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_HEX);
+scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
+
+// Wider FOV on portrait phones so Soup doesn't swallow the frame.
+const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 70 : 55;
+const camera = new THREE.PerspectiveCamera(fovForAspect(), innerWidth/innerHeight, 0.05, 200);
+const camHome = new THREE.Vector3(0, 1.75, 3.2);
+camera.position.copy(camHome);
+camera.lookAt(0, 1.35, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.fov = fovForAspect();
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Lights
+scene.add(new THREE.AmbientLight(0xd8ecf4, 0.9));
+const key = new THREE.DirectionalLight(0xfff4d8, 1.3);
+key.position.set(4, 8, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xa8d8ff, 0.6);
+rim.position.set(-4, 3, -5);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0xfff2d8, 0.5);
+fill.position.set(0, 2, 6);
+scene.add(fill);
+
+// ── Grass apron and small stage disk ──
+const apron = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.95 })
+);
+apron.rotation.x = -Math.PI / 2;
+apron.position.y = -0.01;
+apron.receiveShadow = true;
+scene.add(apron);
+
+// Circular pedestal (cream w/ ink ring) so Soup has a stage.
+function makeStageTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fbf3e0'; g.fillRect(0,0,512,512);
+  g.strokeStyle = '#1c2a3a'; g.lineWidth = 14;
+  g.beginPath(); g.arc(256,256,236,0,Math.PI*2); g.stroke();
+  g.strokeStyle = 'rgba(28,42,58,0.25)'; g.lineWidth = 4;
+  for (let r = 40; r < 220; r += 40) {
+    g.beginPath(); g.arc(256,256,r,0,Math.PI*2); g.stroke();
+  }
+  return new THREE.CanvasTexture(c);
+}
+const stage = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.2, 2.2, 0.15, 40),
+  new THREE.MeshStandardMaterial({ map: makeStageTex(), roughness: 0.8 })
+);
+stage.position.y = 0.075;
+stage.receiveShadow = true;
+scene.add(stage);
+
+// Clouds
+const clouds = [];
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+for (let i = 0; i < 7; i++) {
+  const r = 0.6 + Math.random() * 0.7;
+  const cloud = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cloudMat);
+  cloud.position.set(-14 + Math.random()*28, 7 + Math.random()*5, -8 + Math.random()*4);
+  const b1 = new THREE.Mesh(new THREE.SphereGeometry(r*0.7, 10, 8), cloudMat);
+  b1.position.set(r*0.9, -r*0.2, 0); cloud.add(b1);
+  const b2 = new THREE.Mesh(new THREE.SphereGeometry(r*0.6, 10, 8), cloudMat);
+  b2.position.set(-r*0.9, -r*0.1, 0); cloud.add(b2);
+  cloud.userData.driftSpeed = 0.2 + Math.random()*0.3;
+  scene.add(cloud);
+  clouds.push(cloud);
+}
+
+// ══════════════════════════ Soup mascot ══════════════════════════
+const soupGroup = new THREE.Group();
+soupGroup.position.set(0, 0.15, 0);
+scene.add(soupGroup);
+
+const soupHome = soupGroup.position.clone();
+const soupVel = new THREE.Vector3();
+
+const placeholder = new THREE.Mesh(
+  new THREE.SphereGeometry(0.65, 24, 18),
+  new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.8 })
+);
+placeholder.position.y = 0.7;
+placeholder.castShadow = true;
+soupGroup.add(placeholder);
+
+const mascot = {
+  root: null,
+  bodyMat: null,
+  bodyBaseHex: 0xfbf3e0,
+  hitUntil: 0,
+  baseY: 0,
+  baseScaleY: 1,
+  shrugUntil: 0,
+  hidden: false,
+};
+
+const loader = new GLTFLoader();
+loader.load('assets/mascot.glb', (gltf) => {
+  const soup = gltf.scene;
+  // Per soup/HANDOFF.md + DEVLOG §11: no extra y-flip after the x-flip.
+  soup.rotation.x = -Math.PI / 2;
+  // ~1.5m at scale 0.012 (spec says 0.008 = ~1m).
+  soup.scale.setScalar(0.012);
+  soup.traverse(o => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.castShadow = true;
+      o.receiveShadow = false;
+    }
+  });
+  const body = soup.getObjectByName('body');
+  const paws = soup.getObjectByName('paws');
+  const BODY_HEX = 0xfbf3e0;
+  const TRIM_HEX = 0xc9a878;
+  if (body) body.material.color.setHex(BODY_HEX);
+  if (paws) paws.material.color.setHex(TRIM_HEX);
+  mascot.root = soup;
+  mascot.bodyMat = body ? body.material : null;
+  mascot.bodyBaseHex = BODY_HEX;
+  mascot.baseY = 0.15;
+  mascot.baseScaleY = soup.scale.y;
+  soupGroup.remove(placeholder);
+  soupGroup.add(soup);
+}, undefined, (err) => {
+  console.error('mascot load failed', err);
+  mascot.root = placeholder;
+  mascot.bodyMat = placeholder.material;
+  mascot.bodyBaseHex = 0xfbf3e0;
+  mascot.baseY = 0.7;
+  mascot.baseScaleY = 1;
+});
+
+// ══════════════════════════ DOM refs ══════════════════════════
+const $scoreboard = document.getElementById('scoreboard');
+const $dangerBar = document.getElementById('danger-bar');
+const $dangerBarC = document.getElementById('danger-bar-container');
+const $roundPts = document.getElementById('round-points');
+const $bankWrap = document.getElementById('bank-wrap');
+const $bankBar = document.getElementById('bank-bar');
+const $prompt = document.getElementById('prompt');
+const $banner = document.getElementById('banner');
+const $boomFlash = document.getElementById('boom-flash');
+const $particles = document.getElementById('particles');
+const $lobby = document.getElementById('lobby');
+const $pcount = document.getElementById('pcount');
+const $status = document.getElementById('connect'); // hub pill doubles as status
+
+// ══════════════════════════ Game state ══════════════════════════
+const S = {
+  phase: 'LOBBY',           // LOBBY | ROUND_START | PUNCHING | BOOM | BANK | BETWEEN | GAME_OVER
+  numPlayers: 2,
+  players: [],              // [{ total }]
+  currentPlayer: 0,
+  round: 0,
+  hiddenBombCount: 0,       // per-turn bomb threshold, randomized
+  punchesThisTurn: 0,
+  roundPoints: 0,
+  camShake: { until: 0, amp: 0 },
+  screenFlash: { until: 0 },
+  boomStartedAt: 0,
+};
+
+function makePlayers(n) {
+  S.players = [];
+  for (let i = 0; i < n; i++) S.players.push({ total: 0 });
+}
+
+function rollBomb() {
+  return BOMB_MIN + Math.floor(Math.random() * (BOMB_MAX - BOMB_MIN + 1));
+}
+
+function renderScoreboard() {
+  $scoreboard.innerHTML = '';
+  for (let i = 0; i < S.players.length; i++) {
+    const p = document.createElement('div');
+    p.className = 'player-pill' + (i === S.currentPlayer && S.phase !== 'LOBBY' && S.phase !== 'GAME_OVER' ? ' current' : '');
+    p.innerHTML = `<div class="plabel">P${i+1}</div><div class="pscore">${S.players[i].total}</div>`;
+    $scoreboard.appendChild(p);
+  }
+}
+
+function setPrompt(text) {
+  $prompt.textContent = text;
+}
+
+function updateDanger() {
+  // Estimated danger: percent of BOMB_MAX (the crowd doesn't know the true cap).
+  const pct = Math.min(1, S.punchesThisTurn / DANGER_METER_MAX_PUNCHES);
+  $dangerBar.style.width = (pct * 100).toFixed(1) + '%';
+  if (pct >= 0.8) $dangerBarC.classList.add('hot');
+  else $dangerBarC.classList.remove('hot');
+}
+
+function updateRoundPoints() {
+  if (S.phase === 'PUNCHING' && S.roundPoints > 0) {
+    $roundPts.classList.add('show');
+    $roundPts.textContent = `+${S.roundPoints} pts`;
+    $roundPts.classList.remove('tick');
+    void $roundPts.offsetWidth;
+    $roundPts.classList.add('tick');
+  } else {
+    $roundPts.classList.remove('show');
+  }
+}
+
+function popBanner(text, sub, color) {
+  $banner.innerHTML = text + (sub ? `<span class="sub">${sub}</span>` : '');
+  $banner.style.color = color || 'var(--gold)';
+  $banner.classList.remove('pop'); void $banner.offsetWidth;
+  $banner.classList.add('pop');
+  setTimeout(() => $banner.classList.remove('pop'), 1400);
+}
+
+function shakeCamera(amp, ms) {
+  const now = performance.now();
+  S.camShake.amp = Math.max(S.camShake.amp, amp);
+  S.camShake.until = Math.max(S.camShake.until, now + ms);
+}
+
+// ══════════════════════════ Explosion (canvas particles) ══════════════════════════
+function fireExplosion() {
+  $boomFlash.classList.add('on');
+  setTimeout(() => $boomFlash.classList.remove('on'), 260);
+
+  // Particle burst — many, colored, fly outward from center
+  const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3', '#ff4d1a'];
+  const cx = innerWidth * 0.5, cy = innerHeight * 0.5;
+  const count = 90;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const ang = (i / count) * Math.PI * 2 + Math.random() * 0.6;
+    const dist = 220 + Math.random() * 380;
+    const dx = Math.cos(ang) * dist;
+    const dy = Math.sin(ang) * dist - 40;
+    p.style.left = cx + 'px';
+    p.style.top  = cy + 'px';
+    p.style.background = colors[i % colors.length];
+    p.style.setProperty('--dx', dx.toFixed(0) + 'px');
+    p.style.setProperty('--dy', dy.toFixed(0) + 'px');
+    p.style.setProperty('--rot', ((Math.random() - 0.5) * 900).toFixed(0) + 'deg');
+    p.style.animationDuration = (1.0 + Math.random() * 1.2) + 's';
+    $particles.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
+  // Smoke puff (bigger circular fades)
+  for (let i = 0; i < 8; i++) {
+    const s = document.createElement('div');
+    s.className = 'particle';
+    s.style.width = '40px'; s.style.height = '40px';
+    s.style.borderRadius = '50%';
+    s.style.background = 'rgba(60,60,60,.55)';
+    s.style.border = 'none';
+    const ang = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 140;
+    s.style.left = cx + 'px'; s.style.top = cy + 'px';
+    s.style.setProperty('--dx', (Math.cos(ang)*dist).toFixed(0) + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang)*dist - 80).toFixed(0) + 'px');
+    s.style.setProperty('--rot', '0deg');
+    s.style.animationDuration = '1.8s';
+    $particles.appendChild(s);
+    setTimeout(() => s.remove(), 2000);
+  }
+  shakeCamera(0.35, 700);
+}
+
+// ══════════════════════════ Confetti (win) ══════════════════════════
+function fireConfetti() {
+  const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3'];
+  for (let i = 0; i < 120; i++) {
+    const c = document.createElement('div');
+    c.className = 'particle';
+    c.style.background = colors[i % colors.length];
+    c.style.left = (Math.random() * innerWidth) + 'px';
+    c.style.top  = '-20px';
+    const dx = (Math.random() - 0.5) * 400;
+    const dy = innerHeight + 60;
+    c.style.setProperty('--dx', dx.toFixed(0) + 'px');
+    c.style.setProperty('--dy', dy.toFixed(0) + 'px');
+    c.style.setProperty('--rot', ((Math.random() - 0.5) * 900).toFixed(0) + 'deg');
+    c.style.animationDuration = (2 + Math.random() * 2) + 's';
+    c.style.animationDelay = (Math.random() * 0.8) + 's';
+    $particles.appendChild(c);
+    setTimeout(() => c.remove(), 5000);
+  }
+}
+
+// ══════════════════════════ Game flow ══════════════════════════
+function beginMatch() {
+  makePlayers(S.numPlayers);
+  S.currentPlayer = 0;
+  S.round = 0;
+  S.phase = 'BETWEEN';
+  document.body.classList.remove('in-lobby');
+  $lobby.classList.add('hidden');
+  renderScoreboard();
+  startTurn();
+}
+
+function startTurn() {
+  S.hiddenBombCount = rollBomb();
+  S.punchesThisTurn = 0;
+  S.roundPoints = 0;
+  S.phase = 'ROUND_START';
+  bankHold.stillMs = 0;
+  bankHold.lockedUntil = performance.now() + 400; // small warm-up
+  updateDanger();
+  updateRoundPoints();
+  renderScoreboard();
+  popBanner(`PLAYER ${S.currentPlayer + 1}`, "you're up", 'var(--hot)');
+  setPrompt(`player ${S.currentPlayer + 1}, start punching`);
+  // Small pause then live
+  setTimeout(() => {
+    if (S.phase === 'ROUND_START') {
+      S.phase = 'PUNCHING';
+      setPrompt('punch for points, hold still to bank');
+    }
+  }, 900);
+}
+
+function nextTurn() {
+  S.currentPlayer++;
+  if (S.currentPlayer >= S.players.length) {
+    S.currentPlayer = 0;
+    S.round++;
+  }
+  const winnerByPoints = S.players.find(p => p.total >= POINTS_TO_WIN);
+  const outOfRounds = S.round >= MATCH_LENGTH_ROUNDS;
+  if (winnerByPoints || outOfRounds) {
+    endMatch();
+    return;
+  }
+  S.phase = 'BETWEEN';
+  setPrompt(`player ${S.currentPlayer + 1}, get ready`);
+  setTimeout(() => startTurn(), BETWEEN_PLAYER_DELAY_MS);
+}
+
+function endMatch() {
+  S.phase = 'GAME_OVER';
+  // Winner = highest total. Ties broken by lower index (first player).
+  let winIdx = 0, best = -1;
+  for (let i = 0; i < S.players.length; i++) {
+    if (S.players[i].total > best) { best = S.players[i].total; winIdx = i; }
+  }
+  const allZero = S.players.every(p => p.total === 0);
+  renderScoreboard();
+  updateDanger();
+  updateRoundPoints();
+  if (allZero) {
+    popBanner('EVERYONE BOOMED', 'punch to run it back', 'var(--hot)');
+  } else {
+    popBanner(`PLAYER ${winIdx + 1} WINS`, `${best} points banked`, 'var(--gold)');
+    fireConfetti();
+  }
+  setPrompt('throw a punch to play again');
+}
+
+function punchOnce(power) {
+  if (S.phase !== 'PUNCHING') return;
+  S.punchesThisTurn += 1;
+  const scored = USE_POWER_SCALING
+    ? Math.round(5 + 15 * Math.max(0.2, Math.min(1, power)))
+    : POINTS_PER_PUNCH;
+  S.roundPoints += scored;
+
+  // Cancel any pending bank — a punch always breaks stillness.
+  bankHold.stillMs = 0;
+  bankHold.lockedUntil = performance.now() + BANK_LOCKOUT_AFTER_PUNCH_MS;
+  $bankWrap.classList.remove('show');
+
+  // Soup hit reaction
+  triggerHit(power);
+
+  updateDanger();
+  updateRoundPoints();
+
+  // Screen shake scaling with punch count (early subtle → later wild)
+  const growth = Math.min(1, S.punchesThisTurn / BOMB_MAX);
+  shakeCamera(0.04 + growth * 0.28, 240 + growth * 220);
+
+  // Prompt tension
+  if (S.punchesThisTurn >= BOMB_MIN) {
+    setPrompt(S.punchesThisTurn >= BOMB_MAX - 2 ? "he's about to blow, bank now" : 'punch for points, hold still to bank');
+  }
+
+  // Bomb check — MUST be the last thing so animation state settles first.
+  if (S.punchesThisTurn >= S.hiddenBombCount) {
+    detonate();
+  }
+}
+
+function triggerHit(power) {
+  const now = performance.now();
+  mascot.hitUntil = now + 220;
+  soupVel.z += -0.4 * power;
+  soupVel.y += 0.2 * power;
+}
+
+function detonate() {
+  S.phase = 'BOOM';
+  S.boomStartedAt = performance.now();
+  // Wipe round points for this player
+  S.roundPoints = 0;
+  updateRoundPoints();
+  // Scoreboard shake
+  const pill = $scoreboard.children[S.currentPlayer];
+  if (pill) {
+    pill.classList.remove('boomed'); void pill.offsetWidth;
+    pill.classList.add('boomed');
+    setTimeout(() => pill.classList.remove('boomed'), 600);
+  }
+  popBanner('BOOM', 'turn points gone', 'var(--gold)');
+  fireExplosion();
+  // Hide Soup during the explosion
+  if (mascot.root) {
+    mascot.root.visible = false;
+    mascot.hidden = true;
+  }
+  setPrompt('boom, that turn is gone');
+  setTimeout(() => {
+    if (mascot.root) mascot.root.visible = true;
+    mascot.hidden = false;
+    nextTurn();
+  }, BOOM_HOLD_MS);
+}
+
+function bank() {
+  if (S.phase !== 'PUNCHING') return;
+  S.phase = 'BANK';
+  const banked = S.roundPoints;
+  S.players[S.currentPlayer].total += banked;
+  renderScoreboard();
+  popBanner(`BANKED ${banked}`, `player ${S.currentPlayer+1} total ${S.players[S.currentPlayer].total}`, 'var(--vine)');
+  setPrompt(`player ${S.currentPlayer+1} banked ${banked}`);
+  // Soup relieved shrug
+  mascot.shrugUntil = performance.now() + 800;
+  $bankWrap.classList.remove('show');
+  setTimeout(() => nextTurn(), BETWEEN_PLAYER_DELAY_MS);
+}
+
+// ══════════════════════════ Bank hold detector ══════════════════════════
+const bankHold = {
+  stillMs: 0,
+  lastSampleT: 0,
+  lockedUntil: 0,
+};
+
+function feedRawSample(armId, s) {
+  // ignore samples from arms we don't care about — accept any arm; the
+  // "current player" holds the band. We look at the union across all arms
+  // so that the still window fires only when NO arm is moving.
+  // Practical impl: track most-recent motion timestamp across arms; if no
+  // arm moved for BANK_HOLD_MS, fire bank.
+  if (S.phase !== 'PUNCHING') return;
+  const now = performance.now();
+  if (now < bankHold.lockedUntil) return;
+
+  const aMag = Math.hypot(s.ax, s.ay, s.az); // m/s²
+  const gMag = Math.hypot(s.gx, s.gy, s.gz); // dps
+  const aDev = Math.abs(aMag - G) / G;       // deviation from 1g, in g-units
+  const still = (aDev <= BANK_MAX_MOTION) && (gMag <= BANK_MAX_GYRO);
+
+  const dt = bankHold.lastSampleT ? (now - bankHold.lastSampleT) : 20;
+  bankHold.lastSampleT = now;
+
+  if (still) {
+    bankHold.stillMs = Math.min(BANK_HOLD_MS, bankHold.stillMs + dt);
+  } else {
+    bankHold.stillMs = 0;
+  }
+
+  // UI update
+  const frac = bankHold.stillMs / BANK_HOLD_MS;
+  if (frac > 0.05) {
+    $bankWrap.classList.add('show');
+    $bankBar.style.width = (frac * 100).toFixed(0) + '%';
+  } else {
+    $bankWrap.classList.remove('show');
+  }
+
+  if (bankHold.stillMs >= BANK_HOLD_MS) {
+    bank();
+  }
+}
+
+// Fallback UI decay tick — if no samples flowing (no hardware / dev mode),
+// gradually drain the bank meter so it doesn't get stuck.
+setInterval(() => {
+  if (S.phase !== 'PUNCHING') {
+    bankHold.stillMs = 0;
+    $bankWrap.classList.remove('show');
+    return;
+  }
+  // If we haven't received a sample in >200ms, decay slowly.
+  if (performance.now() - bankHold.lastSampleT > 200) {
+    bankHold.stillMs = Math.max(0, bankHold.stillMs - 8);
+    const frac = bankHold.stillMs / BANK_HOLD_MS;
+    if (frac <= 0.05) $bankWrap.classList.remove('show');
+    else $bankBar.style.width = (frac * 100).toFixed(0) + '%';
+  }
+}, 80);
+
+// ══════════════════════════ Tick / render ══════════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  const tSec = now / 1000;
+
+  // Spring Soup toward home
+  soupVel.x += (soupHome.x - soupGroup.position.x) * 40 * dt;
+  soupVel.y += (soupHome.y - soupGroup.position.y) * 45 * dt;
+  soupVel.z += (soupHome.z - soupGroup.position.z) * 40 * dt;
+  soupVel.multiplyScalar(0.85);
+  soupGroup.position.addScaledVector(soupVel, dt);
+
+  // Mascot procedural
+  if (mascot.root) {
+    const m = mascot.root;
+
+    // Idle bob
+    const bob = Math.sin(tSec * 2) * 0.02;
+    const squish = 1 + Math.sin(tSec * 2) * 0.03;
+    m.position.y = mascot.baseY + bob;
+
+    // Hit: shake x + red flash
+    if (now < mascot.hitUntil) {
+      m.position.x = (Math.random() - 0.5) * 0.10;
+      if (mascot.bodyMat) mascot.bodyMat.color.setHex(0xff4444);
+      m.scale.y = mascot.baseScaleY * (1 - 0.08);
+    } else if (now < mascot.shrugUntil) {
+      // Relieved shrug: quick wiggle + arms-up (rotate paws/tail if we can)
+      const shrugP = 1 - (mascot.shrugUntil - now) / 800;
+      const wiggle = Math.sin(shrugP * Math.PI * 6) * 0.08;
+      m.position.x = wiggle;
+      m.position.y = mascot.baseY + Math.sin(shrugP * Math.PI) * 0.15;
+      if (mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+      const paws = m.getObjectByName ? m.getObjectByName('paws') : null;
+      if (paws) paws.rotation.x = Math.sin(shrugP * Math.PI) * 0.6;
+      m.scale.y = mascot.baseScaleY * squish;
+    } else {
+      m.position.x = 0;
+      if (mascot.bodyMat) mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+      m.scale.y = mascot.baseScaleY * squish;
+      const paws = m.getObjectByName ? m.getObjectByName('paws') : null;
+      if (paws) paws.rotation.x = 0;
+    }
+
+    // Growing pre-boom tension: subtle horizontal jitter as we approach bomb
+    if (S.phase === 'PUNCHING' && S.punchesThisTurn > 0) {
+      const tension = Math.min(1, S.punchesThisTurn / DANGER_METER_MAX_PUNCHES);
+      m.position.x += (Math.random() - 0.5) * 0.02 * tension;
+      m.rotation.y = Math.sin(now / 60) * 0.05 * tension;
+    } else {
+      m.rotation.y = Math.sin(now / 1200) * 0.08;
+    }
+  }
+
+  // Drift clouds
+  for (const cloud of clouds) {
+    cloud.position.x += cloud.userData.driftSpeed * dt;
+    if (cloud.position.x > 16) cloud.position.x = -16;
+  }
+
+  // Camera shake
+  const shake = S.camShake.until > now ? (S.camShake.until - now) / 400 : 0;
+  const amp = S.camShake.amp * Math.max(0, Math.min(1, shake));
+  camera.position.x = camHome.x + (Math.random() - 0.5) * amp;
+  camera.position.y = camHome.y + (Math.random() - 0.5) * amp * 0.6;
+  camera.position.z = camHome.z + (Math.random() - 0.5) * amp * 0.4;
+  camera.lookAt(0, 1.35, 0);
+  if (S.camShake.until <= now) S.camShake.amp *= 0.9;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ══════════════════════════ Serial + input wiring ══════════════════════════
+const dispatcher = new ArmDispatcher((armId, g) => {
+  // Classifier events = a "punch"
+  const power = (typeof g.power === 'number') ? g.power : 0.7;
+  onPunchDetected(power, armId);
+});
+
+// Monkey-patch onLine to also route raw samples to the still detector.
+const origOnLine = dispatcher.onLine.bind(dispatcher);
+dispatcher.onLine = (line) => {
+  origOnLine(line);
+  if (!line || line[0] === '#' || line.startsWith('ERR')) return;
+  const parts = line.split(',');
+  let armId = 0, offset = 0;
+  if (parts.length === 10) { armId = +parts[0]; offset = 1; }
+  else if (parts.length !== 9) return;
+  const s = {
+    ax: +parts[offset + 1], ay: +parts[offset + 2], az: +parts[offset + 3],
+    gx: +parts[offset + 4], gy: +parts[offset + 5], gz: +parts[offset + 6],
+    roll: +parts[offset + 7], pitch: +parts[offset + 8],
+  };
+  if (!Number.isNaN(s.ax)) feedRawSample(armId, s);
+};
+
+function onPunchDetected(power, armId) {
+  if (S.phase === 'LOBBY') {
+    beginMatch();
+    return;
+  }
+  if (S.phase === 'GAME_OVER') {
+    restartMatch();
+    return;
+  }
+  if (S.phase === 'PUNCHING') {
+    punchOnce(power);
+  }
+}
+
+function restartMatch() {
+  S.phase = 'LOBBY';
+  document.body.classList.add('in-lobby');
+  // Clear particles
+  $particles.innerHTML = '';
+  $lobby.classList.remove('hidden');
+  renderScoreboard();
+  updateDanger();
+  updateRoundPoints();
+  setPrompt('throw a punch to start');
+}
+
+// ── Connect hub ──
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => dispatcher.onLine(line),
+  onOpen: () => {
+    $status.textContent = 'hub connected';
+    $status.classList.add('connected');
+  },
+  onClose: () => {
+    $status.textContent = 'hub disconnected';
+    $status.classList.remove('connected');
+  },
+  onError: () => {
+    $status.textContent = 'hub error, try again';
+    $status.classList.remove('connected');
+  },
+};
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $status.textContent = 'choosing port…';
+    await openSerial(serialHandlers);
+  } catch (e) {
+    $status.textContent = 'connect hub';
+  }
+});
+autoOpenSerial(serialHandlers).catch(() => {});
+
+// ── Lobby controls ──
+document.getElementById('pminus').addEventListener('click', () => {
+  S.numPlayers = Math.max(2, S.numPlayers - 1);
+  $pcount.textContent = S.numPlayers;
+});
+document.getElementById('pplus').addEventListener('click', () => {
+  S.numPlayers = Math.min(4, S.numPlayers + 1);
+  $pcount.textContent = S.numPlayers;
+});
+document.getElementById('lobby-cta').addEventListener('click', () => {
+  if (S.phase === 'LOBBY') beginMatch();
+});
+
+// ── Dev shortcuts ──
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    onPunchDetected(0.6 + Math.random() * 0.4, 0);
+  } else if (k === 'b') {
+    if (S.phase === 'PUNCHING') bank();
+  } else if (k === 'n') {
+    if (S.phase === 'PUNCHING') detonate();
+  } else if (k === 'r') {
+    restartMatch();
+  }
+});
+
+// Initial paint
+makePlayers(S.numPlayers);
+renderScoreboard();
+updateDanger();
+updateRoundPoints();
+</script>
+</body>
+</html>

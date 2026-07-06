@@ -17,11 +17,13 @@
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <esp_mac.h>
 #include "mpu.h"
 
-#ifndef ARM_ID
-#define ARM_ID 0
-#endif
+// Chip-unique arm identifier derived from the last 2 bytes of the WiFi MAC.
+// One firmware image → any wristband. Pairing on the browser side treats the
+// integer as opaque and assigns slot A/B by order-of-shake.
+static uint32_t arm_id = 0;
 
 // Both wrist units and the dongle must agree on this channel.
 static const uint8_t ESPNOW_WIFI_CHANNEL = 1;
@@ -47,6 +49,12 @@ static void on_send(const wifi_tx_info_t *info, esp_now_send_status_t status) {
 static bool init_espnow() {
   WiFi.mode(WIFI_STA);
   WiFi.disconnect();
+  // Turn off WiFi power-save. On the S3 the default modem-sleep drops
+  // ~half of a sustained 200 Hz ESP-NOW stream — the C3 doesn't seem to
+  // hit this because its power-save timings are different. Cost is a
+  // few extra mA of idle current, well worth the reliability.
+  WiFi.setSleep(false);
+  esp_wifi_set_ps(WIFI_PS_NONE);
   esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
 
   if (esp_now_init() != ESP_OK) return false;
@@ -59,6 +67,9 @@ static bool init_espnow() {
   if (esp_now_add_peer(&peer) != ESP_OK) return false;
   return true;
 }
+
+static uint32_t broadcast_count = 0;
+static uint32_t next_heartbeat_ms = 0;
 
 // Send an already-formatted line (payload should NOT include trailing '\n' —
 // the dongle appends one when it prints).
@@ -73,8 +84,16 @@ void setup() {
   uint32_t t0 = millis();
   while (!Serial && (millis() - t0) < 1500) delay(10);
 
+  // Derive our arm_id from the chip's WiFi MAC — unique per board, no
+  // compile-time env needed. Last 2 bytes give us a 16-bit slot; collisions
+  // are astronomically unlikely at demo scale (~1 in 65k across 2 boards).
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+  arm_id = ((uint32_t)mac[4] << 8) | mac[5];
+
   uint8_t who = mpu::begin_full_range();
-  Serial.printf("# arm=%d WHO_AM_I=0x%02X (0x68=MPU6050, 0x70=MPU6500, 0xFF=nothing on bus)\n", ARM_ID, who);
+  Serial.printf("# arm=%u mac=%02X:%02X:%02X:%02X:%02X:%02X WHO_AM_I=0x%02X (0x68=MPU6050, 0x70=MPU6500, 0xFF=nothing on bus)\n",
+                arm_id, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], who);
 
   // I2C bus scan so we can tell "wrong pin" from "no device" at a glance.
   Serial.print("# i2c scan:");
@@ -104,6 +123,7 @@ void setup() {
 
   last_us = micros();
   Serial.printf("# columns: arm,t_us,ax,ay,az,gx,gy,gz,roll,pitch\n");
+  Serial.printf("# arm_id is the last two MAC bytes; same firmware runs on every wristband.\n");
 }
 
 static char line_buf[96];
@@ -131,10 +151,27 @@ void loop() {
   pitch_deg = COMP_ALPHA * (pitch_deg + gy * dt) + (1.0f - COMP_ALPHA) * pitch_acc;
 
   int n = snprintf(line_buf, sizeof(line_buf),
-                   "%d,%lu,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f",
-                   ARM_ID, (unsigned long)now,
+                   "%u,%lu,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f",
+                   (unsigned)arm_id, (unsigned long)now,
                    ax, ay, az, gx, gy, gz, roll_deg, pitch_deg);
   if (n > 0 && n < (int)sizeof(line_buf)) {
     broadcast(line_buf, (size_t)n);
+    broadcast_count++;
+  }
+
+  // Heartbeat every 2 s — but ONLY when a USB host has actually opened the
+  // CDC port. Otherwise Serial.printf writes into a soft ring buffer that
+  // blocks the loop the moment it fills, which starves ESP-NOW broadcasts
+  // and shows up as "the S3 wristband takes forever to pair" untethered.
+  // The C3's built-in USB-JTAG bridge doesn't have this failure mode.
+  uint32_t now_ms = millis();
+  if ((int32_t)(now_ms - next_heartbeat_ms) >= 0) {
+    next_heartbeat_ms = now_ms + 2000;
+    if (Serial) {
+      Serial.printf("# wrist alive arm=%u sent=%lu fails=%lu\n",
+                    (unsigned)arm_id,
+                    (unsigned long)broadcast_count,
+                    (unsigned long)send_fail_count);
+    }
   }
 }

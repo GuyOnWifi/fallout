@@ -47,17 +47,29 @@ const POST_PEAK_MIN   = 60.0;
 const MIN_PEAK_DYNA  = 45.0;
 const MIN_PEAK_GYRO  = 550.0;
 
-// Discriminators from day3/tools/data, projected onto idle.csv gravity:
-//   jab      down 41..57 | up  9..29 | wYaw/wH 0.34..0.48
-//   hook     down 42..50 | up 35..50 | wYaw/wH 0.48..0.75
-//   uppercut down 17..22 | up 32..58 | wYaw/wH 1.02..1.43
-// Simple 3-way tree:
-//   1. down high AND up low          -> jab
-//   2. wYaw/wHoriz very high         -> uppercut (huge yaw-about-vertical spike)
-//   3. otherwise                     -> hook
-const JAB_DOWN_MIN         = 35.0;
-const JAB_DOWN_OVER_UP     = 1.5;   // jab = 2.5, hook = 1.0, uppercut = 0.5
-const UPPERCUT_YAW_RATIO   = 0.90;  // hook peaks at ~0.75, uppercut starts at ~1.0
+// Discriminators from day3/tools/data on the current mount:
+//   jab       up  0..19  | down 25..73 | wYaw/wH 0.2..0.5
+//   hook      up  8..71  | down 20..76 | wYaw/wH 0.2..0.8
+//   uppercut  up 23..76  | down  0..19 | wYaw/wH 1.0..1.9
+// Two axes cleanly separate the three:
+//   - "up < 20"    → jab       (jab drives horizontally; almost no upward accel)
+//   - "down < 20"  → uppercut  (uppercut drives upward; almost no downward accel)
+//   - otherwise    → hook      (both up and down present — rotational strike)
+// The wY/wH ratio backstops uppercut against odd hooks that skimp on downforce.
+const JAB_UP_MAX         = 20.0;
+// Live jabs sometimes carry more vertical wobble than the training set (up
+// reaches 22..38). Backup path: if down clearly beats up AND is high in
+// absolute terms, it's still a jab. Hooks pair down and up at ratio ~1.
+const JAB_DOWN_MIN       = 40.0;
+const JAB_DOWN_OVER_UP   = 2.0;
+const UPPERCUT_DOWN_MAX  = 20.0;
+const UPPERCUT_YAW_RATIO = 0.95;
+// Live hook motion turned out to look uppercut-shaped in gravity axes (low
+// down, high wYaw/wHoriz). The signal that still cleanly separates them is
+// translational: hooks sweep horizontally (horiz >> up), uppercuts drive
+// upward (horiz ~ up). If horiz beats up by this ratio, treat as a hook
+// even when the yaw-ratio would otherwise call uppercut.
+const HOOK_HORIZ_OVER_UP = 2.0;
 
 // Power normalization saturation, retuned for the new magnitudes.
 const POWER_ACCEL_SAT = 100.0;
@@ -223,9 +235,10 @@ export class Classifier {
     //   about vertical more; uppercut lives in the horizontal plane)
     if (p.dynA >= MIN_PEAK_DYNA && p.wmag >= MIN_PEAK_GYRO) {
       const yawRatio = p.wHoriz > 0 ? p.wYaw / p.wHoriz : 0;
-      if (p.down >= JAB_DOWN_MIN && p.down >= p.up * JAB_DOWN_OVER_UP) {
+      if (p.up < JAB_UP_MAX ||
+          (p.down >= JAB_DOWN_MIN && p.down >= p.up * JAB_DOWN_OVER_UP)) {
         gesture = 'jab';
-      } else if (yawRatio >= UPPERCUT_YAW_RATIO) {
+      } else if (p.down < UPPERCUT_DOWN_MAX || yawRatio >= UPPERCUT_YAW_RATIO) {
         gesture = 'uppercut';
       } else {
         gesture = 'hook';

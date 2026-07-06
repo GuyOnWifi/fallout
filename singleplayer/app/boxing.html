@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Games — Boxing</title>
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+
+    /* legacy HUD accents, remapped */
+    --p1: var(--ruin-blue);
+    --p2: var(--hot);
+    --hp-good: var(--vine);
+    --stam:    var(--gold);
+    --combo:   var(--hot);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
+
+  /* ── HUD ───────────────────────────────────────────── */
+  #hud { position:absolute; top:64px; width:100%;
+         display:flex; justify-content:center; gap:14px;
+         padding: 0 16px;
+         z-index:100; pointer-events:none;
+         opacity:0; transition:opacity 400ms ease; }
+  body.game-active #hud { opacity:1; }
+  .hud-panel {
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 0 4px 0 var(--ink);
+    padding: 10px 16px 12px;
+    width: 230px; max-width: 44vw;
+    text-align: center;
+    letter-spacing: -.01em;
+  }
+  .hud-panel .label {
+    font-size: 11px; font-weight: 800;
+    letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .hud-p1 .label { color: var(--ruin-blue); }
+  .hud-p2 .label { color: var(--hot); }
+
+  .bar-container { width:100%; background: var(--cream-deep);
+                   border: 2px solid var(--ink); border-radius: 999px;
+                   margin-top:8px; overflow:hidden; height:14px; }
+  .stamina-bar-container, .combo-bar-container { height:8px; }
+  .health-bar, .stamina-bar, .combo-bar {
+    height:100%; width:100%; border-radius:999px;
+    background:var(--hp-good);
+    transition:width .2s ease-out, background .3s;
+  }
+  .stamina-bar { background: var(--stam); width:100%; transition:width .16s ease-out; }
+  .combo-bar   { background: var(--combo); width:0%; transition:width .16s ease-out; }
+
+  /* ── Center gesture flash ──────────────────────────── */
+  #gesture { position:absolute; top:38%; left:50%;
+             transform:translate(-50%,-50%) scale(1);
+             font-size:80px; font-weight:900; letter-spacing:-.03em;
+             color: var(--cream);
+             text-shadow:
+               0 5px 0 var(--ink),
+               0 8px 24px rgba(28,42,58,.5);
+             opacity:0; transition:opacity 90ms, transform 120ms;
+             pointer-events:none; z-index:95; }
+  #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+  @media (max-width: 640px) { #gesture { font-size:52px; } }
+
+  /* ── Hit confirm (burst + ring + damage) ───────────── */
+  .hit-confirm { position:absolute; top:0; bottom:0; left:0; right:0;
+                 pointer-events:none; z-index:91; overflow:hidden; }
+  .hit-confirm .burst, .hit-confirm .ring, .hit-confirm .damage {
+    position:absolute; left:var(--hit-x, 50%); top:var(--hit-y, 50%);
+    opacity:0; will-change:transform, opacity;
+  }
+  .hit-confirm .burst {
+    width:  calc(140px + 320px * var(--hit-power, .4));
+    height: calc(140px + 320px * var(--hit-power, .4));
+    margin-left: calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (140px + 320px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(255,245,200,.95) 0%,
+      rgba(255,180,60,.75) 30%,
+      rgba(255,80,20,.35) 60%,
+      rgba(255,60,20,0) 75%);
+    mix-blend-mode:screen; filter:blur(2px);
+  }
+  .hit-confirm .ring {
+    width:  calc(110px + 360px * var(--hit-power, .4));
+    height: calc(110px + 360px * var(--hit-power, .4));
+    margin-left: calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    margin-top:  calc(-1 * (110px + 360px * var(--hit-power, .4)) / 2);
+    border-radius:50%;
+    border: calc(3px + 5px * var(--hit-power, .4)) solid rgba(255,220,130,.95);
+    mix-blend-mode:screen;
+  }
+  .hit-confirm .damage {
+    font-weight:900;
+    font-size: calc(28px + 60px * var(--hit-power, .4));
+    color: var(--cream);
+    text-shadow: 0 4px 0 var(--ink), 0 0 18px rgba(255,180,60,.6);
+    transform:translate(-50%,-50%);
+    letter-spacing:-.02em;
+  }
+  .hit-confirm.active .burst  { animation: burst 480ms ease-out forwards; }
+  .hit-confirm.active .ring   { animation: ring  520ms ease-out forwards; }
+  .hit-confirm.active .damage { animation: dmg   700ms ease-out forwards; }
+  @keyframes burst {
+    0%   { opacity:0; transform:scale(.3); }
+    30%  { opacity:1; transform:scale(1.05); }
+    100% { opacity:0; transform:scale(1.25); }
+  }
+  @keyframes ring {
+    0%   { opacity:0; transform:scale(.4); }
+    25%  { opacity:1; }
+    100% { opacity:0; transform:scale(1.6); }
+  }
+  @keyframes dmg {
+    0%   { opacity:0; transform:translate(-50%,-40%) scale(.4); }
+    20%  { opacity:1; transform:translate(-50%,-60%) scale(1.1); }
+    100% { opacity:0; transform:translate(-50%,-110%) scale(1); }
+  }
+
+  /* ── Screen-wide hit flash (warm now, not red) ─────── */
+  .hit-flash { position:absolute; inset:0; background:rgba(255,150,99,.35);
+               opacity:0; pointer-events:none; z-index:90;
+               transition:opacity 100ms; }
+
+  /* ── Vignette (softer) ────────────────────────────── */
+  #vignette { position:absolute; inset:0; pointer-events:none; z-index:80;
+              background: radial-gradient(ellipse at center, transparent 60%, rgba(28,42,58,.35) 100%); }
+
+  /* ────────── Soup Games chrome (shared treatment across pages) ────────── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
+  }
+  .ss-btn:hover {
+    transform: translateY(-2px);
+    background: var(--cream-warm);
+    box-shadow: 0 5px 0 var(--ink);
+  }
+  .ss-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 var(--ink);
+  }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
+    animation: none;
+  }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  #log { display:none; }
+
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
+
+  /* Title on the pre-game screen */
+  #title { position:absolute; top:26%; left:50%;
+           transform:translate(-50%,-50%); text-align:center;
+           font-weight:900; letter-spacing:-.04em; font-size:clamp(56px, 9vw, 120px);
+           color: var(--cream);
+           text-shadow:
+             0 6px 0 var(--ruin-blue),
+             0 10px 30px rgba(28,42,58,.4);
+           z-index:70; transition:opacity 600ms ease;
+           line-height: 0.9; pointer-events:none; }
+  body.game-active #title, #title.hidden { opacity:0; pointer-events:none; }
+  #title small { display:block; font-size:16px; letter-spacing:.02em;
+                 color: var(--ink); font-weight: 700;
+                 margin-top: 20px;
+                 text-shadow: 0 2px 0 rgba(255,255,255,.5); }
+  #title .accent { color: var(--hot);
+                   text-shadow: 0 6px 0 #a5471d, 0 10px 30px rgba(28,42,58,.4); }
+
+  /* ── Debug pill (bottom-right, features of last hit) ─── */
+  #debug-feats {
+    position:absolute; bottom:16px; right:16px;
+    padding: 8px 14px;
+    background: rgba(28,42,58,.75); color: #f7f3e6;
+    border-radius: 10px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; letter-spacing: .01em;
+    line-height: 1.4;
+    pointer-events: none; z-index: 130;
+    opacity: 0.85;
+    max-width: 320px;
+  }
+  #debug-feats b { color:#ffbf94; font-weight:700; }
+  @media (max-width: 640px) { #debug-feats { display:none; } }
+
+  /* ── Live log (top-left) with copy button ─────────── */
+  #tune-log-wrap {
+    position:absolute; top:16px; left:120px;
+    display:flex; flex-direction:column; gap:6px;
+    z-index: 131; max-width: 42vw;
+  }
+  #tune-log-controls { display:flex; gap:6px; align-items:center; }
+  #tune-log-controls button {
+    padding: 6px 12px; border-radius: 8px;
+    background: var(--cream); color: var(--ink);
+    border: 2px solid var(--ink);
+    box-shadow: 0 2px 0 var(--ink);
+    font-family: inherit; font-size: 11px;
+    letter-spacing: .04em; font-weight: 700;
+    text-transform: uppercase; cursor: pointer;
+  }
+  #tune-log-controls button:hover { background: var(--cream-warm); }
+  #tune-log-controls #tune-log-count {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px; color: var(--cream);
+    text-shadow: 0 1px 0 rgba(0,0,0,.4);
+    background: rgba(28,42,58,.65);
+    padding: 4px 10px; border-radius: 999px;
+  }
+  #tune-log {
+    width: 100%; height: 220px;
+    padding: 10px 12px;
+    background: rgba(28,42,58,.85); color: #f7f3e6;
+    border: none; border-radius: 8px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px; line-height: 1.5;
+    resize: none;
+  }
+  @media (max-width: 640px) { #tune-log-wrap { display:none; } }
+
+  /* ── Gesture tutorial (bottom-center) ─────────────── */
+  #tutorial {
+    position:absolute; bottom:24px; left:50%;
+    transform:translateX(-50%);
+    display:flex; gap:10px; z-index:88;
+    padding:8px 12px;
+    background:rgba(251,243,224,0.94);
+    border:3px solid var(--ink);
+    border-radius:22px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2);
+    opacity:0; pointer-events:none;
+    transition:opacity 500ms ease;
+  }
+  #tutorial.show { opacity:1; }
+  #tutorial.gone { display:none; }
+  .tut-card {
+    display:flex; flex-direction:column; align-items:center;
+    width:92px; padding:4px 4px 2px;
+    border-right:2px dashed rgba(28,42,58,.25);
+  }
+  .tut-card:last-child { border-right:none; }
+  .tut-card svg { width:58px; height:36px; overflow:visible; }
+  .tut-card .name {
+    font-size:10px; font-weight:900; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink); margin-top:2px;
+  }
+  .tut-glove {
+    width:16px; height:16px; line-height:1;
+    animation: tutSlide 2.4s ease-in-out infinite;
+  }
+  .tut-glove svg { display:block; }
+  .tut-card.jab .tut-glove      { animation-delay: 0s; }
+  .tut-card.hook .tut-glove     { animation-delay: 0.4s; animation-name: tutHook; }
+  .tut-card.uppercut .tut-glove { animation-delay: 0.8s; animation-name: tutUpper; }
+  @keyframes tutSlide {
+    0%, 100% { transform: translate(-28px, 0); opacity:.6; }
+    45%      { transform: translate(28px, 0);  opacity:1; }
+    55%      { transform: translate(28px, 0);  opacity:1; }
+  }
+  @keyframes tutHook {
+    0%, 100% { transform: translate(-24px, 6px); opacity:.6; }
+    50%      { transform: translate(24px, -10px); opacity:1; }
+  }
+  @keyframes tutUpper {
+    0%, 100% { transform: translate(0, 14px); opacity:.6; }
+    50%      { transform: translate(0, -14px); opacity:1; }
+  }
+
+  /* ── Hit sparks (star particles) ──────────────────── */
+  #sparks { position:absolute; inset:0; pointer-events:none; z-index:92; overflow:hidden; }
+  .spark {
+    position:absolute; width:22px; height:22px;
+    margin-left:-11px; margin-top:-11px;
+    background: var(--gold);
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+    filter: drop-shadow(0 2px 0 var(--ink));
+    animation: sparkPop 520ms ease-out forwards;
+  }
+  @keyframes sparkPop {
+    0%   { transform: translate(0,0) scale(.2) rotate(0deg); opacity:0; }
+    20%  { opacity:1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--rot)); opacity:0; }
+  }
+
+  /* ── KO banner + confetti ─────────────────────────── */
+  #ko-flash { position:absolute; inset:0; background:var(--cream);
+              opacity:0; pointer-events:none; z-index:96;
+              transition:opacity 60ms ease; }
+  #ko-flash.on { opacity:.9; }
+  #ko-banner {
+    position:absolute; top:44%; left:50%;
+    transform:translate(-50%,-50%) scale(.4) rotate(-6deg);
+    font-weight:900; letter-spacing:-.05em;
+    font-size:clamp(90px, 16vw, 220px);
+    color: var(--cream);
+    text-shadow:
+      0 8px 0 var(--ink),
+      0 14px 40px rgba(28,42,58,.55);
+    opacity:0; z-index:97; pointer-events:none;
+    transition: opacity 200ms ease, transform 380ms cubic-bezier(.2,1.5,.3,1);
+    line-height:.9; text-align:center;
+  }
+  #ko-banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-4deg); }
+  #ko-banner .sub {
+    display:block; font-size:.14em; letter-spacing:.3em;
+    color: var(--hot); text-shadow: 0 4px 0 var(--ink);
+    margin-top:12px;
+  }
+  #confetti { position:absolute; inset:0; pointer-events:none; z-index:94; overflow:hidden; }
+  .confetti-piece {
+    position:absolute; top:-24px;
+    width:12px; height:16px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity:1; }
+    90%  { opacity:1; }
+    100% { transform: translate(var(--drift, 0), 110vh) rotate(720deg); opacity:.9; }
+  }
+</style>
+</head>
+<body>
+
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+
+<div id="title">SOUP <span class="accent">BOXING</span><small>gloves on, he's waiting</small></div>
+
+<div id="hud">
+  <div class="hud-panel hud-p1">
+    <div class="label">you</div>
+    <div class="bar-container"><div class="health-bar" id="p1-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p1-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p1-combo"></div></div>
+  </div>
+  <div class="hud-panel hud-p2">
+    <div class="label">soup</div>
+    <div class="bar-container"><div class="health-bar" id="p2-hp"></div></div>
+    <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p2-stam"></div></div>
+    <div class="bar-container combo-bar-container"><div class="combo-bar" id="p2-combo"></div></div>
+  </div>
+</div>
+
+<div id="gesture"></div>
+<div id="vignette"></div>
+
+<div id="tutorial">
+  <div class="tut-card jab">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M8 26 L62 26"/>
+      <path d="M52 16 L66 26 L52 36"/>
+    </svg>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
+    <div class="name">Jab</div>
+  </div>
+  <div class="tut-card hook">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M10 42 Q 22 6 68 22"/>
+      <path d="M58 12 L70 22 L58 30"/>
+    </svg>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
+    <div class="name">Hook</div>
+  </div>
+  <div class="tut-card uppercut">
+    <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
+      <path d="M39 46 L39 8"/>
+      <path d="M28 18 L39 6 L50 18"/>
+    </svg>
+    <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
+    <div class="name">Uppercut</div>
+  </div>
+</div>
+
+<div class="hit-confirm" id="hit-confirm">
+  <div class="burst"></div>
+  <div class="ring"></div>
+  <div class="damage">0</div>
+</div>
+<div class="hit-flash" id="hit-flash"></div>
+<div id="sparks"></div>
+<div id="ko-flash"></div>
+<div id="confetti"></div>
+<div id="ko-banner">K.O.<span class="sub">down goes Soup</span></div>
+
+<button id="connect" class="ss-btn">connect hub</button>
+<div id="debug-feats">waiting for a punch</div>
+
+<div id="tune-log-wrap">
+  <div id="tune-log-controls">
+    <button id="tune-log-copy" type="button">copy</button>
+    <button id="tune-log-clear" type="button">clear</button>
+    <span id="tune-log-count">0 rows</span>
+  </div>
+  <textarea id="tune-log" readonly placeholder="each detected punch appends one line here. throw a bunch of one type, click copy, paste back to claude."></textarea>
+</div>
+<div id="log"></div>
+<div id="devhint">keys · j h u to punch</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial, autoOpenSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+
+// ══════════════════════════ Scene ══════════════════════════
+const SKY_HEX = 0x7bd3ee;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_HEX);
+// Push fog far back so the ring reads as an open-air bright stage, not a tunnel.
+scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
+
+// Wider FOV on portrait phones so the opponent doesn't swallow the frame.
+const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 72 : 55;
+let BASE_FOV = fovForAspect();
+const camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth/innerHeight, 0.05, 100);
+// Third person, slightly behind and above the player Soup's right shoulder.
+// The player Soup reads as a back-and-shoulders silhouette in the near
+// foreground; the opponent stands well upstage across the ring. Slight
+// downward tilt so the ring floor grounds both fighters.
+const camHome = new THREE.Vector3(1.4, 3.0, 5.4);
+const lookHome = new THREE.Vector3(-0.1, 1.1, -1.2);
+camera.position.copy(camHome);
+camera.lookAt(lookHome);
+
+// Camera FOV punch state.
+const camFx = { fov: BASE_FOV, target: BASE_FOV, until: 0, phase: 'idle' };
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  BASE_FOV = fovForAspect();
+  if (camFx.phase === 'idle') { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.target = BASE_FOV; }
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Lights: bright key + soft sky rim ──
+scene.add(new THREE.AmbientLight(0xd8ecf4, 0.95));
+const key = new THREE.DirectionalLight(0xfff4d8, 1.35);
+key.position.set(4, 8, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xa8d8ff, 0.7);
+rim.position.set(-4, 3, -5);
+scene.add(rim);
+// Warm fill from the front so the mascot's face never falls to shadow.
+const fill = new THREE.DirectionalLight(0xfff2d8, 0.5);
+fill.position.set(0, 2, 6);
+scene.add(fill);
+
+// ── Ring floor: cream base w/ ink grid, vine/ruin-blue corners ──
+function makeRingFloor() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024; canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  // cream base
+  ctx.fillStyle = '#fbf3e0'; ctx.fillRect(0, 0, 1024, 1024);
+  // subtle grid lines (ink @ low alpha)
+  ctx.strokeStyle = 'rgba(28,42,58,0.12)'; ctx.lineWidth = 2;
+  for (let i = 0; i < 1024; i += 64) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1024); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(1024, i); ctx.stroke();
+  }
+  // outer border
+  ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 12;
+  ctx.strokeRect(8, 8, 1008, 1008);
+  // center circle
+  ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(512, 512, 260, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = 'rgba(28,42,58,0.3)'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(512, 512, 450, 0, Math.PI * 2); ctx.stroke();
+  // corner pads — vine (near) + ruin-blue (far)
+  function pad(x, y, fill) {
+    ctx.fillStyle = fill; ctx.fillRect(x, y, 100, 100);
+    ctx.strokeStyle = '#1c2a3a'; ctx.lineWidth = 6;
+    ctx.strokeRect(x, y, 100, 100);
+  }
+  pad(862, 862, '#6cb85a'); pad(62, 862, '#6cb85a');
+  pad(862, 62,  '#37628a'); pad(62, 62,  '#37628a');
+  return new THREE.CanvasTexture(canvas);
+}
+const floorTex = makeRingFloor();
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(9, 9),
+  new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.7, metalness: 0.0 })
+);
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true;
+scene.add(floor);
+
+// Bright grass apron around the ring so the horizon isn't dark.
+const apron = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 60),
+  new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.95 })
+);
+apron.rotation.x = -Math.PI/2;
+apron.position.y = -0.01;
+apron.receiveShadow = true;
+scene.add(apron);
+
+// ── Corner posts + pads (themed) ──
+const postMat  = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.8 });
+const padVine  = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.7 });
+const padRuin  = new THREE.MeshStandardMaterial({ color: 0x37628a, roughness: 0.7 });
+const postGeo  = new THREE.CylinderGeometry(0.12, 0.14, 2.1, 16);
+const padGeo   = new THREE.BoxGeometry(0.34, 1.0, 0.34);
+const cornerXY = [[-3.8,-3.8],[3.8,3.8],[-3.8,3.8],[3.8,-3.8]];
+cornerXY.forEach(([x, z], idx) => {
+  const post = new THREE.Mesh(postGeo, postMat);
+  post.position.set(x, 1.05, z); post.castShadow = true; scene.add(post);
+  const pad  = new THREE.Mesh(padGeo, (idx === 1 || idx === 2) ? padVine : padRuin);
+  pad.position.set(x, 1.3, z); pad.castShadow = true; scene.add(pad);
+});
+
+// ── Ropes: chunky vine + cream alternating ──
+const ropeMatA = new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.75 });
+const ropeMatB = new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.75 });
+const corners = [
+  new THREE.Vector3(-3.8, 0, -3.8), new THREE.Vector3( 3.8, 0, -3.8),
+  new THREE.Vector3( 3.8, 0,  3.8), new THREE.Vector3(-3.8, 0,  3.8),
+  new THREE.Vector3(-3.8, 0, -3.8),
+];
+[0.55, 0.95, 1.35, 1.75].forEach((h, i) => {
+  const mat = (i % 2 === 0) ? ropeMatA : ropeMatB;
+  for (let c = 0; c < 4; c++) {
+    const a = corners[c].clone().setY(h), b = corners[c+1].clone().setY(h);
+    const len = a.distanceTo(b);
+    const geo = new THREE.CylinderGeometry(0.075, 0.075, len, 12);
+    const rope = new THREE.Mesh(geo, mat);
+    rope.position.copy(a).lerp(b, 0.5);
+    rope.lookAt(b); rope.rotateX(Math.PI/2);
+    rope.castShadow = true;
+    scene.add(rope);
+  }
+});
+
+// ── Sky clouds (three sphere puffs drifting high) ──
+const clouds = [];
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+for (let i = 0; i < 8; i++) {
+  const r = 0.6 + Math.random() * 0.7;
+  const cloud = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cloudMat);
+  cloud.position.set(
+    -14 + Math.random() * 28,
+    8 + Math.random() * 4,
+    -8 + Math.random() * 4
+  );
+  // add a couple bump siblings for a puffy silhouette
+  const bump1 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.7, 10, 8), cloudMat);
+  bump1.position.set(r * 0.9, -r * 0.2, 0);
+  cloud.add(bump1);
+  const bump2 = new THREE.Mesh(new THREE.SphereGeometry(r * 0.6, 10, 8), cloudMat);
+  bump2.position.set(-r * 0.9, -r * 0.1, 0);
+  cloud.add(bump2);
+  cloud.userData.driftSpeed = 0.2 + Math.random() * 0.3;
+  scene.add(cloud);
+  clouds.push(cloud);
+}
+
+// ══════════════════════════ Fighters (two Soups) ══════════════════════════
+// Each fighter is a three-deep chain:
+//   g (world position + facing — the ONLY place a y-turn is allowed, on the
+//      parent group, never on the soup root itself — see DEVLOG §11/§12)
+//   └─ lean (all procedural body animation: pitch/yaw/roll/squash, feet pivot)
+//      └─ soup (canonical x-flip + scale only)
+// In lean-local space both fighters agree: +Z is toward the other fighter,
+// the character's right hand sits at local -X. The paws node animates in
+// MODEL space: mm units, +z is up, -y is forward.
+const SOUP_SCALE = 0.014; // 122mm model → ~1.7m fighters
+
+function makeFighter(x, z, faceSign) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  if (faceSign < 0) g.rotation.y = Math.PI; // turn the parent group, not the soup root
+  const lean = new THREE.Group();
+  g.add(lean);
+  scene.add(g);
+
+  // Placeholder box until the GLB lands (also the fallback if it fails)
+  const placeholder = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 1.3, 0.45),
+    new THREE.MeshStandardMaterial({ color: 0xecdcb1, roughness: 0.8 })
+  );
+  placeholder.position.y = 0.65;
+  placeholder.castShadow = true;
+  lean.add(placeholder);
+
+  return {
+    g, lean, faceSign,
+    home: new THREE.Vector3(x, 0, z),
+    vel: new THREE.Vector3(),   // shove spring velocity (opponent only)
+    placeholder,
+    root: null, paws: null, pawsBase: null,
+    bodyMat: null, bodyBaseHex: 0xecdcb1,
+    act: null,                  // { name, start (gt ms), dur, side, dir, power }
+    flashUntil: 0,              // gt ms — body red flash on hit
+    idlePhase: 0,
+  };
+}
+
+const player = makeFighter(0.35, 1.4, -1);   // faces -Z, back to camera
+const opp    = makeFighter(0,   -2.4, +1);   // faces +Z, squared up with the player
+player.idlePhase = 0;
+opp.idlePhase = 2.4; // desync the idles so they don't mirror each other
+
+function setupSoup(soup, tint) {
+  // Y-up flip. Per soup/HANDOFF.md, after rot.x=-π/2 the face already points +Z.
+  soup.rotation.x = -Math.PI / 2;
+  soup.scale.setScalar(SOUP_SCALE);
+  // Clone materials so per-instance tints don't bleed
+  soup.traverse(o => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.castShadow = true;
+      o.receiveShadow = false;
+    }
+  });
+  if (tint) for (const [name, hex] of Object.entries(tint)) {
+    const node = soup.getObjectByName(name);
+    if (node && node.material) node.material.color.setHex(hex);
+  }
+  return soup;
+}
+
+function attachSoup(f, soup) {
+  if (f.placeholder) { f.lean.remove(f.placeholder); f.placeholder = null; }
+  f.root = soup;
+  f.paws = soup.getObjectByName('paws');
+  f.pawsBase = f.paws ? f.paws.position.clone() : null;
+  const body = soup.getObjectByName('body');
+  f.bodyMat = body ? body.material : null;
+  f.bodyBaseHex = f.bodyMat ? f.bodyMat.color.getHex() : 0xecdcb1;
+  f.lean.add(soup);
+}
+
+const loader = new GLTFLoader();
+loader.load(
+  'assets/mascot.glb',
+  (gltf) => {
+    // Player keeps the default cream; opponent gets the warmer taupe trim
+    // so the matchup reads from behind the player's shoulder.
+    attachSoup(player, setupSoup(gltf.scene.clone(true), null));
+    attachSoup(opp, setupSoup(gltf.scene.clone(true), {
+      body: 0xecdcb1, paws: 0xc9a878, ears: 0xc9a878, tail: 0xc9a878,
+    }));
+    log('mascots loaded');
+  },
+  undefined,
+  (err) => {
+    console.error('mascot load failed', err);
+    log('mascot load FAILED, using placeholders');
+    for (const f of [player, opp]) {
+      if (f.placeholder) { f.bodyMat = f.placeholder.material; f.bodyBaseHex = 0xecdcb1; }
+    }
+  }
+);
+
+// ── Impact point light (hangs over the opponent's head) ──
+const impactLight = new THREE.PointLight(0xffcc66, 0, 8, 2);
+impactLight.position.set(0, 1.6, -1.6);
+scene.add(impactLight);
+
+// ══════════════════════════ Game state ══════════════════════════
+const state = {
+  p1: { hp:100, stamina:100, combo:0 },
+  p2: { hp:100, stamina:100, combo:0 },
+  lastHitAt: 0,
+  camShake: { x:0, y:0, until:0, amp:0 },
+  koFired: false,
+  koStartGt: 0,     // game-clock ms when the KO landed
+  koRealStart: 0,   // performance.now() when the KO landed (drives slow-mo)
+  koDir: -1,        // which side the opponent topples toward
+};
+
+const DMG = { jab: 6, hook: 10, uppercut: 14 };
+const STAM_COST = { jab: 8, hook: 14, uppercut: 20 };
+
+// Punch timing: dur = full player animation, impact = when the paw connects.
+// The opponent's reaction, damage, and screen feedback all wait for impact.
+const PUNCH = {
+  jab:      { dur: 280, impact: 105, react: 'hit_jab',   reactDur: 280 },
+  hook:     { dur: 360, impact: 190, react: 'hit_hook',  reactDur: 430 },
+  uppercut: { dur: 360, impact: 200, react: 'hit_upper', reactDur: 470 },
+};
+
+// Game clock (ms). Runs at real speed except for the KO slow-mo beat.
+let gt = 0;
+let pendingImpacts = [];
+
+const koCamPos = new THREE.Vector3(1.0, 1.3, opp.home.z + 2.2);
+
+const $hp1 = document.getElementById('p1-hp');
+const $st1 = document.getElementById('p1-stam');
+const $cb1 = document.getElementById('p1-combo');
+const $hp2 = document.getElementById('p2-hp');
+const $st2 = document.getElementById('p2-stam');
+const $cb2 = document.getElementById('p2-combo');
+const $gest= document.getElementById('gesture');
+const $conf= document.getElementById('hit-confirm');
+const $flash= document.getElementById('hit-flash');
+const $stat= document.getElementById('connect'); // hub pill doubles as status
+const $log = document.getElementById('log');
+const $title = document.getElementById('title');
+const $tut  = document.getElementById('tutorial');
+const $sparks = document.getElementById('sparks');
+const $koFlash = document.getElementById('ko-flash');
+const $koBanner = document.getElementById('ko-banner');
+const $confetti = document.getElementById('confetti');
+
+// ── Tutorial + title lifecycle ────────────────────
+let hasGestured = false;
+// Fade the title out shortly after load so Soup is visible even without a hub.
+setTimeout(() => { if (!document.body.classList.contains('game-active')) $title.classList.add('hidden'); }, 2400);
+// Show the tutorial hint after a short delay if no gesture has come in.
+setTimeout(() => { if (!hasGestured) $tut.classList.add('show'); }, 2600);
+// Loop the tutorial in/out on a 6s cycle until the player commits.
+setInterval(() => {
+  if (hasGestured) return;
+  $tut.classList.toggle('show');
+}, 6000);
+
+function markGestured() {
+  if (hasGestured) return;
+  hasGestured = true;
+  $tut.classList.remove('show');
+  setTimeout(() => $tut.classList.add('gone'), 600);
+  $title.classList.add('hidden');
+  document.body.classList.add('game-active');
+}
+
+// ── Hit sparks (star particles bursting outward) ──
+function spawnSparks(x, y, power) {
+  const count = 6 + Math.floor(power * 3);
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    const ang = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = 70 + power * 140 + Math.random() * 40;
+    s.style.left = x + 'px';
+    s.style.top  = y + 'px';
+    s.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * dist - 30).toFixed(0) + 'px');
+    s.style.setProperty('--rot', ((Math.random() - 0.5) * 720).toFixed(0) + 'deg');
+    // alternate gold/cream/hot for variety
+    const palette = ['#f4c95d', '#fbf3e0', '#ff9663'];
+    s.style.background = palette[i % palette.length];
+    $sparks.appendChild(s);
+    setTimeout(() => s.remove(), 560);
+  }
+}
+
+// ── Camera FOV punch ──
+function fovPunch(power) {
+  camFx.target = BASE_FOV - (7 * Math.max(0.3, power));
+  camFx.phase  = 'in';
+  camFx.until  = performance.now() + 60;
+}
+
+// ── KO celebration ──
+function fireKO() {
+  // Freeze-frame flash
+  $koFlash.classList.add('on');
+  setTimeout(() => $koFlash.classList.remove('on'), 130);
+  // Banner pop, held back so the slow-mo crumple reads first
+  setTimeout(() => $koBanner.classList.add('pop'), 650);
+  // Confetti rain
+  const colors = ['#f4c95d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3'];
+  for (let i = 0; i < 90; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti-piece';
+    c.style.left = (Math.random() * 100) + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = (2.4 + Math.random() * 2.6) + 's';
+    c.style.animationDelay = (Math.random() * 0.6) + 's';
+    c.style.setProperty('--drift', ((Math.random() - 0.5) * 240).toFixed(0) + 'px');
+    c.style.transform = `rotate(${(Math.random()*360)|0}deg)`;
+    $confetti.appendChild(c);
+    setTimeout(() => c.remove(), 5200);
+  }
+}
+
+function refreshHud() {
+  $hp1.style.width = state.p1.hp + '%';
+  $hp1.style.background = state.p1.hp > 40 ? 'var(--hp-good)' : 'var(--hot)';
+  $st1.style.width = state.p1.stamina + '%';
+  $cb1.style.width = state.p1.combo + '%';
+  $hp2.style.width = state.p2.hp + '%';
+  $hp2.style.background = state.p2.hp > 40 ? 'var(--hp-good)' : 'var(--hot)';
+  $st2.style.width = state.p2.stamina + '%';
+  $cb2.style.width = state.p2.combo + '%';
+}
+refreshHud();
+
+const GEST_COLOR = { jab:'#f4c95d', hook:'#ff9663', uppercut:'#6cb85a', block:'#4fc0e3' };
+function popGesture(name, power) {
+  $gest.textContent = `${name} ${Math.round(power*100)}`;
+  $gest.style.color = GEST_COLOR[name] || '#fbf3e0';
+  $gest.classList.remove('pop'); void $gest.offsetWidth;
+  $gest.classList.add('pop');
+  setTimeout(() => $gest.classList.remove('pop'), 420);
+}
+
+function fireHitConfirm(x, y, power, dmg) {
+  $conf.style.setProperty('--hit-x', x + 'px');
+  $conf.style.setProperty('--hit-y', y + 'px');
+  $conf.style.setProperty('--hit-power', power.toFixed(2));
+  $conf.querySelector('.damage').textContent = dmg;
+  $conf.classList.remove('active'); void $conf.offsetWidth;
+  $conf.classList.add('active');
+}
+
+function fireHitFlash(power) {
+  $flash.style.background = `rgba(255, ${Math.round(150 - 40*power)}, ${Math.round(99 - 60*power)}, ${0.25 + 0.35*power})`;
+  $flash.style.opacity = 1;
+  setTimeout(() => { $flash.style.opacity = 0; }, 90);
+}
+
+function applyGesture(g, armId = 0) {
+  if (state.koFired) return; // no more punches after KO
+  markGestured();
+  popGesture(g.gesture, g.power);
+  const dmgBase = DMG[g.gesture];
+  const spec = PUNCH[g.gesture];
+  if (!dmgBase || !spec) return;
+
+  // Character-local x of the punching arm (right hand lives at local -X),
+  // and the world-x direction the hit knocks the opponent toward.
+  const side = (armId === 1) ? 1 : -1;
+  const dir  = (armId === 1) ? 1 : -1;
+
+  // Player swings now; everything else waits until the paw connects.
+  player.act = { name: g.gesture, start: gt, dur: spec.dur, side, power: g.power };
+
+  const staminaMul = state.p1.stamina > 20 ? 1.0 : 0.5;
+  const dmg = Math.round(dmgBase * (0.5 + 0.9 * g.power) * staminaMul);
+  state.p1.stamina = Math.max(0, state.p1.stamina - STAM_COST[g.gesture]);
+  refreshHud();
+
+  pendingImpacts.push({ at: gt + spec.impact, gesture: g.gesture, power: g.power, dmg, dir, spec });
+}
+
+function landImpact(imp) {
+  if (state.koFired) return;
+  const { gesture, power, dmg, dir, spec } = imp;
+
+  // HP capped at 100 while tuning the classifier — opponent never KOs.
+  // Restore `state.p2.hp = Math.max(0, state.p2.hp - dmg);` when ready.
+  state.p2.hp = 100;
+  const now = performance.now();
+  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
+  else                             state.p1.combo = 15;
+  state.lastHitAt = now;
+  refreshHud();
+
+  // Opponent reaction animation + physical shove + red flash
+  opp.act = { name: spec.react, start: gt, dur: spec.reactDur, dir, power };
+  opp.flashUntil = gt + 130;
+  if (gesture === 'jab')       { opp.vel.z += -0.5 * power; }
+  else if (gesture === 'hook') { opp.vel.x += dir * 0.9 * power; opp.vel.z += -0.35 * power; }
+  else                         { opp.vel.z += -0.3 * power; }
+
+  // Screen feedback at the opponent's head
+  state.camShake.until = now + 280;
+  state.camShake.amp = 0.05 + 0.14 * power;
+  impactLight.intensity = 3 + 8 * power;
+
+  const headWorld = new THREE.Vector3(dir * 0.25, 1.2, opp.g.position.z);
+  headWorld.project(camera);
+  const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
+  const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
+  fireHitConfirm(px, py, power, dmg);
+  fireHitFlash(power);
+  spawnSparks(px, py, power);
+  fovPunch(power);
+
+  if (state.p2.hp <= 0 && !state.koFired) {
+    state.koFired = true;
+    state.koStartGt = gt;
+    state.koRealStart = now;
+    state.koDir = (gesture === 'hook') ? dir : -1;
+    fireKO();
+    log('KO');
+  }
+}
+
+function log(line) {
+  const t = new Date().toLocaleTimeString();
+  const txt = `[${t}] ${line}\n` + ($log.textContent || '');
+  $log.textContent = txt.split('\n').slice(0, 6).join('\n');
+}
+
+// ══════════════════════════ Procedural animation ══════════════════════════
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < 0.5 ? 2*x*x : 1 - Math.pow(-2*x + 2, 2) / 2;
+// Fast rise to 1 at `peak`, eased fall back to 0 at p=1.
+function spikeEnv(p, peak) {
+  return p < peak ? easeOutCubic(p / peak) : 1 - easeInOut((p - peak) / (1 - peak));
+}
+// Same, but the recovery carries a damped wobble (the hook stagger).
+function wobbleEnv(p, peak) {
+  if (p < peak) return easeOutCubic(p / peak);
+  const t = (p - peak) / (1 - peak);
+  return (1 - easeInOut(t)) * (0.75 + 0.25 * Math.cos(t * 9));
+}
+
+function resetPose(f) {
+  f.lean.rotation.set(0, 0, 0);
+  f.lean.position.set(0, 0, 0);
+  f.lean.scale.set(1, 1, 1);
+  if (f.paws) f.paws.position.copy(f.pawsBase);
+}
+
+// Guard-stance idle: breathe-squish, slow sway + weight shift, paws held up.
+function applyIdle(f, ts) {
+  const ph = f.idlePhase;
+  f.lean.scale.y += Math.sin(ts * 2.1 + ph) * 0.025;
+  f.lean.rotation.x += 0.05;                              // slight crouch toward the other fighter
+  f.lean.rotation.z += Math.sin(ts * 0.9 + ph) * 0.045;   // sway
+  f.lean.position.x += Math.sin(ts * 0.7 + ph) * 0.05;    // weight shift foot to foot
+  f.lean.position.z += Math.sin(ts * 1.3 + ph) * 0.03;
+  if (f.paws) {
+    f.paws.position.z += 9 + Math.sin(ts * 2.1 + ph) * 3; // guard held up
+    f.paws.position.y += -6;                              // and slightly forward
+  }
+}
+
+// Player punches. Applied on top of idle; act.side is the punching arm's
+// character-local x sign (right hand = -1).
+function applyPunch(f, act) {
+  const p = clamp01((gt - act.start) / act.dur);
+  const side = act.side;
+  const L = f.lean, paws = f.paws;
+
+  if (act.name === 'jab') {
+    // Sharp straight thrust: full extension by 38%, brief hold, snap back.
+    const e = p < 0.38 ? easeOutCubic(p / 0.38) : 1 - easeInOut((p - 0.38) / 0.62);
+    if (paws) {
+      paws.position.y += -52 * e;        // arm shoots straight out
+      paws.position.x += side * 14 * e;  // biased toward the punching arm
+    }
+    L.rotation.x += 0.16 * e;            // body leans in behind it
+    L.rotation.y += side * 0.12 * e;     // shoulder follows
+    L.position.z += 0.24 * e;            // short lunge toward the opponent
+
+  } else if (act.name === 'hook') {
+    // Coil away, whip across the body in an arc, recover. Hips lead the paw.
+    if (p < 0.32) {
+      const w = easeInOut(p / 0.32);
+      L.rotation.y += side * 0.50 * w;   // wind up toward the punching side
+      L.rotation.z += side * 0.06 * w;
+      if (paws) { paws.position.x += side * 36 * w; paws.position.y += 8 * w; }
+    } else if (p < 0.62) {
+      const s = easeOutCubic((p - 0.32) / 0.30);
+      L.rotation.y += side * 0.50 - side * 1.15 * s;   // twist through to the far side
+      L.rotation.z += side * 0.06 - side * 0.20 * s;
+      L.position.z += 0.12 * Math.sin(s * Math.PI);
+      if (paws) {
+        paws.position.x += side * 36 * Math.cos(s * Math.PI); // outside → inside arc
+        paws.position.y += 8 - 66 * Math.sin(s * Math.PI);    // bulges forward mid-swing
+      }
+    } else {
+      const r = 1 - easeInOut((p - 0.62) / 0.38);
+      L.rotation.y += -side * 0.65 * r;
+      L.rotation.z += -side * 0.14 * r;
+      if (paws) { paws.position.x += -side * 36 * r; paws.position.y += 8 * r; }
+    }
+
+  } else if (act.name === 'uppercut') {
+    // Rock back and crouch to load, drive up through the punch line, settle.
+    if (p < 0.34) {
+      const l = easeInOut(p / 0.34);
+      L.rotation.x += -0.15 * l;         // rock back
+      L.scale.y *= 1 - 0.10 * l;         // crouch into the load
+      if (paws) { paws.position.z += -28 * l; paws.position.y += -8 * l; }
+    } else if (p < 0.66) {
+      const d = easeOutCubic((p - 0.34) / 0.32);
+      L.rotation.x += -0.15 + 0.30 * d;  // drop through to a forward lean
+      L.scale.y *= 0.90 + 0.22 * d;      // whole body extends at the peak
+      if (paws) {
+        paws.position.z += -28 + 86 * d; // paw rises from below through the chin line
+        paws.position.y += -8 - 34 * d;
+        paws.position.x += side * 10 * d;
+      }
+    } else {
+      const r = 1 - easeInOut((p - 0.66) / 0.34);
+      L.rotation.x += 0.15 * r;
+      L.scale.y *= 1 + 0.12 * r;
+      if (paws) { paws.position.z += 58 * r; paws.position.y += -42 * r; paws.position.x += side * 10 * r; }
+    }
+  }
+  if (p >= 1) f.act = null;
+}
+
+// Opponent hit reactions, one per punch type. act.dir = world x he's knocked toward.
+function applyReaction(f, act) {
+  const p = clamp01((gt - act.start) / act.dur);
+  const pw = 0.55 + 0.6 * act.power;
+  const L = f.lean;
+
+  if (act.name === 'hit_jab') {
+    // Quick head-snap straight back; body barely moves; fast recovery.
+    const k = spikeEnv(p, 0.18) * pw;
+    L.rotation.x += -0.30 * k;    // top snaps away from the player
+    L.position.z += -0.10 * k;    // nudged straight back
+
+  } else if (act.name === 'hit_hook') {
+    // Head and upper body whipped sideways; staggered, wobbling recovery.
+    const k = wobbleEnv(p, 0.22) * pw;
+    L.rotation.z += -act.dir * 0.38 * k;  // tips toward the knock direction
+    L.rotation.y += act.dir * 0.55 * k;   // whole upper body rotates with it
+    L.position.x += act.dir * 0.12 * k;
+
+  } else if (act.name === 'hit_upper') {
+    // Vertical stretch off the chin, feet planted, arched back; slowest recovery.
+    const k  = spikeEnv(p, 0.20) * pw;
+    const k2 = spikeEnv(p, 0.32) * pw;    // arch peaks a beat after the stretch
+    L.scale.y *= 1 + 0.26 * k;
+    L.scale.x *= 1 - 0.07 * k;
+    L.scale.z *= 1 - 0.07 * k;
+    L.rotation.x += -0.30 * k2;
+  }
+  if (p >= 1) f.act = null;
+}
+
+// KO crumple: legs give way (squash straight down), topple sideways to the
+// mat with a settle bounce, hold. Feet pivot means the topple lands flat.
+function applyKO(f) {
+  const t = gt - state.koStartGt;
+  const dir = state.koDir;
+  const L = f.lean;
+  L.position.set(0, 0, 0);
+  if (f.paws) f.paws.position.copy(f.pawsBase);
+  if (t < 300) {
+    const c = easeInOut(t / 300);
+    L.scale.set(1 + 0.10 * c, 1 - 0.5 * c, 1 + 0.10 * c);  // legs give way
+    L.rotation.set(0.25 * c, 0, 0);                        // slumps forward
+  } else if (t < 900) {
+    const e = Math.pow((t - 300) / 600, 2);                // gravity-shaped fall
+    L.scale.set(1.1 - 0.1 * e, 0.5 + 0.35 * e, 1.1 - 0.1 * e);
+    L.rotation.set(0.25 * (1 - e), 0, dir * (Math.PI / 2) * e);
+  } else {
+    const s = Math.min(1, (t - 900) / 300);
+    const wob = (1 - s) * Math.sin(s * 12) * 0.10;         // settle bounce
+    L.scale.set(1, 0.85, 1);
+    L.rotation.set(0, 0, dir * (Math.PI / 2 + wob));
+  }
+}
+
+// ══════════════════════════ Tick ══════════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const rdt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+
+  // KO slow-mo: quarter speed for 400ms after the KO lands, then ramp back.
+  let timeScale = 1;
+  if (state.koFired) {
+    const since = now - state.koRealStart;
+    if (since < 400) timeScale = 0.22;
+    else if (since < 750) timeScale = 0.22 + 0.78 * ((since - 400) / 350);
+  }
+  const dt = rdt * timeScale;
+  gt += dt * 1000;
+  const ts = gt / 1000;
+
+  // Punches that are due to land
+  if (pendingImpacts.length) {
+    const due = pendingImpacts.filter(i => gt >= i.at);
+    pendingImpacts = pendingImpacts.filter(i => gt < i.at);
+    for (const imp of due) landImpact(imp);
+  }
+
+  // Opponent spring back to home after shoves
+  opp.vel.x += (opp.home.x - opp.g.position.x) * 40 * dt;
+  opp.vel.y += (opp.home.y - opp.g.position.y) * 45 * dt;
+  opp.vel.z += (opp.home.z - opp.g.position.z) * 40 * dt;
+  opp.vel.multiplyScalar(0.86);
+  opp.g.position.addScaledVector(opp.vel, dt);
+
+  // ── Fighter poses: reset, idle, then the active action on top ──
+  resetPose(player);
+  applyIdle(player, ts);
+  if (player.act) applyPunch(player, player.act);
+
+  resetPose(opp);
+  if (state.koFired) {
+    applyKO(opp);
+  } else {
+    applyIdle(opp, ts);
+    if (opp.act) applyReaction(opp, opp.act);
+  }
+
+  // Red flash on the opponent's body while a hit lands
+  if (opp.bodyMat) {
+    opp.bodyMat.color.setHex(gt < opp.flashUntil ? 0xff4444 : opp.bodyBaseHex);
+  }
+
+  // ── Drift clouds (real time — unaffected by slow-mo) ──
+  for (const cloud of clouds) {
+    cloud.position.x += cloud.userData.driftSpeed * rdt;
+    if (cloud.position.x > 16) cloud.position.x = -16;
+  }
+
+  // ── Camera: home framing → KO push-in on the crumpled opponent + shake ──
+  const camPos = camHome.clone();
+  const camLook = lookHome.clone();
+  if (state.koFired) {
+    const cp = easeInOut(clamp01((gt - state.koStartGt) / 1400));
+    camPos.lerp(koCamPos, cp);
+    camLook.lerp(new THREE.Vector3(state.koDir * 0.5, 0.35, opp.home.z), cp);
+  }
+  const shake = state.camShake.until > now ? (state.camShake.until - now) / 280 : 0;
+  camPos.x += (Math.random() - 0.5) * state.camShake.amp * shake;
+  camPos.y += (Math.random() - 0.5) * state.camShake.amp * shake * 0.6;
+  camera.position.copy(camPos);
+  camera.lookAt(camLook);
+
+  // ── FOV punch: zoom in fast (60ms), zoom back slow (200ms) ──
+  if (camFx.phase === 'in') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 60);
+    camera.fov = camFx.fov + (camFx.target - camFx.fov) * p;
+    if (p >= 1) { camFx.fov = camera.fov; camFx.phase = 'out'; camFx.until = now + 200; }
+    camera.updateProjectionMatrix();
+  } else if (camFx.phase === 'out') {
+    const p = Math.min(1, 1 - (camFx.until - now) / 200);
+    camera.fov = camFx.fov + (BASE_FOV - camFx.fov) * p;
+    if (p >= 1) { camera.fov = BASE_FOV; camFx.fov = BASE_FOV; camFx.phase = 'idle'; }
+    camera.updateProjectionMatrix();
+  }
+
+  // Light decay + stamina regen (real time)
+  impactLight.intensity *= 0.88;
+  state.p1.stamina = Math.min(100, state.p1.stamina + 18 * rdt);
+  state.p2.stamina = Math.min(100, state.p2.stamina + 18 * rdt);
+  if (now - state.lastHitAt > 900) state.p1.combo = Math.max(0, state.p1.combo - 60 * rdt);
+  refreshHud();
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ══════════════════════════ Serial wire-up ══════════════════════════
+const ARM_NAME = { 0: 'A', 1: 'B' };
+const $dbg = document.getElementById('debug-feats');
+const $tuneLog = document.getElementById('tune-log');
+const $tuneCount = document.getElementById('tune-log-count');
+let tuneRowCount = 0;
+
+const dispatcher = new ArmDispatcher((armId, g) => {
+  const f = g.features || {};
+  const arm = ARM_NAME[armId] ?? armId;
+  if ($dbg) {
+    $dbg.innerHTML =
+      `<b>${g.gesture}</b> · pwr ${g.power.toFixed(2)} · arm ${arm}<br>` +
+      `a_h ${(f.horiz||0).toFixed(1)} · up ${(f.up||0).toFixed(1)} · dynA ${(f.dynA||0).toFixed(1)}<br>` +
+      `wH ${(f.wHoriz||0).toFixed(0)} · wY ${(f.wYaw||0).toFixed(0)} · |w| ${(f.wmag||0).toFixed(0)}`;
+  }
+  if ($tuneLog) {
+    const row = `${g.gesture.padEnd(9)} a_h=${(f.horiz||0).toFixed(1).padStart(5)} up=${(f.up||0).toFixed(1).padStart(5)} down=${(f.down||0).toFixed(1).padStart(5)} dynA=${(f.dynA||0).toFixed(1).padStart(5)} wH=${(f.wHoriz||0).toFixed(0).padStart(4)} wY=${(f.wYaw||0).toFixed(0).padStart(4)} |w|=${(f.wmag||0).toFixed(0).padStart(4)}\n`;
+    $tuneLog.value += row;
+    $tuneLog.scrollTop = $tuneLog.scrollHeight;
+    tuneRowCount++;
+    if ($tuneCount) $tuneCount.textContent = `${tuneRowCount} row${tuneRowCount === 1 ? '' : 's'}`;
+  }
+  applyGesture(g, armId);
+});
+
+// Log controls
+document.getElementById('tune-log-copy')?.addEventListener('click', async () => {
+  if (!$tuneLog?.value) return;
+  try { await navigator.clipboard.writeText($tuneLog.value); }
+  catch { $tuneLog.select(); document.execCommand('copy'); }
+});
+document.getElementById('tune-log-clear')?.addEventListener('click', () => {
+  if ($tuneLog) $tuneLog.value = '';
+  tuneRowCount = 0;
+  if ($tuneCount) $tuneCount.textContent = '0 rows';
+});
+
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => dispatcher.onLine(line),
+  onOpen: () => {
+    $stat.textContent = 'hub connected';
+    $stat.classList.add('connected');
+    document.body.classList.add('game-active');
+    $title.classList.add('hidden');
+  },
+  onClose: () => {
+    $stat.textContent = 'hub disconnected';
+    $stat.classList.remove('connected');
+  },
+  onError: () => {
+    $stat.textContent = 'hub error, try again';
+    $stat.classList.remove('connected');
+  },
+};
+
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $stat.textContent = 'choosing port…';
+    await openSerial(serialHandlers);
+  } catch (e) {
+    $stat.textContent = 'connect hub';
+    $stat.classList.remove('connected');
+  }
+});
+
+// Silent reconnect on page load if the hub was previously authorized.
+autoOpenSerial(serialHandlers).catch(() => {});
+
+// Dev shortcut: j/h/u = right; J/H/U (shift) = left.
+addEventListener('keydown', (e) => {
+  const map = { j:'jab', h:'hook', u:'uppercut' };
+  const key = e.key.toLowerCase();
+  if (map[key]) {
+    const armId = (e.key === e.key.toUpperCase() && e.key !== e.key.toLowerCase()) ? 1 : 0;
+    document.body.classList.add('game-active');
+    applyGesture({ gesture: map[key], power: 0.7 + Math.random()*0.3 }, armId);
+  }
+});
+</script>
+</body>
+</html>

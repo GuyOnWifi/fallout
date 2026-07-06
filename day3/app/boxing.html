@@ -203,6 +203,9 @@
              font-size:10px; letter-spacing:.04em; color:var(--ink);
              opacity:.45; font-weight:600; pointer-events:none; }
   @media (max-width: 640px) { #devhint { display:none; } }
+  /* Hide dev-only chrome (training-data log + keyboard hint) unless ?dev is set.
+     See top-of-body script that stamps html.dev. */
+  html:not(.dev) #tune-log-wrap, html:not(.dev) #devhint, html:not(.dev) #debug-feats { display:none !important; }
 
   /* Title on the pre-game screen */
   #title { position:absolute; top:26%; left:50%;
@@ -376,19 +379,26 @@
 </head>
 <body>
 
+<script>
+  // ?dev in the URL unlocks the training-log panel + keyboard hint.
+  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+    document.documentElement.classList.add('dev');
+  }
+</script>
+
 <a id="back" class="ss-btn" href="index.html">← menu</a>
 
 <div id="title">SOUP <span class="accent">BOXING</span><small>gloves on, he's waiting</small></div>
 
 <div id="hud">
   <div class="hud-panel hud-p1">
-    <div class="label">you</div>
+    <div class="label" id="p1-label">player a</div>
     <div class="bar-container"><div class="health-bar" id="p1-hp"></div></div>
     <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p1-stam"></div></div>
     <div class="bar-container combo-bar-container"><div class="combo-bar" id="p1-combo"></div></div>
   </div>
   <div class="hud-panel hud-p2">
-    <div class="label">soup</div>
+    <div class="label" id="p2-label">player b</div>
     <div class="bar-container"><div class="health-bar" id="p2-hp"></div></div>
     <div class="bar-container stamina-bar-container"><div class="stamina-bar" id="p2-stam"></div></div>
     <div class="bar-container combo-bar-container"><div class="combo-bar" id="p2-combo"></div></div>
@@ -401,24 +411,26 @@
 <div id="tutorial">
   <div class="tut-card jab">
     <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M8 26 L62 26"/>
-      <path d="M52 16 L66 26 L52 36"/>
+      <path d="M10 26 L60 26"/>
+      <path d="M49 14 L66 26 L49 38"/>
     </svg>
     <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Jab</div>
   </div>
   <div class="tut-card hook">
     <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M10 42 Q 22 6 68 22"/>
-      <path d="M58 12 L70 22 L58 30"/>
+      <path d="M24 41 A 18 16 0 1 1 55 40"/>
+      <path d="M62 31 L54 43 L42 38"/>
     </svg>
     <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Hook</div>
   </div>
   <div class="tut-card uppercut">
     <svg viewBox="0 0 78 52" fill="none" stroke="#1c2a3a" stroke-width="3" stroke-linecap="round">
-      <path d="M39 46 L39 8"/>
-      <path d="M28 18 L39 6 L50 18"/>
+      <path d="M39 27 L39 8"/>
+      <path d="M29 17 L39 6 L49 17"/>
+      <path d="M29 40 C29 33.5 33.5 31 39 31 C44.5 31 49 33.5 49 40 C49 45 44.5 48 39 48 C33.5 48 29 45.5 29 40 Z" fill="#ff9663" stroke-linejoin="round"/>
+      <path d="M44 34 C48.5 34 49.5 39.5 45.5 41.5 C42.5 43 40.5 41 40.5 38.5"/>
     </svg>
     <div class="tut-glove"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 7 C2.8 4.2 5 2.6 8 2.7 C11.2 2.9 13.2 4.6 12.8 7.3 C12.5 9.2 11 10.3 8.8 10.5 L5.6 10.6 C4.2 10.4 3.5 9 3.2 7 Z" fill="#ff9663" stroke="#1c2a3a" stroke-width="1.5"/><path d="M5.4 10.7 L5.2 13.4 L9.8 13.6 L9.7 10.6 Z" fill="#fbf3e0" stroke="#1c2a3a" stroke-width="1.5"/></svg></div>
     <div class="name">Uppercut</div>
@@ -462,6 +474,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
+import { pairing } from './pairing.js';
 
 // ══════════════════════════ Scene ══════════════════════════
 const SKY_HEX = 0x7bd3ee;
@@ -734,7 +747,8 @@ const state = {
   koFired: false,
   koStartGt: 0,     // game-clock ms when the KO landed
   koRealStart: 0,   // performance.now() when the KO landed (drives slow-mo)
-  koDir: -1,        // which side the opponent topples toward
+  koDir: -1,        // which side the loser topples toward
+  koLoser: null,    // fighter reference — set at KO time
 };
 
 const DMG = { jab: 6, hook: 10, uppercut: 14 };
@@ -888,48 +902,66 @@ function applyGesture(g, armId = 0) {
   const spec = PUNCH[g.gesture];
   if (!dmgBase || !spec) return;
 
-  // Character-local x of the punching arm (right hand lives at local -X),
-  // and the world-x direction the hit knocks the opponent toward.
-  const side = (armId === 1) ? 1 : -1;
-  const dir  = (armId === 1) ? 1 : -1;
+  // Player A → player fighter (LHS HUD, attacks opp). Player B → opp fighter.
+  // Arm ids are now MAC-derived (5-digit ints), so we route through pairing
+  // rather than a fixed armId===0/1 check. Unpaired arms default to A.
+  const attackerIsOpp = (pairing.playerForArm(armId) === 'B');
+  const attacker     = attackerIsOpp ? opp    : player;
+  const attackerStat = attackerIsOpp ? state.p2 : state.p1;
 
-  // Player swings now; everything else waits until the paw connects.
-  player.act = { name: g.gesture, start: gt, dur: spec.dur, side, power: g.power };
+  // Both mascots share the same rig — right hand is always at local -X. So
+  // the attacker always uses side=-1. The world-X knockback direction is
+  // whichever way the defender lives from the attacker.
+  const side = -1;
+  // World-x direction the defender gets knocked (away from the attacker).
+  // Player sits at x=+0.35, opp at x=0 — player→opp shoves opp toward -X,
+  // opp→player shoves player toward +X.
+  const dir  = attackerIsOpp ? +1 : -1;
 
-  const staminaMul = state.p1.stamina > 20 ? 1.0 : 0.5;
+  attacker.act = { name: g.gesture, start: gt, dur: spec.dur, side, power: g.power };
+
+  const staminaMul = attackerStat.stamina > 20 ? 1.0 : 0.5;
   const dmg = Math.round(dmgBase * (0.5 + 0.9 * g.power) * staminaMul);
-  state.p1.stamina = Math.max(0, state.p1.stamina - STAM_COST[g.gesture]);
+  attackerStat.stamina = Math.max(0, attackerStat.stamina - STAM_COST[g.gesture]);
   refreshHud();
 
-  pendingImpacts.push({ at: gt + spec.impact, gesture: g.gesture, power: g.power, dmg, dir, spec });
+  pendingImpacts.push({
+    at: gt + spec.impact, gesture: g.gesture, power: g.power, dmg, dir, spec,
+    attackerArm: armId,
+  });
 }
 
 function landImpact(imp) {
   if (state.koFired) return;
-  const { gesture, power, dmg, dir, spec } = imp;
+  const { gesture, power, dmg, dir, spec, attackerArm } = imp;
 
-  // HP capped at 100 while tuning the classifier — opponent never KOs.
-  // Restore `state.p2.hp = Math.max(0, state.p2.hp - dmg);` when ready.
-  state.p2.hp = 100;
+  const attackerIsOpp = (pairing.playerForArm(attackerArm) === 'B');
+  const attackerStat = attackerIsOpp ? state.p2 : state.p1;
+  const defenderStat = attackerIsOpp ? state.p1 : state.p2;
+  const defender     = attackerIsOpp ? player   : opp;
+
+  defenderStat.hp = Math.max(0, defenderStat.hp - dmg);
   const now = performance.now();
-  if (now - state.lastHitAt < 900) state.p1.combo = Math.min(100, state.p1.combo + 15);
-  else                             state.p1.combo = 15;
+  if (now - state.lastHitAt < 900) attackerStat.combo = Math.min(100, attackerStat.combo + 15);
+  else                             attackerStat.combo = 15;
   state.lastHitAt = now;
   refreshHud();
 
-  // Opponent reaction animation + physical shove + red flash
-  opp.act = { name: spec.react, start: gt, dur: spec.reactDur, dir, power };
-  opp.flashUntil = gt + 130;
-  if (gesture === 'jab')       { opp.vel.z += -0.5 * power; }
-  else if (gesture === 'hook') { opp.vel.x += dir * 0.9 * power; opp.vel.z += -0.35 * power; }
-  else                         { opp.vel.z += -0.3 * power; }
+  // Defender's reaction animation + physical shove + red flash.
+  defender.act = { name: spec.react, start: gt, dur: spec.reactDur, dir, power };
+  defender.flashUntil = gt + 130;
+  const backZ = attackerIsOpp ? +1 : -1;  // z direction the defender gets shoved
+  if (gesture === 'jab')       { defender.vel.z += backZ * 0.5 * power; }
+  else if (gesture === 'hook') { defender.vel.x += dir * 0.9 * power; defender.vel.z += backZ * 0.35 * power; }
+  else                         { defender.vel.z += backZ * 0.3 * power; }
 
-  // Screen feedback at the opponent's head
+  // Screen feedback at the defender's head.
   state.camShake.until = now + 280;
   state.camShake.amp = 0.05 + 0.14 * power;
   impactLight.intensity = 3 + 8 * power;
+  impactLight.position.set(defender.g.position.x, 1.6, defender.g.position.z);
 
-  const headWorld = new THREE.Vector3(dir * 0.25, 1.2, opp.g.position.z);
+  const headWorld = new THREE.Vector3(defender.g.position.x + dir * 0.25, 1.2, defender.g.position.z);
   headWorld.project(camera);
   const px = (headWorld.x *  0.5 + 0.5) * innerWidth;
   const py = (headWorld.y * -0.5 + 0.5) * innerHeight;
@@ -938,13 +970,14 @@ function landImpact(imp) {
   spawnSparks(px, py, power);
   fovPunch(power);
 
-  if (state.p2.hp <= 0 && !state.koFired) {
+  if (defenderStat.hp <= 0 && !state.koFired) {
     state.koFired = true;
     state.koStartGt = gt;
     state.koRealStart = now;
     state.koDir = (gesture === 'hook') ? dir : -1;
+    state.koLoser = defender;  // which fighter crumples
     fireKO();
-    log('KO');
+    log(`KO — player ${attackerIsOpp ? 'B' : 'A'} wins`);
   }
 }
 
@@ -1137,28 +1170,29 @@ function tick() {
   }
 
   // Opponent spring back to home after shoves
-  opp.vel.x += (opp.home.x - opp.g.position.x) * 40 * dt;
-  opp.vel.y += (opp.home.y - opp.g.position.y) * 45 * dt;
-  opp.vel.z += (opp.home.z - opp.g.position.z) * 40 * dt;
-  opp.vel.multiplyScalar(0.86);
-  opp.g.position.addScaledVector(opp.vel, dt);
-
-  // ── Fighter poses: reset, idle, then the active action on top ──
-  resetPose(player);
-  applyIdle(player, ts);
-  if (player.act) applyPunch(player, player.act);
-
-  resetPose(opp);
-  if (state.koFired) {
-    applyKO(opp);
-  } else {
-    applyIdle(opp, ts);
-    if (opp.act) applyReaction(opp, opp.act);
+  for (const f of [player, opp]) {
+    f.vel.x += (f.home.x - f.g.position.x) * 40 * dt;
+    f.vel.y += (f.home.y - f.g.position.y) * 45 * dt;
+    f.vel.z += (f.home.z - f.g.position.z) * 40 * dt;
+    f.vel.multiplyScalar(0.86);
+    f.g.position.addScaledVector(f.vel, dt);
   }
 
-  // Red flash on the opponent's body while a hit lands
-  if (opp.bodyMat) {
-    opp.bodyMat.color.setHex(gt < opp.flashUntil ? 0xff4444 : opp.bodyBaseHex);
+  // ── Fighter poses: reset, idle, then the active action on top ──
+  for (const f of [player, opp]) {
+    resetPose(f);
+    if (state.koFired && state.koLoser === f) {
+      applyKO(f);
+    } else {
+      applyIdle(f, ts);
+      if (f.act) {
+        if (f.act.name.startsWith('hit_')) applyReaction(f, f.act);
+        else                                applyPunch(f, f.act);
+      }
+    }
+    if (f.bodyMat) {
+      f.bodyMat.color.setHex(gt < f.flashUntil ? 0xff4444 : f.bodyBaseHex);
+    }
   }
 
   // ── Drift clouds (real time — unaffected by slow-mo) ──
@@ -1170,10 +1204,12 @@ function tick() {
   // ── Camera: home framing → KO push-in on the crumpled opponent + shake ──
   const camPos = camHome.clone();
   const camLook = lookHome.clone();
-  if (state.koFired) {
+  if (state.koFired && state.koLoser) {
     const cp = easeInOut(clamp01((gt - state.koStartGt) / 1400));
-    camPos.lerp(koCamPos, cp);
-    camLook.lerp(new THREE.Vector3(state.koDir * 0.5, 0.35, opp.home.z), cp);
+    const loserHome = state.koLoser.home;
+    const camTarget = new THREE.Vector3(loserHome.x + 1.0, 1.3, loserHome.z + 2.2);
+    camPos.lerp(camTarget, cp);
+    camLook.lerp(new THREE.Vector3(loserHome.x + state.koDir * 0.5, 0.35, loserHome.z), cp);
   }
   const shake = state.camShake.until > now ? (state.camShake.until - now) / 280 : 0;
   camPos.x += (Math.random() - 0.5) * state.camShake.amp * shake;
@@ -1207,7 +1243,7 @@ function tick() {
 requestAnimationFrame(tick);
 
 // ══════════════════════════ Serial wire-up ══════════════════════════
-const ARM_NAME = { 0: 'R', 1: 'L' };
+const armLabel = (id) => pairing.playerForArm(id) ?? (id === 1 ? 'B?' : 'A?');
 const $dbg = document.getElementById('debug-feats');
 const $tuneLog = document.getElementById('tune-log');
 const $tuneCount = document.getElementById('tune-log-count');
@@ -1215,7 +1251,7 @@ let tuneRowCount = 0;
 
 const dispatcher = new ArmDispatcher((armId, g) => {
   const f = g.features || {};
-  const arm = ARM_NAME[armId] ?? armId;
+  const arm = armLabel(armId);
   if ($dbg) {
     $dbg.innerHTML =
       `<b>${g.gesture}</b> · pwr ${g.power.toFixed(2)} · arm ${arm}<br>` +
@@ -1244,9 +1280,23 @@ document.getElementById('tune-log-clear')?.addEventListener('click', () => {
   if ($tuneCount) $tuneCount.textContent = '0 rows';
 });
 
+// Pull the HUD labels off pairing so the "you"/"soup" columns follow the
+// A/B assignment the user did on the menu. armId 0 is always the left HUD
+// column here — pairing.playerForArm() just decides which letter to print.
+const $p1Label = document.getElementById('p1-label');
+const $p2Label = document.getElementById('p2-label');
+function refreshPlayerLabels() {
+  const a1 = pairing.playerForArm(0);
+  const a2 = pairing.playerForArm(1);
+  $p1Label.textContent = a1 ? `player ${a1.toLowerCase()}` : 'wristband 0';
+  $p2Label.textContent = a2 ? `player ${a2.toLowerCase()}` : 'wristband 1';
+}
+pairing.onChange(refreshPlayerLabels);
+refreshPlayerLabels();
+
 const serialHandlers = {
   baud: 115200,
-  onLine: (line) => dispatcher.onLine(line),
+  onLine: (line) => { pairing.onLine(line); dispatcher.onLine(line); },
   onOpen: () => {
     $stat.textContent = 'hub connected';
     $stat.classList.add('connected');

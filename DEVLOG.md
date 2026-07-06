@@ -10,6 +10,46 @@ newest-first when scrolling.
 
 ---
 
+## §13. Universal wristband firmware — MAC-derived arm_id
+
+**The symptom.** With two wristbands live at the same time, the browser's
+pairing menu would only ever fill slot A. Slot B stayed empty. The user
+also had to remember which env to flash (`wrist_a` vs `wrist_b`), and any
+mismatched flash silently produced a "phantom" arm ID that no browser
+game would route correctly.
+
+**The debug.** Two compounding problems.
+1. ARM_ID was a compile-time constant (`-DARM_ID=0/1`) baked in per env.
+   Flash the wrong env and you got two wristbands claiming arm 0. The
+   dongle happily forwards both streams — they interleave into arm 0's
+   classifier state machine and neither works.
+2. Even after fixing #1, sessionStorage in pairing.js had a stale
+   `{ A: 0, B: 1 }` from the old two-arm world. New MAC-derived arm_ids
+   (5-digit ints like 33221) never matched, so slot A appeared "already
+   assigned" and the first shake fell through to slot B, leaving the
+   second wristband with nowhere to go.
+
+**The fix.** Two moves.
+1. In `wrist.cpp`, replace the `#define ARM_ID` with a runtime derivation:
+   `esp_read_mac(mac, ESP_MAC_WIFI_STA); arm_id = (mac[4]<<8) | mac[5];`
+   The last 2 bytes of the WiFi MAC are chip-unique (collisions at ~1 in
+   65k, comfortably below hackathon demo scale). One binary flashes any
+   wristband. Deleted the `wrist_a` / `wrist_b` envs from platformio.ini.
+2. In `pairing.js`, bump `STORE_KEY` from `v1` to `v2`. Old cached
+   assignments get invalidated the moment the page loads.
+
+Nothing on the browser side needed changes — `dispatch.js` and
+`pairing.js` already keyed on `armId` as an opaque integer, so the
+transition from 0/1 to 5-digit MAC ints was zero-refactor.
+
+**The lesson.** Compile-time device identity is a foot-gun for
+multi-device setups. Chip-unique identity (MAC, efuse) is free on ESP32
+and eliminates a whole class of "did I flash the right env" bugs. Persist
+state with a version key so schema changes don't strand users on stale
+caches.
+
+---
+
 ## §12. The §11 bug was hiding in three more files — full-UI design audit findings
 
 **The symptom.** A design audit pass over all six pages started from

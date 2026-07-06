@@ -148,6 +148,112 @@
     text-shadow: 0 2px 0 rgba(255,255,255,.5);
   }
 
+  /* ────────── controller pairing strip ────────── */
+  #pairing {
+    max-width: 640px; width: 100%; margin: 6px auto 8px;
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 10px; align-items: stretch;
+  }
+  .slot {
+    background: var(--cream);
+    border: 2.5px solid var(--ink);
+    border-radius: 16px;
+    padding: 10px 14px 9px;
+    box-shadow: 0 4px 0 var(--ink);
+    display: flex; align-items: center; gap: 12px;
+    position: relative;
+    transition: background 200ms, transform 200ms;
+    min-height: 62px;
+  }
+  .slot.armed { background: var(--cream-warm); }
+  .slot.live  { background: #d8f0c8; transform: translateY(-1px); }
+  .slot.live  { box-shadow: 0 5px 0 var(--ink), 0 0 0 3px var(--vine-bright) inset; }
+  .slot .letter {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--card-accent, var(--hot));
+    border: 2.5px solid var(--ink);
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 22px;
+    box-shadow: 0 3px 0 var(--ink);
+    flex-shrink: 0;
+  }
+  .slot[data-slot="A"] .letter { background: #ffb98e; }
+  .slot[data-slot="B"] .letter { background: #9dd9f2; }
+  .slot .meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .slot .name {
+    font-weight: 900; font-size: 14px; letter-spacing: -.01em;
+    color: var(--ink);
+  }
+  .slot .hint {
+    font-size: 11px; color: var(--ink-soft); font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .slot .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 0 2px rgba(43,30,20,.15);
+    flex-shrink: 0;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .slot.live .dot { background: var(--vine); animation: none; }
+  .slot.empty .dot { background: var(--cream-deep); animation: none; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: .55; }
+    50%      { transform: scale(1.25); opacity: 1; }
+  }
+  #swap-slots {
+    align-self: center;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: var(--cream);
+    border: 2.5px solid var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
+    font-size: 18px; font-weight: 900;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    transition: transform 120ms;
+  }
+  #swap-slots:hover { transform: translateY(-1px) rotate(180deg); }
+  #swap-slots:active { transform: translateY(1px); }
+  #swap-slots:disabled { opacity: .35; cursor: not-allowed; }
+
+  #pair-connect {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: 2px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    background: var(--hot);
+    color: var(--cream);
+    border: 2.5px solid var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
+    font-weight: 900; font-size: 13px; letter-spacing: .02em;
+    cursor: pointer;
+  }
+  #pair-connect:hover { transform: translateY(-1px); }
+  #pair-connect.hidden { display: none; }
+
+  #pair-hint {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin-top: 4px;
+    font-size: 12px; font-weight: 700;
+    color: var(--ink-soft); letter-spacing: .01em;
+    text-shadow: 0 1px 0 rgba(255,255,255,.55);
+    text-align: center;
+  }
+  @media (max-width: 480px) {
+    #pair-hint { font-size: 11px; padding: 0 8px; }
+  }
+
+  @media (max-width: 480px) {
+    #pairing { grid-template-columns: 1fr 1fr; }
+    #swap-slots { grid-column: 1 / -1; order: 3; }
+  }
+
   /* ────────── hero mascot canvas ────────── */
   #hero {
     position:relative;
@@ -477,6 +583,26 @@
     <div class="subhead">strap on a band and swing, Soup takes care of the rest</div>
   </div>
 
+  <div id="pairing">
+    <div class="slot empty" data-slot="A">
+      <div class="letter">A</div>
+      <div class="meta">
+        <div class="name">player a</div>
+        <div class="hint"><span class="dot"></span>&nbsp;waiting for a wave</div>
+      </div>
+    </div>
+    <button id="swap-slots" title="swap A and B" disabled>⇄</button>
+    <div class="slot empty" data-slot="B">
+      <div class="letter">B</div>
+      <div class="meta">
+        <div class="name">player b</div>
+        <div class="hint"><span class="dot"></span>&nbsp;waiting for a wave</div>
+      </div>
+    </div>
+    <button id="pair-connect">connect hub</button>
+    <div id="pair-hint">plug in the hub, then wave your wristband to claim a slot</div>
+  </div>
+
   <div id="hero">
     <div id="hero-placeholder"><div class="blob"></div></div>
   </div>
@@ -656,6 +782,127 @@ addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(initW(), initH());
 });
+
+// ────────── controller pairing ──────────
+import { openSerial, autoOpenSerial } from './serial.js';
+import { pairing } from './pairing.js';
+
+const $slotA = document.querySelector('.slot[data-slot="A"]');
+const $slotB = document.querySelector('.slot[data-slot="B"]');
+const $swap  = document.getElementById('swap-slots');
+const $pairConnect = document.getElementById('pair-connect');
+
+function refreshSlot($el, letter) {
+  const armId = pairing.armForPlayer(letter);
+  const $hint = $el.querySelector('.hint');
+  if (armId === null || armId === undefined) {
+    $el.classList.remove('armed', 'live');
+    $el.classList.add('empty');
+    $hint.innerHTML = '<span class="dot"></span>&nbsp;waiting for a wave';
+    return;
+  }
+  const live = pairing.isConnected(armId, 500);
+  $el.classList.remove('empty');
+  $el.classList.toggle('live', live);
+  $el.classList.toggle('armed', !live);
+  const label = live ? 'connected' : 'idle';
+  $hint.innerHTML = `<span class="dot"></span>&nbsp;wristband ${armId} · ${label}`;
+}
+
+function refreshAll() {
+  refreshSlot($slotA, 'A');
+  refreshSlot($slotB, 'B');
+  const both = pairing.armForPlayer('A') !== null && pairing.armForPlayer('B') !== null;
+  $swap.disabled = !both;
+}
+
+pairing.onChange(refreshAll);
+// Poll a couple times a second so the "live" pill drops when packets stop
+// coming (pairing.onChange fires only when a sample lands).
+setInterval(refreshAll, 300);
+refreshAll();
+
+// Physical shake feedback — the letter blob jitters proportionally to the
+// live dynA of the wristband mapped to that slot. Empty slots piggy-back
+// on the peak of any unassigned wristband so shaking a fresh band before
+// it claims a slot still gives a visual "yes, we hear you."
+const $letterA = $slotA.querySelector('.letter');
+const $letterB = $slotB.querySelector('.letter');
+
+function activityForSlot(letter) {
+  const armId = pairing.armForPlayer(letter);
+  if (armId !== null && armId !== undefined) {
+    if (!pairing.isConnected(armId, 250)) return 0;
+    const st = pairing.stats.get(armId);
+    return st ? st.lastPower : 0;
+  }
+  // Unassigned — hint from whichever unclaimed wristband is loudest right now.
+  let peak = 0;
+  for (const id of pairing.unassignedArms()) {
+    if (!pairing.isConnected(id, 250)) continue;
+    const st = pairing.stats.get(id);
+    if (st && st.lastPower > peak) peak = st.lastPower;
+  }
+  return peak;
+}
+
+function applyShake($letter, power) {
+  // dynA in m/s² — idle ~1-2, hint wave ~8-15, real shake ~25+.
+  const p = Math.max(0, Math.min(1, (power - 2) / 22));
+  if (p <= 0.01) { $letter.style.transform = ''; return; }
+  const amp = 2 + p * 9;      // px
+  const rot = p * 10;         // deg
+  const jx  = (Math.random() - 0.5) * amp;
+  const jy  = (Math.random() - 0.5) * amp;
+  const jr  = (Math.random() - 0.5) * rot;
+  $letter.style.transform = `translate(${jx.toFixed(1)}px, ${jy.toFixed(1)}px) rotate(${jr.toFixed(1)}deg)`;
+}
+
+(function shakeTick() {
+  applyShake($letterA, activityForSlot('A'));
+  applyShake($letterB, activityForSlot('B'));
+  requestAnimationFrame(shakeTick);
+})();
+
+$swap.addEventListener('click', () => pairing.swap());
+
+$slotA.addEventListener('click', () => {
+  if (pairing.armForPlayer('A') !== null) return;
+  // If only one arm has ever been seen, pin it to A.
+  const seen = [...pairing.stats.keys()].filter(id => pairing.playerForArm(id) === null);
+  if (seen.length === 1) pairing.assign('A', seen[0]);
+});
+$slotB.addEventListener('click', () => {
+  if (pairing.armForPlayer('B') !== null) return;
+  const seen = [...pairing.stats.keys()].filter(id => pairing.playerForArm(id) === null);
+  if (seen.length === 1) pairing.assign('B', seen[0]);
+});
+
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => pairing.onLine(line),
+  onOpen: () => {
+    $pairConnect.classList.add('hidden');
+  },
+  onClose: () => {
+    $pairConnect.classList.remove('hidden');
+    $pairConnect.textContent = 'reconnect hub';
+  },
+  onError: () => {
+    $pairConnect.classList.remove('hidden');
+  },
+};
+
+$pairConnect.addEventListener('click', async () => {
+  try {
+    $pairConnect.textContent = 'choosing port…';
+    await openSerial(serialHandlers);
+  } catch {
+    $pairConnect.textContent = 'connect hub';
+  }
+});
+
+autoOpenSerial(serialHandlers).catch(() => {});
 </script>
 </body>
 </html>

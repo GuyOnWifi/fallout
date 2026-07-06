@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Soup Games — Tennis</title>
+<title>Soup Sports — Tennis</title>
 <style>
   /* ── Soup Games palette (from index.html) ── */
   :root {
@@ -35,23 +35,47 @@
                             var(--water) 100%); }
   canvas { display:block; }
 
-  /* ── Score HUD ── */
+  /* ── Scoreboard HUD ── */
   #hud { position:absolute; top:14px; left:0; right:0; text-align:center;
          pointer-events:none; z-index:100; }
   @media (max-width: 640px) { #hud { top: 64px; } }
-  #score { display:inline-flex; align-items:center; gap:12px;
-           padding:8px 22px; background: var(--cream);
-           border: 3px solid var(--ink); border-radius: 16px;
-           box-shadow: 0 4px 0 var(--ink);
-           font-size:30px; font-weight:900; letter-spacing:-.02em; }
-  #score .you  { color: var(--hot);
-                 text-shadow: 0 3px 0 #a5471d; }
-  #score .cpu  { color: var(--ruin-blue);
-                 text-shadow: 0 3px 0 #1c3350; }
-  #score .dash { color: var(--ink-soft); font-weight: 800; }
-  #rally-wrap { margin-top:16px; display:flex; justify-content:center; }
+  #scoreboard {
+    display:inline-flex; align-items:stretch; gap:0;
+    background: var(--cream);
+    border: 3px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 4px 0 var(--ink);
+    overflow: hidden;
+    font-weight: 900; letter-spacing:-.01em;
+  }
+  #scoreboard .col {
+    display:flex; flex-direction:column; align-items:center;
+    padding: 8px 20px 6px; min-width: 130px;
+  }
+  #scoreboard .col.A .label { color: var(--hot); text-shadow: 0 2px 0 #a5471d; }
+  #scoreboard .col.B .label { color: var(--ruin-blue); text-shadow: 0 2px 0 #1c3350; }
+  #scoreboard .label { font-size: 13px; letter-spacing:.14em;
+                       text-transform: uppercase; font-weight: 800; }
+  #scoreboard .games { font-size: 32px; font-weight: 900; line-height: 1;
+                       color: var(--ink); margin-top: 2px; }
+  #scoreboard .point { font-size: 13px; letter-spacing:.06em; margin-top: 2px;
+                       color: var(--ink-soft); font-weight: 800; }
+  #scoreboard .serve-dot { font-size: 12px; margin-top: 2px; color: transparent;
+                           font-weight: 900; letter-spacing:.1em; }
+  #scoreboard .col.serving .serve-dot { color: var(--vine-deep); }
+  #scoreboard .col.serving .games { text-shadow: 0 3px 0 rgba(74,148,64,.35); }
+  #scoreboard .mid {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding: 4px 12px; background: var(--cream-deep);
+    border-left: 3px solid var(--ink); border-right: 3px solid var(--ink);
+    font-size: 10px; letter-spacing:.18em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 800; min-width: 96px;
+  }
+  #scoreboard .mid .call { color: var(--ink); font-size: 14px; letter-spacing:.02em;
+                           text-transform: none; margin-top: 2px; font-weight: 900; }
+
+  #rally-wrap { margin-top:12px; display:flex; justify-content:center; }
   #rally { display:inline-flex; align-items:center; gap:6px;
-           padding:6px 16px; background: rgba(255,255,255,.85);
+           padding:5px 14px; background: rgba(255,255,255,.85);
            border-radius: 999px;
            font-size:11px; letter-spacing:.28em; text-transform:uppercase;
            color: var(--ink); font-weight: 800;
@@ -77,44 +101,14 @@
     100% { transform: scale(1.15) rotate(4deg); }
   }
 
-  /* ── Gesture tutorial diagram (idle hint, wordless) ── */
-  #tutorial { position:absolute; left:50%; bottom:126px;
-              transform: translate(-50%,0);
-              display:flex; flex-direction:column; align-items:center;
-              pointer-events:none; z-index:94;
-              opacity:0; transition: opacity 320ms;
-              filter: drop-shadow(0 3px 0 rgba(28,42,58,.25)); }
-  #tutorial.show { opacity: 1; }
-  #tutorial .swing-scene { position:relative; width:150px; height:56px; }
-  #tutorial .arm {
-    position:absolute; left:12px; top:34px;
-    width:64px; height:10px; border-radius:6px;
-    background: linear-gradient(90deg, var(--hot), #ffbf94);
-    border: 2px solid var(--ink);
-    transform-origin: 6px 6px;
-    animation: swing-arm 1600ms ease-in-out infinite;
-  }
-  #tutorial .ball {
-    position:absolute; left:74px; top:24px;
-    width:16px; height:16px; border-radius:50%;
-    background:#d7e75a; border:2px solid var(--ink);
-    transform-origin: -60px 10px;
-    animation: swing-ball 1600ms ease-in-out infinite;
-  }
-  @keyframes swing-arm {
-    0%   { transform: rotate(-42deg); }
-    38%  { transform: rotate(-42deg); }
-    55%  { transform: rotate(38deg); }
-    72%  { transform: rotate(38deg); }
-    100% { transform: rotate(-42deg); }
-  }
-  @keyframes swing-ball {
-    0%   { transform: rotate(-42deg) translate(0,0); opacity:.9; }
-    38%  { transform: rotate(-42deg) translate(0,0); opacity:1; }
-    55%  { transform: rotate(38deg)  translate(28px,-4px); opacity:.7; }
-    72%  { transform: rotate(38deg)  translate(28px,-4px); opacity:0; }
-    100% { transform: rotate(-42deg) translate(0,0); opacity:.9; }
-  }
+  /* ── Pairing hint (single-player-fallback) ── */
+  #pair-hint { position:absolute; top:120px; left:50%; transform:translateX(-50%);
+               padding:7px 14px; background: rgba(28,42,58,.7);
+               color: var(--cream); border-radius: 999px;
+               font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+               font-weight: 800; z-index:99; opacity:0; transition: opacity 260ms;
+               pointer-events:none; }
+  #pair-hint.show { opacity: 1; }
 
   /* ── Point sparkle shower ── */
   #sparkles { position:absolute; inset:0; overflow:hidden;
@@ -144,15 +138,28 @@
             transition: opacity 220ms; }
   #prompt.hidden { opacity: 0; }
 
+  /* First-time swing hint — sits just under the prompt pill, fades after the
+     first detected swing (body.has-gestured). Cream text with an ink outline
+     to stay legible over the bright sky background. */
+  #howto {
+    position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+    font-size:12px; font-weight:800; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--cream);
+    text-shadow: 0 2px 0 var(--ink), 0 0 6px rgba(28,42,58,.6);
+    white-space:nowrap; z-index:99; pointer-events:none;
+    transition:opacity 500ms ease;
+  }
+  body.has-gestured #howto { opacity:0; }
+
   /* ── Center gesture flash ── */
   #gesture { position:absolute; top:38%; left:50%;
              transform:translate(-50%,-50%) scale(1);
-             font-size:64px; font-weight:900; letter-spacing:-.02em;
+             font-size:56px; font-weight:900; letter-spacing:-.02em;
              text-shadow:0 5px 0 var(--ink), 0 8px 24px rgba(28,42,58,.4);
              opacity:0; transition:opacity 90ms, transform 140ms;
              pointer-events:none; z-index:95; color: var(--hot); }
   #gesture.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-  @media (max-width: 640px) { #gesture { font-size:42px; } }
+  @media (max-width: 640px) { #gesture { font-size:38px; } }
 
   /* ── Hit confirm ── */
   .hit-confirm { position:absolute; inset:0;
@@ -196,19 +203,22 @@
     100% { opacity:0; transform:scale(1.7); }
   }
 
-  /* ── Point banner (POINT / OUT / GAME) ── */
+  /* ── Point banner ── */
   #banner { position:absolute; top:42%; left:50%;
             transform:translate(-50%,-50%) scale(1);
-            font-size:88px; font-weight:900; letter-spacing:-.03em;
+            font-size:64px; font-weight:900; letter-spacing:-.03em;
             text-transform:uppercase; opacity:0;
             text-shadow:0 6px 0 var(--ink), 0 10px 32px rgba(28,42,58,.4);
             transition:opacity 120ms, transform 200ms; pointer-events:none;
-            color: var(--hot); z-index:96; }
+            color: var(--hot); z-index:96; text-align:center; }
   #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1.15); }
-  #banner.cpu { color: var(--ruin-blue); }
+  #banner.b   { color: var(--ruin-blue); }
   #banner.miss{ color: var(--gold); }
+  #banner .sub { display:block; font-size: 28px; margin-top: 6px;
+                 font-weight: 800; letter-spacing:.02em; text-transform: none;
+                 text-shadow: 0 3px 0 var(--ink); }
 
-  /* ── Soup Games chrome (shared treatment across pages) ── */
+  /* ── Soup Games chrome ── */
   .ss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 10px 18px;
@@ -240,10 +250,12 @@
              font-size:10px; letter-spacing:.04em; color:var(--ink);
              opacity:.45; font-weight:600; pointer-events:none; }
   @media (max-width: 640px) { #devhint { display:none; } }
+  /* Hide dev-only chrome (training-data log + keyboard hint) unless ?dev is set. */
+  html:not(.dev) #tune-log-wrap, html:not(.dev) #devhint { display:none !important; }
 
   /* Tune log */
   #tune-log-wrap { position:absolute; top:16px; left:120px; z-index:131;
-                   display:flex; flex-direction:column; gap:6px; max-width:44vw; }
+                   display:flex; flex-direction:column; gap:6px; max-width:38vw; }
   #tune-log-controls { display:flex; gap:6px; align-items:center; }
   #tune-log-controls button {
     padding:6px 12px; border-radius:8px;
@@ -259,7 +271,7 @@
     padding:4px 10px; border-radius:999px;
   }
   #tune-log {
-    width:100%; height:220px; padding:10px 12px;
+    width:100%; height:200px; padding:10px 12px;
     background:rgba(28,42,58,.85); color:#f7f3e6;
     border:none; border-radius:8px;
     font-family:ui-monospace,Menlo,monospace;
@@ -270,22 +282,39 @@
 </head>
 <body>
 
+<script>
+  if (/[?&#]dev\b/.test(location.search + location.hash)) {
+    document.documentElement.classList.add('dev');
+  }
+</script>
+
 <div id="hud">
-  <div id="score">
-    <span class="you">you 0</span><span class="dash">·</span><span class="cpu">soup 0</span>
+  <div id="scoreboard">
+    <div class="col A" id="col-A">
+      <div class="label">player a</div>
+      <div class="games" id="games-A">0</div>
+      <div class="point" id="point-A">0</div>
+      <div class="serve-dot">serve</div>
+    </div>
+    <div class="mid">
+      <span>set to 3</span>
+      <span class="call" id="score-call">love–love</span>
+    </div>
+    <div class="col B" id="col-B">
+      <div class="label">player b</div>
+      <div class="games" id="games-B">0</div>
+      <div class="point" id="point-B">0</div>
+      <div class="serve-dot">serve</div>
+    </div>
   </div>
   <div id="rally-wrap"><span id="rally">rally 0</span></div>
 </div>
 
-<div id="tutorial">
-  <div class="swing-scene">
-    <div class="arm"></div>
-    <div class="ball"></div>
-  </div>
-</div>
+<div id="pair-hint">only one wristband paired · b is cpu · pair both on menu</div>
 
 <div id="sparkles"></div>
-<div id="prompt">give it a swing to serve</div>
+<div id="prompt">connect the hub to start</div>
+<div id="howto">swing your wristband like a racket</div>
 <div id="gesture"></div>
 <div id="banner"></div>
 <div class="hit-confirm" id="hit-confirm">
@@ -293,14 +322,14 @@
   <div class="ring"></div>
 </div>
 
-<div id="devhint">keys · space hit · a miss · n rush</div>
+<div id="devhint">keys · space swing for receiver</div>
 <div id="tune-log-wrap">
   <div id="tune-log-controls">
     <button id="tune-log-copy" type="button">copy</button>
     <button id="tune-log-clear" type="button">clear</button>
     <span id="tune-log-count">0 rows</span>
   </div>
-  <textarea id="tune-log" readonly placeholder="each swing logs one row here. throw a bunch, click copy, paste back."></textarea>
+  <textarea id="tune-log" readonly placeholder="each swing logs one row. throw a bunch, click copy, paste back."></textarea>
 </div>
 <button id="connect" class="ss-btn">connect hub</button>
 <a id="back" class="ss-btn" href="index.html">← menu</a>
@@ -317,16 +346,19 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { openSerial, autoOpenSerial } from './serial.js';
 import { ArmDispatcher } from './dispatch.js';
+import { pairing } from './pairing.js';
 
 // ═══════════════════════ Three.js scene ═══════════════════════
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x4fc0e3);   // sky-mid
-scene.fog = new THREE.Fog(0x4fc0e3, 24, 70);
+scene.background = new THREE.Color(0x4fc0e3);
+scene.fog = new THREE.Fog(0x4fc0e3, 30, 90);
 
+// Side-elevated view so both baselines fit in frame.
 const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
-const camHome = new THREE.Vector3(0, 3.4, 12.5);
+const camHome = new THREE.Vector3(9, 8.5, 16);
+const camLook = new THREE.Vector3(0, 0.8, 0);
 camera.position.copy(camHome);
-camera.lookAt(0, 0.5, 0);
+camera.lookAt(camLook);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);
@@ -348,29 +380,27 @@ rim.position.set(-4, 6, -6);
 scene.add(rim);
 
 // ── Court dimensions ──
+// Player A on +z (near) half. Player B on -z (far) half. Net at z=0.
 const COURT_W = 8.0;
 const COURT_L = 22.0;
 const HALF_L  = COURT_L / 2;
+const halfW   = COURT_W / 2;
 
-// Cream court plane
 const court = new THREE.Mesh(
   new THREE.PlaneGeometry(COURT_W + 3.0, COURT_L + 4.0),
   new THREE.MeshStandardMaterial({ color: 0xebd9a8, roughness: 0.9 })
 );
 court.rotation.x = -Math.PI/2;
-court.position.y = 0;
 scene.add(court);
 
-// Outer water surround
 const outer = new THREE.Mesh(
-  new THREE.PlaneGeometry(120, 120),
+  new THREE.PlaneGeometry(140, 140),
   new THREE.MeshStandardMaterial({ color: 0x37a7d0, roughness: 0.95 })
 );
 outer.rotation.x = -Math.PI/2;
 outer.position.y = -0.02;
 scene.add(outer);
 
-// Court lines helper
 function addLine(x1, z1, x2, z2, thickness = 0.08) {
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
@@ -383,7 +413,6 @@ function addLine(x1, z1, x2, z2, thickness = 0.08) {
   mesh.rotation.z = -Math.atan2(dz, dx);
   scene.add(mesh);
 }
-const halfW = COURT_W/2;
 addLine(-halfW, -HALF_L, -halfW,  HALF_L);
 addLine( halfW, -HALF_L,  halfW,  HALF_L);
 addLine(-halfW, -HALF_L,  halfW, -HALF_L);
@@ -392,7 +421,7 @@ addLine(-halfW, -HALF_L/2, halfW, -HALF_L/2);
 addLine(-halfW,  HALF_L/2, halfW,  HALF_L/2);
 addLine(0, -HALF_L/2, 0, HALF_L/2);
 
-// ── Net (cream w/ ink top) ──
+// ── Net ──
 const netGroup = new THREE.Group();
 const netMat = new THREE.MeshStandardMaterial({
   color: 0xfbf3e0, roughness: 0.9, transparent: true, opacity: 0.75, side: THREE.DoubleSide });
@@ -409,15 +438,13 @@ const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.0, 12);
 const postMat = new THREE.MeshStandardMaterial({ color: 0x1c2a3a, roughness: 0.7 });
 [-1, 1].forEach(s => {
   const post = new THREE.Mesh(postGeo, postMat);
-  post.position.set(s * (COURT_W/2 + 0.75), 0.5, 0);
+  post.position.set(s * (halfW + 0.75), 0.5, 0);
   netGroup.add(post);
 });
 scene.add(netGroup);
 
 // ── Clouds ──
 const clouds = [];
-// Cheerful puffy clouds — unlit white so they never take shadow tones
-// and never fade into the fog.
 const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
 for (let i = 0; i < 7; i++) {
   const cloud = new THREE.Group();
@@ -438,93 +465,83 @@ for (let i = 0; i < 7; i++) {
   scene.add(cloud);
 }
 
-// ═══════════════════════ CPU opponent (mascot) ═══════════════════════
-//
-// The GLB loads async. Until it lands, we render a chunky cream placeholder
-// so the scene never looks empty and the game logic (which reads cpu.position)
-// keeps working. Once the mascot arrives, we swap it into the same Group.
+// ═══════════════════════ Player mascots ═══════════════════════
+// Two identical soup mascots, retinted per player. Both loaded from the same
+// GLB — see soup/HANDOFF.md. Placeholder shows until the GLB lands.
+const MASCOT_SCALE = 0.012;
+const BASE_Z_A =  HALF_L - 3.5;   // player A near baseline (+z)
+const BASE_Z_B = -HALF_L + 3.5;   // player B far  baseline (-z)
 
-const CPU_SCALE = 0.012;
-const cpu = new THREE.Group();
-cpu.position.set(0, 0, -HALF_L + 3.5);
-scene.add(cpu);
+function makePlaceholder(tint) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 20, 16),
+    new THREE.MeshStandardMaterial({ color: tint, roughness: 0.85 })
+  );
+  body.position.y = 0.55;
+  g.add(body);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 20, 16),
+    new THREE.MeshStandardMaterial({ color: tint, roughness: 0.85 })
+  );
+  head.position.y = 1.15;
+  g.add(head);
+  return g;
+}
 
-// Cream placeholder — same silhouette-ish shape as soup, sized to match
-// the mascot so the framing doesn't shift when the GLB swaps in.
-const placeholder = new THREE.Group();
-const phBody = new THREE.Mesh(
-  new THREE.SphereGeometry(0.55, 20, 16),
-  new THREE.MeshStandardMaterial({ color: 0xb8d4e8, roughness: 0.85 })
-);
-phBody.position.y = 0.55;
-placeholder.add(phBody);
-const phHead = new THREE.Mesh(
-  new THREE.SphereGeometry(0.42, 20, 16),
-  new THREE.MeshStandardMaterial({ color: 0xb8d4e8, roughness: 0.85 })
-);
-phHead.position.y = 1.15;
-placeholder.add(phHead);
-cpu.add(placeholder);
+// Group per player — game logic reads .position, animation lives on inner mesh.
+const soupA = new THREE.Group();
+soupA.position.set(0, 0, BASE_Z_A);
+// Turn the whole GROUP 180° around world Y so player A faces the net (-z).
+// Do NOT stack rotation.y on top of the mascot's own rotation.x flip — that
+// combo lands the mascot upside-down / below the floor (DEVLOG §11, §12).
+soupA.rotation.y = Math.PI;
+scene.add(soupA);
+const soupB = new THREE.Group();
+soupB.position.set(0, 0, BASE_Z_B);
+scene.add(soupB);
 
-// Handles for procedural animation. Populated when GLB loads.
-let soupMascot = null;
-let soupPaws   = null;
-let soupBaseY  = 0;
+const phA = makePlaceholder(0xff9663); soupA.add(phA);
+const phB = makePlaceholder(0xf6e9c9); soupB.add(phB);
 
-// Swing / miss animation state
-const soupAnim = {
-  swingStart: 0,   // 0 = not swinging
-  missStart:  0,
-  hopStart:   0,   // celebratory hop
+const mascot = { A: { mesh: null, paws: null }, B: { mesh: null, paws: null } };
+const anim = {
+  A: { swingStart: 0, missStart: 0, hopStart: 0 },
+  B: { swingStart: 0, missStart: 0, hopStart: 0 },
 };
-const playerAnim = {
-  hopStart: 0,
-};
-
-// Player-side soup — dropped below camera, visible if you tilt down.
-let playerSoup = null;
 
 const loader = new GLTFLoader();
 loader.load('assets/mascot.glb', (gltf) => {
   try {
-    // ── CPU mascot ──
-    const soup = gltf.scene;
-    soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
-    soup.scale.setScalar(CPU_SCALE);
-    soup.rotation.x = -Math.PI / 2;
-    // No y-flip: after the x-flip the mascot faces +Z toward camera/player,
-    // which is exactly what a CPU on the far baseline should do.
-    // Retint body: soft blue-cream, distinct from player-side hot orange
-    // Cool teal-blue tint distinct from player-side hot orange AND sky/court.
-    const body = soup.getObjectByName('body');
-    if (body) body.material.color.setHex(0x6fb3c8);
-    const ears = soup.getObjectByName('ears');
-    if (ears) ears.material.color.setHex(0x4d8fa5);
-    soupPaws = soup.getObjectByName('paws');
+    // Player A — near baseline, hot orange, faces -z (toward net/B)
+    const a = gltf.scene.clone(true);
+    a.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    a.scale.setScalar(MASCOT_SCALE);
+    a.rotation.x = -Math.PI / 2;
+    // NO rotation.y on the mascot itself — the parent group soupA handles the
+    // 180° turn. Stacking both rotations here reproduces DEVLOG §11's
+    // upside-down-mascot / invisible-mascot bug.
+    const aBody = a.getObjectByName('body');   if (aBody) aBody.material.color.setHex(0xff9663);
+    const aEars = a.getObjectByName('ears');   if (aEars) aEars.material.color.setHex(0xa5471d);
+    const aPaws = a.getObjectByName('paws');   if (aPaws) aPaws.material.color.setHex(0xff9663);
+    soupA.remove(phA); soupA.add(a);
+    mascot.A.mesh = a; mascot.A.paws = aPaws;
 
-    // Remove placeholder, add mascot
-    cpu.remove(placeholder);
-    cpu.add(soup);
-    soupMascot = soup;
-    soupBaseY = 0;
-
-    // ── Player-side soup (out of primary view) ──
-    const ps = gltf.scene.clone(true);
-    ps.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
-    ps.scale.setScalar(0.008);
-    ps.rotation.x = -Math.PI / 2;
-    // Faces +Z by default → toward net after clone (no y flip)
-    const pBody = ps.getObjectByName('body');
-    if (pBody) pBody.material.color.setHex(0xffbfa0);   // warm hot-adjacent
-    const pPaws = ps.getObjectByName('paws');
-    if (pPaws) pPaws.material.color.setHex(0xffbfa0);
-    // Position: on the near baseline, off to the side so camera catches him
-    // if the player tilts down. Below primary framing.
-    ps.position.set(-1.6, 0, HALF_L - 0.6);
-    playerSoup = ps;
-    scene.add(ps);
+    // Player B — far baseline, teal-blue, faces +z (toward net/A)
+    const b = gltf.scene.clone(true);
+    b.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+    b.scale.setScalar(MASCOT_SCALE);
+    b.rotation.x = -Math.PI / 2;
+    // no y-flip: mascot faces +z by default → toward the net
+    // Player B — warm cream/taupe (matches boxing's CPU tint), visually
+    // distinct from player A's hot-orange without breaking the palette.
+    const bBody = b.getObjectByName('body');   if (bBody) bBody.material.color.setHex(0xf6e9c9);
+    const bEars = b.getObjectByName('ears');   if (bEars) bEars.material.color.setHex(0xc9a672);
+    const bPaws = b.getObjectByName('paws');   if (bPaws) bPaws.material.color.setHex(0xf6e9c9);
+    soupB.remove(phB); soupB.add(b);
+    mascot.B.mesh = b; mascot.B.paws = bPaws;
   } catch (err) {
-    console.warn('mascot setup failed, keeping placeholder:', err);
+    console.warn('mascot setup failed, keeping placeholders:', err);
   }
 }, undefined, (err) => {
   console.warn('mascot.glb load failed — placeholder stays:', err);
@@ -537,7 +554,7 @@ const ball = new THREE.Mesh(
     color: 0xdaff5a, roughness: 0.4,
     emissive: 0x556600, emissiveIntensity: 0.35 })
 );
-ball.position.set(0, 1.0, 10.5);
+ball.position.set(0, 1.0, BASE_Z_A);
 scene.add(ball);
 
 const ballShadow = new THREE.Mesh(
@@ -548,21 +565,17 @@ ballShadow.rotation.x = -Math.PI/2;
 ballShadow.position.y = 0.02;
 scene.add(ballShadow);
 
-// ── Ball trail: thick + glowy via layered lines + a sprite sparkle trail ──
+// ── Ball trail ──
 const TRAIL_LEN = 40;
 const trailPositions = new Float32Array(TRAIL_LEN * 3);
 const trailGeom = new THREE.BufferGeometry();
 trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-
-// Core bright line (yellow-green)
 const trailMatCore = new THREE.LineBasicMaterial({
   color: 0xeaff70, transparent: true, opacity: 0.95,
 });
 const trail = new THREE.Line(trailGeom, trailMatCore);
 scene.add(trail);
 
-// Sprite-based glow trail: growing/shrinking billboards per trail sample.
-// Sprite material is unlit, additive, so it reads as a warm ball glow.
 const trailSpriteCanvas = (() => {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -588,7 +601,6 @@ for (let i = 0; i < TRAIL_SPRITES; i++) {
   scene.add(s);
   trailSprites.push(s);
 }
-
 const trailBuf = [];
 function pushTrail(p) {
   trailBuf.push(p.clone());
@@ -600,16 +612,14 @@ function pushTrail(p) {
     trailPositions[i*3+2] = src.z;
   }
   trailGeom.attributes.position.needsUpdate = true;
-  // Position sprites along the trail buffer, newest = biggest+brightest.
   const bufLen = trailBuf.length;
   for (let i = 0; i < TRAIL_SPRITES; i++) {
-    // sample from the tail (newest) backward
     const idx = bufLen - 1 - Math.floor(i * (bufLen - 1) / (TRAIL_SPRITES - 1 || 1));
     const src = trailBuf[Math.max(0, idx)];
     const s = trailSprites[i];
     if (src) {
       s.position.copy(src);
-      const t = 1 - i / TRAIL_SPRITES;         // 1 near head, ~0 at tail
+      const t = 1 - i / TRAIL_SPRITES;
       s.scale.setScalar(0.18 + 0.42 * t);
       s.material.opacity = 0.9 * t * t;
     } else {
@@ -629,67 +639,83 @@ function clearTrail() {
 }
 
 // ═══════════════════════ Game state ═══════════════════════
-const PLAYER_BASE_Z = HALF_L - 0.8;
-const HIT_Z         = HALF_L - 1.2;
-const HITTABLE_MS   = 250;
-const AI_RETURN_RATE = 0.85;
+//
+// Rally state machine:
+//   'idle'         — game hasn't started (waiting for connect / pair)
+//   'serve_wait'   — ball pinned to server, waiting for their swing
+//   'in_flight'    — ball airborne heading to state.headingTo
+//   'point_end'    — banner up between points
+//   'game_end'     — banner up between games (or set)
+//
+// The ball's active-player side is state.headingTo. It flips ONCE per rally
+// stroke — inside processHit() the moment a receiver successfully returns.
+//
+// Server is state.server ('A' or 'B'). Server alternates every game
+// (standard tennis is one-server-per-game; we use whole-game alternation).
+//
+// Scoring: state.points['A' | 'B'] is 0..3 for 0/15/30/40, or 'AD' after
+// an advantage. Deuce = both at 3. First to 3 games wins the set.
+
+const HITTABLE_MS = 380;      // swing window around ball arrival
+const HITTABLE_LATE_MS = 100; // grace after arrival
+const SET_TARGET = 3;
+const G_ACCEL = 9.8;
 
 const state = {
   mode: 'idle',
-  server: 'you',
+  server: 'A',
+  headingTo: 'A',        // who ball is currently flying to (or serving to)
   ballVel: new THREE.Vector3(),
-  ballFrom: 'you',
   rally: 0,
-  scoreYou: 0,
-  scoreCpu: 0,
+  points: { A: 0, B: 0 },
+  games:  { A: 0, B: 0 },
   arriveTime: 0,
   hittableStart: 0,
   hittableEnd: 0,
   camShake: { until: 0, amp: 0 },
+  pvp: false,            // set true once both slots paired
+  cpuControls: null,     // 'A' or 'B' when non-pvp
 };
 
-const $score  = document.getElementById('score');
-const $rally  = document.getElementById('rally');
-const $prompt = document.getElementById('prompt');
-const $gest   = document.getElementById('gesture');
-const $banner = document.getElementById('banner');
-const $conf   = document.getElementById('hit-confirm');
-const $stat   = document.getElementById('connect'); // hub pill doubles as status
-const $tutorial = document.getElementById('tutorial');
+// Wire pvp/cpu once — recompute on pairing changes.
+function refreshMode() {
+  const armA = pairing.armForPlayer('A');
+  const armB = pairing.armForPlayer('B');
+  state.pvp = (armA !== null && armB !== null);
+  state.cpuControls = state.pvp ? null : (armA === null ? 'A' : 'B');
+  // Actually: whichever slot is EMPTY is CPU-controlled. If both empty, CPU
+  // controls B and player A takes any inbound arm (fallback single-player).
+  if (!state.pvp) {
+    state.cpuControls = (armB === null) ? 'B' : 'A';
+  }
+  document.getElementById('pair-hint').classList.toggle('show', !state.pvp);
+}
+
+pairing.onChange(refreshMode);
+refreshMode();
+
+// ── DOM handles ──
+const $rally    = document.getElementById('rally');
+const $prompt   = document.getElementById('prompt');
+const $gest     = document.getElementById('gesture');
+const $banner   = document.getElementById('banner');
+const $conf     = document.getElementById('hit-confirm');
+const $stat     = document.getElementById('connect');
 const $sparkles = document.getElementById('sparkles');
+const $gamesA   = document.getElementById('games-A');
+const $gamesB   = document.getElementById('games-B');
+const $pointA   = document.getElementById('point-A');
+const $pointB   = document.getElementById('point-B');
+const $call     = document.getElementById('score-call');
+const $colA     = document.getElementById('col-A');
+const $colB     = document.getElementById('col-B');
 
-// ── Tutorial overlay: show after 2s of no swing, hide once player swings. ──
-let lastSwingActivityAt = performance.now();
-let tutorialShown = false;
-function markSwingActivity() {
-  lastSwingActivityAt = performance.now();
-  if (tutorialShown) {
-    $tutorial.classList.remove('show');
-    tutorialShown = false;
-  }
-}
-function tutorialTick() {
-  const idleFor = performance.now() - lastSwingActivityAt;
-  const shouldShow = idleFor > 2000
-                  && state.mode === 'idle'
-                  && state.server === 'you'
-                  && state.ballFrom === 'you';
-  if (shouldShow && !tutorialShown) {
-    $tutorial.classList.add('show');
-    tutorialShown = true;
-  } else if (!shouldShow && tutorialShown) {
-    $tutorial.classList.remove('show');
-    tutorialShown = false;
-  }
-}
-
-// ── Sparkle shower on point win ──
 function sparkleShower(cx, cy, count = 18) {
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
     el.className = 'spark';
     el.style.background = Math.random() < 0.5 ? '#f4c95d' : (Math.random() < 0.5 ? '#fbf3e0' : '#ff9663');
-    const angle = (Math.random() - 0.5) * Math.PI * 1.1;   // spread outward
+    const angle = (Math.random() - 0.5) * Math.PI * 1.1;
     const dist  = 120 + Math.random() * 220;
     const dx = Math.sin(angle) * dist;
     const dy = 60 + Math.abs(Math.cos(angle)) * dist * 0.7;
@@ -705,12 +731,23 @@ function sparkleShower(cx, cy, count = 18) {
   }
 }
 
+function pointLabel(p) { return p === 'AD' ? 'AD' : ['0','15','30','40'][p]; }
+function scoreCall() {
+  const { A, B } = state.points;
+  if (A === 3 && B === 3) return 'deuce';
+  if (A === 'AD') return 'advantage a';
+  if (B === 'AD') return 'advantage b';
+  return `${pointLabel(A)}–${pointLabel(B)}`;
+}
+
 function refreshScore() {
-  $score.innerHTML =
-    `<span class="you">you ${state.scoreYou}</span>` +
-    `<span class="dash">·</span>` +
-    `<span class="cpu">soup ${state.scoreCpu}</span>`;
-  // Rally streak escalates visually at 3+.
+  $gamesA.textContent = state.games.A;
+  $gamesB.textContent = state.games.B;
+  $pointA.textContent = pointLabel(state.points.A);
+  $pointB.textContent = pointLabel(state.points.B);
+  $call.textContent = scoreCall();
+  $colA.classList.toggle('serving', state.server === 'A');
+  $colB.classList.toggle('serving', state.server === 'B');
   const r = state.rally;
   let streakClass = '';
   let flame = '';
@@ -734,15 +771,16 @@ function popGesture(text, color) {
   $gest.classList.remove('pop'); void $gest.offsetWidth;
   $gest.classList.add('pop');
   setTimeout(() => $gest.classList.remove('pop'), 420);
+  document.body.classList.add('has-gestured');
 }
 
-function popBanner(text, kind) {
+function popBanner(main, sub, kind) {
   $banner.className = '';
   if (kind) $banner.classList.add(kind);
-  $banner.textContent = text;
+  $banner.innerHTML = `${main}${sub ? `<span class="sub">${sub}</span>` : ''}`;
   void $banner.offsetWidth;
   $banner.classList.add('pop');
-  setTimeout(() => $banner.classList.remove('pop'), 900);
+  setTimeout(() => $banner.classList.remove('pop'), 1400);
 }
 
 function fireHitConfirm(worldPos, power) {
@@ -762,7 +800,9 @@ function shakeCamera(power) {
 }
 
 // ═══════════════════════ Ball flight ═══════════════════════
-const GRAVITY = 9.8;
+function baselineZFor(player) { return player === 'A' ? BASE_Z_A : BASE_Z_B; }
+function otherPlayer(p) { return p === 'A' ? 'B' : 'A'; }
+function mascotPos(player) { return player === 'A' ? soupA.position : soupB.position; }
 
 function launchArc(from, to, flightMs) {
   const t = flightMs / 1000;
@@ -772,116 +812,134 @@ function launchArc(from, to, flightMs) {
   ball.position.copy(from);
   const vx = dx / t;
   const vz = dz / t;
-  const vy = (dy + 0.5 * GRAVITY * t * t) / t;
+  const vy = (dy + 0.5 * G_ACCEL * t * t) / t;
   state.ballVel.set(vx, vy, vz);
   state.mode = 'in_flight';
   state.arriveTime = performance.now() + flightMs;
+  state.hittableEnd = state.arriveTime + HITTABLE_LATE_MS;
+  state.hittableStart = state.arriveTime - (HITTABLE_MS - HITTABLE_LATE_MS);
   clearTrail();
 }
 
-function serveFromYou() {
-  state.server = 'you';
-  state.ballFrom = 'you';
-  state.mode = 'idle';
-  ball.position.set(0.4, 1.2, PLAYER_BASE_Z);
+function pinBallToServer() {
+  const mp = mascotPos(state.server);
+  // Slight offset in from the baseline + upward hold
+  const zOffset = state.server === 'A' ? -0.3 : 0.3;
+  ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
   clearTrail();
-  setPrompt('give it a swing to serve');
 }
 
-function serveFromCpu() {
-  state.server = 'cpu';
-  state.ballFrom = 'cpu';
-  ball.position.set(0, 1.4, cpu.position.z + 0.3);
-  clearTrail();
-  setPrompt('incoming, swing to return', true);
-  setTimeout(() => {
-    if (state.mode !== 'idle') return;
-    cpuHitBall(true);
-  }, 700);
-}
-
-function cpuHitBall(isServe = false) {
-  const from = ball.position.clone();
-  const targetX = (Math.random() - 0.5) * (COURT_W - 1.4);
-  const targetZ = HIT_Z - (Math.random() * 1.5);
-  const to = new THREE.Vector3(targetX, 1.0, targetZ);
-  const flight = 900 + Math.random() * 350;
-  state.ballFrom = 'cpu';
-  launchArc(from, to, flight);
-  state.hittableEnd = performance.now() + flight;
-  state.hittableStart = state.hittableEnd - HITTABLE_MS;
-  setPrompt('incoming, swing to return', false);
-  // CPU swing animation
-  soupAnim.swingStart = performance.now();
-}
-
-function playerHitBall(power, rollDeg) {
-  const from = ball.position.clone();
-  const aim = THREE.MathUtils.clamp(rollDeg / 45, -1, 1);
-  const targetX = aim * (COURT_W/2 - 0.6);
-  const targetZ = -HALF_L + 2.5 + (1 - power) * 3.0;
-  const to = new THREE.Vector3(targetX, 1.0, targetZ);
-  const flight = 1100 - power * 400;
-  state.ballFrom = 'you';
-  launchArc(from, to, flight);
-  state.hittableEnd = performance.now() + flight;
-  state.hittableStart = state.hittableEnd - HITTABLE_MS;
-  fireHitConfirm(from, power);
-  shakeCamera(power);
-  setPrompt('nice return', true);
-}
-
-function cpuDecideReturn() {
-  const returns = Math.random() < AI_RETURN_RATE;
-  if (returns) {
-    setTimeout(() => cpuHitBall(false), 180);
-  } else {
-    // CPU misses → trigger miss anim
-    soupAnim.missStart = performance.now();
-    scorePoint('you', 'soup missed');
+function startServe() {
+  state.mode = 'serve_wait';
+  state.headingTo = state.server;   // ball is with server; they'll launch to the other
+  pinBallToServer();
+  const label = state.server === 'A' ? 'player a' : 'player b';
+  setPrompt(`${label} — swing to serve!`);
+  // CPU serves automatically after a beat.
+  if (!state.pvp && state.cpuControls === state.server) {
+    setTimeout(() => {
+      if (state.mode === 'serve_wait') cpuSwing();
+    }, 900);
   }
 }
 
-function scorePoint(winner, bannerText) {
+// swinger = 'A' | 'B', with input power/roll.
+// Called both from serve and from mid-rally return. Ball flips to the other side.
+function processHit(swinger, power, roll) {
+  const target = otherPlayer(swinger);
+  const from = ball.position.clone();
+  const aim = THREE.MathUtils.clamp(roll / 45, -1, 1);
+  const targetX = aim * (halfW - 0.6);
+  // Land ball a bit inside opponent's baseline, deeper on higher power.
+  const baseZ = baselineZFor(target);
+  const dir = target === 'B' ? -1 : +1;   // deeper into B = more negative z
+  const targetZ = baseZ - dir * (1.2 + (1 - power) * 2.5);
+  const to = new THREE.Vector3(targetX, 1.0, targetZ);
+  const flight = 1100 - power * 400;
+  launchArc(from, to, flight);
+  state.headingTo = target;
+  fireHitConfirm(from, power);
+  shakeCamera(power * 0.7);
+  anim[swinger].swingStart = performance.now();
+}
+
+function cpuSwing() {
+  // Straightforward CPU: 85% return rate, random aim.
+  const returns = state.mode === 'serve_wait' ? true : Math.random() < 0.85;
+  const cpu = state.cpuControls;
+  if (returns) {
+    const power = 0.5 + Math.random() * 0.4;
+    const roll = (Math.random() - 0.5) * 60;
+    processHit(cpu, power, roll);
+  } else {
+    anim[cpu].missStart = performance.now();
+    awardPoint(otherPlayer(cpu), `${cpu.toLowerCase()} missed`);
+  }
+}
+
+// ═══════════════════════ Scoring ═══════════════════════
+function awardPoint(winner, subtitle) {
+  if (state.mode === 'point_end' || state.mode === 'game_end') return;
   state.mode = 'point_end';
-  // Sparkle shower + winning-soup hop
+  const loser = otherPlayer(winner);
+  const w = state.points[winner];
+  const l = state.points[loser];
+
+  let gameWon = false;
+  if (w === 'AD') {
+    gameWon = true;
+  } else if (l === 'AD') {
+    // Back to deuce
+    state.points = { A: 3, B: 3 };
+  } else if (w < 3) {
+    state.points[winner] = w + 1;
+  } else {
+    // winner is at 40
+    if (l < 3) gameWon = true;
+    else state.points[winner] = 'AD';   // deuce → advantage
+  }
+
   const cx = innerWidth * 0.5;
   const cy = innerHeight * 0.42;
   sparkleShower(cx, cy, 22);
-  if (winner === 'you') {
-    state.scoreYou++;
-    popBanner(bannerText || 'your point', '');
-    playerAnim.hopStart = performance.now();
-    shakeCamera(0.6);
+  anim[winner].hopStart = performance.now();
+
+  const bannerKind = winner === 'A' ? '' : 'b';
+  const winnerName = winner === 'A' ? 'player a' : 'player b';
+
+  if (gameWon) {
+    state.games[winner] += 1;
+    state.points = { A: 0, B: 0 };
+    const setWon = state.games[winner] >= SET_TARGET;
+    if (setWon) {
+      state.mode = 'game_end';
+      popBanner(`${winnerName} wins the set!`,
+                `${state.games.A}–${state.games.B}`, bannerKind);
+      refreshScore();
+      setTimeout(() => {
+        state.games = { A: 0, B: 0 };
+        state.server = winner === 'A' ? 'B' : 'A';
+        refreshScore();
+        startServe();
+      }, 3200);
+      return;
+    }
+    popBanner(`game — ${winnerName}`,
+              `games ${state.games.A}–${state.games.B}`, bannerKind);
+    // Alternate serve on each new game.
+    state.server = otherPlayer(state.server);
   } else {
-    state.scoreCpu++;
-    popBanner(bannerText || "soup's point", 'cpu');
-    soupAnim.hopStart = performance.now();
+    popBanner(subtitle || `point — ${winnerName}`, scoreCall(), bannerKind);
   }
   state.rally = 0;
   refreshScore();
-  if (state.scoreYou >= 5 || state.scoreCpu >= 5) {
-    const winMsg = state.scoreYou > state.scoreCpu ? 'you take the game' : 'soup takes the game';
-    setTimeout(() => {
-      popBanner(winMsg, state.scoreYou > state.scoreCpu ? '' : 'cpu');
-      state.scoreYou = 0; state.scoreCpu = 0;
-      setTimeout(() => { refreshScore(); nextServe(); }, 2400);
-    }, 1200);
-    return;
-  }
-  setTimeout(nextServe, 1400);
-}
-
-function nextServe() {
-  const next = state.server === 'you' ? 'cpu' : 'you';
-  if (next === 'you') serveFromYou();
-  else                serveFromCpu();
+  setTimeout(startServe, 1600);
 }
 
 // ═══════════════════════ Physics tick ═══════════════════════
 function updateBall(dt) {
   if (state.mode !== 'in_flight') return;
-  state.ballVel.y -= GRAVITY * dt;
+  state.ballVel.y -= G_ACCEL * dt;
   ball.position.addScaledVector(state.ballVel, dt);
   ball.rotation.x += 6 * dt;
   pushTrail(ball.position);
@@ -899,159 +957,173 @@ function updateBall(dt) {
   }
 
   const now = performance.now();
-  if (state.ballFrom === 'cpu') {
-    if (ball.position.z > PLAYER_BASE_Z + 1.5 || now > state.hittableEnd + 250) {
-      scorePoint('cpu', 'missed');
-    }
-  } else {
-    if (Math.abs(ball.position.x) > halfW + 0.8) {
-      scorePoint('cpu', 'out');
-      return;
-    }
-    if (ball.position.z < -HALF_L - 0.5) {
-      scorePoint('cpu', 'out');
-      return;
-    }
-    if (now >= state.arriveTime && state.mode === 'in_flight') {
-      if (ball.position.z < 0) {
-        state.mode = 'idle';
-        state.rally++;
-        refreshScore();
-        cpuDecideReturn();
-      }
-    }
+  const target = state.headingTo;
+  const hitter = otherPlayer(target);
+
+  // Sideways out of play → hitter's shot was bad → point to target.
+  if (Math.abs(ball.position.x) > halfW + 0.9) {
+    awardPoint(target, `${hitter.toLowerCase()} sent it wide`);
+    return;
+  }
+  // Past target's baseline OR swing window expired → target failed to
+  // return a legit shot → hitter's point. (No bounce tracking; if the ball
+  // landed in bounds and bounced past, we still count it as missed.)
+  const baseZ = baselineZFor(target);
+  const past = target === 'A' ? (ball.position.z > baseZ + 1.2)
+                              : (ball.position.z < baseZ - 1.2);
+  if (past || now > state.hittableEnd + 250) {
+    awardPoint(hitter, `${target.toLowerCase()} missed`);
+    return;
+  }
+
+  // If CPU controls the receiver, decide their return around arrival time.
+  if (!state.pvp && state.cpuControls === target && now >= state.arriveTime - 30) {
+    // Consume this in-flight so the next tick doesn't re-fire.
+    state.mode = 'idle';
+    state.rally++;
+    refreshScore();
+    setTimeout(cpuSwing, 180);
   }
 }
 
-// ═══════════════════════ Swing detector ═══════════════════════
-// Tuned from live logs on the user's mount:
-//   real forehand swings: pkGyro 970..1329, pkAcc 24..45
-//   false-positive twitch: pkGyro 403, pkAcc 7 (drops below MIN_PEAK_ACC)
-const GYRO_ARM_DPS  = 250;
+// ═══════════════════════ Swing detector (per-arm) ═══════════════════════
+// Constants tuned from live logs (see previous single-player revision).
+// The state machine itself is unchanged; we just clone the state per armId
+// so two wristbands can be running through the same detector concurrently.
+const GYRO_ARM_DPS   = 200;
 const GYRO_QUIET_DPS = 90;
-const QUIET_MS      = 80;
-const MAX_ACTIVE_MS = 500;
-const REFRACTORY_MS = 500;
-const ACCEL_MIN     = 15;   // power floor
-const ACCEL_MAX     = 50;   // saturates around a strong swing (~45)
-const MIN_PEAK_ACC  = 15;   // commit gate: false-positive twitches sit at ~7
+const QUIET_MS       = 40;
+const MAX_ACTIVE_MS  = 260;
+const REFRACTORY_MS  = 400;
+const POST_PEAK_DROP = 0.55;
+const POST_PEAK_MIN  = 25;
+const ACCEL_MIN      = 15;
+const ACCEL_MAX      = 100;
+const MIN_PEAK_ACC   = 22;
+// Sign of yaw rate (gz) at peak → forehand vs backhand. Flip to swap.
+const FOREHAND_YAW_SIGN = +1;
 
-const swing = {
-  phase: 'IDLE',
-  startedAt: 0,
-  refractoryUntil: 0,
-  peakAccel: 0,
-  peakGyro: 0,
-  rollAtPeak: 0,
-  yawSignAtPeak: 0,
-  lastAboveT: 0,
-};
-
-function resetSwing() {
-  swing.phase = 'IDLE';
-  swing.peakAccel = 0;
-  swing.peakGyro = 0;
-  swing.rollAtPeak = 0;
-  swing.yawSignAtPeak = 0;
+function newSwingState() {
+  return {
+    phase: 'IDLE',
+    startedAt: 0,
+    refractoryUntil: 0,
+    peakAccel: 0,
+    peakGyro: 0,
+    rollAtPeak: 0,
+    yawSignAtPeak: 0,
+    lastAboveT: 0,
+  };
+}
+const swingByArm = new Map();
+function swingFor(armId) {
+  let s = swingByArm.get(armId);
+  if (!s) { s = newSwingState(); swingByArm.set(armId, s); }
+  return s;
 }
 
-function fireSwing() {
-  // Commit gate: reject swings whose peak accel never really got going.
-  // Real swings hit ~24+, false-positive twitches sit at ~7.
-  if (swing.peakAccel < MIN_PEAK_ACC) {
-    swing.phase = 'REFRACTORY';
-    swing.refractoryUntil = performance.now() + REFRACTORY_MS;
+function fireSwing(armId, sw) {
+  if (sw.peakAccel < MIN_PEAK_ACC) {
+    sw.phase = 'REFRACTORY';
+    sw.refractoryUntil = performance.now() + REFRACTORY_MS;
     return;
   }
   const power = THREE.MathUtils.clamp(
-    (swing.peakAccel - ACCEL_MIN) / (ACCEL_MAX - ACCEL_MIN), 0.15, 1.0);
-  const roll = swing.rollAtPeak;
-  const isForehand = swing.yawSignAtPeak >= 0;
+    (sw.peakAccel - ACCEL_MIN) / (ACCEL_MAX - ACCEL_MIN), 0.15, 1.0);
+  const roll = sw.rollAtPeak;
+  const yawSign = sw.yawSignAtPeak || FOREHAND_YAW_SIGN;
+  const isForehand = yawSign === FOREHAND_YAW_SIGN;
+  // Route to player via pairing. If unpaired, fall back: arm 0 → A, arm 1 → B.
+  const paired = pairing.playerForArm(armId);
+  const player = paired || (armId === 1 ? 'B' : 'A');
   logTune('swing', {
-    peakGyro: swing.peakGyro, peakAccel: swing.peakAccel,
+    peakGyro: sw.peakGyro, peakAccel: sw.peakAccel,
     roll, power, forehand: isForehand ? 'F' : 'B',
+    yawSign, arm: armId, player,
   });
-  handleSwing({ power, roll, forehand: isForehand });
-  swing.phase = 'REFRACTORY';
-  swing.refractoryUntil = performance.now() + REFRACTORY_MS;
+  handleSwing(player, { power, roll, forehand: isForehand });
+  sw.phase = 'REFRACTORY';
+  sw.refractoryUntil = performance.now() + REFRACTORY_MS;
 }
 
 function onRawSample(armId, s) {
-  if (armId !== 0) return;
+  const sw = swingFor(armId);
   const now = performance.now();
-  if (swing.phase === 'REFRACTORY') {
-    if (now >= swing.refractoryUntil) resetSwing();
-    else return;
+  if (sw.phase === 'REFRACTORY') {
+    if (now >= sw.refractoryUntil) {
+      // reset in place
+      const fresh = newSwingState();
+      Object.assign(sw, fresh);
+    } else return;
   }
   const accelMag = Math.hypot(s.ax, s.ay, s.az);
   const dynA = Math.abs(accelMag - 9.8);
   const gyroMag = Math.hypot(s.gx, s.gy, s.gz);
 
-  if (swing.phase === 'IDLE') {
+  if (sw.phase === 'IDLE') {
     if (gyroMag > GYRO_ARM_DPS) {
-      swing.phase = 'ACTIVE';
-      swing.startedAt = now;
-      swing.peakAccel = dynA;
-      swing.peakGyro = gyroMag;
-      swing.rollAtPeak = s.roll;
-      swing.yawSignAtPeak = Math.sign(s.gz || 0);
-      swing.lastAboveT = now;
+      sw.phase = 'ACTIVE';
+      sw.startedAt = now;
+      sw.peakAccel = dynA;
+      sw.peakGyro = gyroMag;
+      sw.rollAtPeak = s.roll;
+      sw.yawSignAtPeak = Math.sign(s.gz || 0);
+      sw.lastAboveT = now;
     }
     return;
   }
 
-  if (dynA > swing.peakAccel) {
-    swing.peakAccel = dynA;
-    swing.rollAtPeak = s.roll;
-    swing.yawSignAtPeak = Math.sign(s.gz || swing.yawSignAtPeak);
+  if (dynA > sw.peakAccel) {
+    sw.peakAccel = dynA;
+    sw.rollAtPeak = s.roll;
+    sw.yawSignAtPeak = Math.sign(s.gz || sw.yawSignAtPeak);
   }
-  if (gyroMag > swing.peakGyro) swing.peakGyro = gyroMag;
-  if (gyroMag > GYRO_QUIET_DPS) swing.lastAboveT = now;
+  if (gyroMag > sw.peakGyro) sw.peakGyro = gyroMag;
+  if (gyroMag > GYRO_QUIET_DPS) sw.lastAboveT = now;
 
-  const quietFor = now - swing.lastAboveT;
-  const activeFor = now - swing.startedAt;
+  const quietFor = now - sw.lastAboveT;
+  const activeFor = now - sw.startedAt;
+  const postPeakFire = sw.peakAccel >= POST_PEAK_MIN
+                    && dynA < sw.peakAccel * POST_PEAK_DROP;
 
-  if (activeFor > MAX_ACTIVE_MS || quietFor > QUIET_MS) {
-    if (swing.peakAccel > ACCEL_MIN * 0.4) {
-      fireSwing();
-    } else {
-      swing.phase = 'REFRACTORY';
-      swing.refractoryUntil = now + REFRACTORY_MS;
+  if (postPeakFire || activeFor > MAX_ACTIVE_MS || quietFor > QUIET_MS) {
+    if (sw.peakAccel > ACCEL_MIN * 0.4) fireSwing(armId, sw);
+    else {
+      sw.phase = 'REFRACTORY';
+      sw.refractoryUntil = now + REFRACTORY_MS;
     }
   }
 }
 
 // ═══════════════════════ Swing → game event ═══════════════════════
-function handleSwing({ power, roll, forehand }) {
-  markSwingActivity();
+function handleSwing(player, { power, roll, forehand }) {
   const now = performance.now();
-  const inWindow = now >= state.hittableStart && now <= state.hittableEnd + 80;
 
-  if (state.mode === 'idle' && state.server === 'you' && state.ballFrom === 'you') {
+  // Serve: only the current server's swing launches the ball.
+  if (state.mode === 'serve_wait') {
+    if (player !== state.server) return;
     popGesture(`serve ${Math.round(power*100)}`, '#ff9663');
-    const from = ball.position.clone();
-    const aim = THREE.MathUtils.clamp(roll / 45, -0.7, 0.7);
-    const to = new THREE.Vector3(aim * (COURT_W/2 - 1.0), 1.0, -HALF_L + 3.0);
-    launchArc(from, to, 1000 - power * 300);
-    state.hittableEnd = performance.now() + (1000 - power * 300);
-    state.hittableStart = state.hittableEnd - HITTABLE_MS;
-    setPrompt('...', true);
-    fireHitConfirm(from, power * 0.7);
+    processHit(player, power, roll);
     return;
   }
 
-  if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
+  // Return: only the swing of the player the ball is heading to counts.
+  if (state.mode === 'in_flight') {
+    if (player !== state.headingTo) return;   // spectator-side swings ignored
+    const inWindow = now >= state.hittableStart && now <= state.hittableEnd;
     if (inWindow) {
+      state.rally++;
+      refreshScore();
       popGesture(`${forehand ? 'forehand' : 'backhand'} ${Math.round(power*100)}`,
                  forehand ? '#ff9663' : '#37628a');
-      playerHitBall(power, roll);
+      processHit(player, power, roll);
     } else {
       popGesture('miss', '#f4c95d');
+      anim[player].missStart = performance.now();
+      awardPoint(otherPlayer(player), `${player.toLowerCase()} whiffed`);
     }
     return;
   }
-
-  popGesture('swing', '#476278');
 }
 
 // ═══════════════════════ Main tick ═══════════════════════
@@ -1063,93 +1135,72 @@ function tick() {
 
   updateBall(dt);
 
-  // CPU tracks the ball's x when incoming (moves the whole cpu group)
-  if (state.mode === 'in_flight' && state.ballFrom === 'you') {
-    const targetX = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.5, halfW - 0.5);
-    cpu.position.x += (targetX - cpu.position.x) * 3 * dt;
-  } else {
-    cpu.position.x += (0 - cpu.position.x) * 1.5 * dt;
+  // If ball is pinned to server, keep it glued to the server mascot.
+  if (state.mode === 'serve_wait') {
+    const mp = mascotPos(state.server);
+    const zOffset = state.server === 'A' ? -0.3 : 0.3;
+    ball.position.set(mp.x + 0.35, 1.3, mp.z + zOffset);
+    ballShadow.position.x = ball.position.x;
+    ballShadow.position.z = ball.position.z;
   }
 
-  // ─── Mascot procedural animation ───
-  if (soupMascot) {
-    const t = now / 1000;
-    // idle bob + subtle breathe squish (root scale y)
-    const bob = Math.sin(t * 2) * 0.02;
-    // hop bump — additive, driven by cpuHopStart
-    let hop = 0;
-    if (soupAnim.hopStart) {
-      const dth = now - soupAnim.hopStart;
-      const HOP_DUR = 480;
-      if (dth > HOP_DUR) soupAnim.hopStart = 0;
-      else {
-        const p = dth / HOP_DUR;
-        // parabolic hop
-        hop = Math.sin(p * Math.PI) * 0.35;
-      }
-    }
-    soupMascot.position.y = soupBaseY + bob + hop;
-    // squish on landing (last 20% of hop)
-    let squish = 1;
-    if (soupAnim.hopStart) {
-      const p = (now - soupAnim.hopStart) / 480;
-      if (p > 0.8) squish = 1 - (1 - (p - 0.8) / 0.2) * 0.15;
-    }
-    const breathe = 1 + Math.sin(t * 2) * 0.02;
-    soupMascot.scale.set(CPU_SCALE, CPU_SCALE, CPU_SCALE * breathe * squish);
+  // Mascots track the ball's x when it's coming to them.
+  if (state.mode === 'in_flight') {
+    const target = state.headingTo;
+    const tGroup = target === 'A' ? soupA : soupB;
+    const tx = THREE.MathUtils.clamp(ball.position.x, -halfW + 0.5, halfW - 0.5);
+    tGroup.position.x += (tx - tGroup.position.x) * 3 * dt;
+    const other = target === 'A' ? soupB : soupA;
+    other.position.x += (0 - other.position.x) * 1.5 * dt;
+  }
 
-    // swing: BIG whole-body tilt + paws swing over 320ms
-    // Body rotates around Z axis (world lean) while paws swing across.
+  // ── Mascot procedural anim (per player) ──
+  for (const p of ['A', 'B']) {
+    const m = mascot[p].mesh;
+    if (!m) continue;
+    const a = anim[p];
+    const t = now / 1000 + (p === 'A' ? 0 : 0.5);
+
+    let hop = 0;
+    if (a.hopStart) {
+      const dth = now - a.hopStart;
+      if (dth > 480) a.hopStart = 0;
+      else hop = Math.sin((dth / 480) * Math.PI) * 0.35;
+    }
+    const bob = Math.sin(t * 2) * 0.02;
+    m.position.y = bob + hop;
+    const breathe = 1 + Math.sin(t * 2) * 0.02;
+    m.scale.set(MASCOT_SCALE, MASCOT_SCALE, MASCOT_SCALE * breathe);
+
+    // swing lean + paws
     let swingLean = 0;
-    if (soupAnim.swingStart) {
-      const dt2 = now - soupAnim.swingStart;
-      const DUR = 320;
-      if (dt2 > DUR) {
-        soupAnim.swingStart = 0;
-        if (soupPaws) soupPaws.rotation.set(0, 0, 0);
+    if (a.swingStart) {
+      const dt2 = now - a.swingStart;
+      if (dt2 > 320) {
+        a.swingStart = 0;
+        if (mascot[p].paws) mascot[p].paws.rotation.set(0, 0, 0);
       } else {
-        const phase = dt2 / DUR;    // 0..1
-        // paws: sinusoid 0 → 0.9 → 0
-        if (soupPaws) soupPaws.rotation.z = Math.sin(phase * Math.PI) * 0.9;
-        // body lean: quick tilt forward+across, spring back
+        const phase = dt2 / 320;
+        if (mascot[p].paws) mascot[p].paws.rotation.z = Math.sin(phase * Math.PI) * 0.9;
         swingLean = Math.sin(phase * Math.PI) * 0.28;
       }
     }
-
-    // miss: quick body tilt (bigger lean, springs back)
+    // miss lean
     let missLean = 0;
-    if (soupAnim.missStart) {
-      const dt2 = now - soupAnim.missStart;
-      const dur = 500;
-      if (dt2 > dur) {
-        soupAnim.missStart = 0;
-      } else {
-        const phase = dt2 / dur;
+    if (a.missStart) {
+      const dt2 = now - a.missStart;
+      if (dt2 > 500) a.missStart = 0;
+      else {
+        const phase = dt2 / 500;
         missLean = phase < 0.35
           ? (phase / 0.35) * 0.55
           : (1 - (phase - 0.35) / 0.65) * 0.55;
       }
     }
-
-    // apply combined lean; base y-rotation stays at 0 (facing player)
-    soupMascot.rotation.y = 0;
-    soupMascot.rotation.z = swingLean + missLean;
+    m.rotation.z = swingLean + missLean;
+    // preserve the base rotation.x (from load) and player-specific y flip.
+    // We only ever mutate .z here.
   }
-
-  // Player-side soup — gentle idle bob + celebratory hop
-  if (playerSoup) {
-    let hop = 0;
-    if (playerAnim.hopStart) {
-      const dth = now - playerAnim.hopStart;
-      const HOP_DUR = 480;
-      if (dth > HOP_DUR) playerAnim.hopStart = 0;
-      else hop = Math.sin((dth / HOP_DUR) * Math.PI) * 0.35;
-    }
-    playerSoup.position.y = Math.sin(now / 500) * 0.02 + hop;
-  }
-
-  // Tutorial overlay show/hide
-  tutorialTick();
 
   // Cloud drift
   for (const c of clouds) {
@@ -1161,7 +1212,7 @@ function tick() {
   const shake = state.camShake.until > now ? (state.camShake.until - now) / 260 : 0;
   camera.position.x = camHome.x + (Math.random() - 0.5) * state.camShake.amp * shake;
   camera.position.y = camHome.y + (Math.random() - 0.5) * state.camShake.amp * shake * 0.7;
-  camera.lookAt(0, 0.6, 0);
+  camera.lookAt(camLook);
 
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
@@ -1169,14 +1220,14 @@ function tick() {
 requestAnimationFrame(tick);
 
 // ═══════════════════════ Serial wire-up ═══════════════════════
-// Tune-log helpers.
 const $tuneLog = document.getElementById('tune-log');
 const $tuneCount = document.getElementById('tune-log-count');
 let tuneRows = 0;
 function logTune(kind, f) {
   if (!$tuneLog) return;
   const pad = (v, w=5, p=1) => (typeof v === 'number' ? v.toFixed(p) : String(v)).padStart(w);
-  const row = `${kind.padEnd(8)} pkGyro=${pad(f.peakGyro,5,0)} pkAcc=${pad(f.peakAccel,5,1)} roll=${pad(f.roll,6,1)} pwr=${pad(f.power,4,2)} side=${f.forehand}\n`;
+  const yawStr = (typeof f.yawSign === 'number') ? (f.yawSign > 0 ? '+' : (f.yawSign < 0 ? '-' : '0')) : ' ';
+  const row = `${kind.padEnd(6)} arm=${f.arm} p=${f.player} pkGyro=${pad(f.peakGyro,5,0)} pkAcc=${pad(f.peakAccel,5,1)} roll=${pad(f.roll,6,1)} pwr=${pad(f.power,4,2)} yaw=${yawStr} side=${f.forehand}\n`;
   $tuneLog.value += row;
   $tuneLog.scrollTop = $tuneLog.scrollHeight;
   tuneRows++;
@@ -1193,6 +1244,8 @@ document.getElementById('tune-log-clear')?.addEventListener('click', () => {
   if ($tuneCount) $tuneCount.textContent = '0 rows';
 });
 
+// Feed each serial line through both pairing (for slot assignment) and our
+// custom parser (for the swing detector). Canonical pattern from boxing.html.
 const dispatcher = new ArmDispatcher(() => {});
 const origOnLine = dispatcher.onLine.bind(dispatcher);
 dispatcher.onLine = (line) => {
@@ -1213,9 +1266,10 @@ dispatcher.onLine = (line) => {
 
 const serialHandlers = {
   baud: 115200,
-  onLine: (line) => dispatcher.onLine(line),
+  onLine: (line) => { pairing.onLine(line); dispatcher.onLine(line); },
   onOpen:  () => { $stat.textContent = 'hub connected';
-                   $stat.classList.add('connected'); },
+                   $stat.classList.add('connected');
+                   if (state.mode === 'idle') startServe(); },
   onClose: () => { $stat.textContent = 'hub disconnected';
                    $stat.classList.remove('connected'); },
   onError: () => { $stat.textContent = 'hub error, try again';
@@ -1227,36 +1281,38 @@ document.getElementById('connect').addEventListener('click', async () => {
     await openSerial(serialHandlers);
   } catch (e) { $stat.textContent = 'connect hub'; }
 });
-// Silent reconnect if hub was authorized on a prior page.
 autoOpenSerial(serialHandlers).catch(() => {});
 
 // ═══════════════════════ Dev shortcuts ═══════════════════════
+// SPACE: swing on behalf of whoever's supposed to swing right now.
+// Serve → the server; in-flight return → the receiver (state.headingTo).
 addEventListener('keydown', (e) => {
   if (e.key === ' ') {
     e.preventDefault();
-    handleSwing({ power: 0.7 + Math.random() * 0.3,
-                  roll: (Math.random() - 0.5) * 30,
-                  forehand: true });
-  } else if (e.key === 'a' || e.key === 'A') {
-    popGesture('miss', '#f4c95d');
-    if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
-      state.hittableStart = -Infinity;
-      state.hittableEnd = performance.now() - 500;
-    }
-  } else if (e.key === 'n' || e.key === 'N') {
-    if (state.mode === 'in_flight' && state.ballFrom === 'cpu') {
-      ball.position.set(0, 1.0, HIT_Z);
-      state.arriveTime = performance.now() + 100;
-      state.hittableEnd = performance.now() + 100;
-      state.hittableStart = state.hittableEnd - HITTABLE_MS;
-    }
+    const player = state.mode === 'serve_wait' ? state.server
+                 : state.mode === 'in_flight'  ? state.headingTo
+                 : null;
+    if (!player) return;
+    handleSwing(player, {
+      power: 0.6 + Math.random() * 0.35,
+      roll:  (Math.random() - 0.5) * 30,
+      forehand: true,
+    });
   }
 });
 
 // ═══════════════════════ Kick off ═══════════════════════
 refreshScore();
 clearTrail();
-serveFromYou();
+// Don't launch a rally until the hub connects (so the server prompt reflects
+// pairing). In single-player fallback we still start immediately.
+if (state.pvp === false && pairing.armForPlayer('A') === null &&
+    pairing.armForPlayer('B') === null) {
+  // No wristbands paired yet. Start anyway; SPACE-key works.
+  startServe();
+} else {
+  startServe();
+}
 </script>
 </body>
 </html>
