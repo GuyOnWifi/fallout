@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="30 30 340 200" width="340" height="200" role="img" aria-label="Soup Sports">
+  <!-- Head-only variant of the Soup logo — same head geometry as logo.svg
+       (ears, head, face patch, dots) but the body/paws are gone and the
+       viewBox is cropped to the head region so the ears reach the top and
+       the wordmark sits just below the head. Uses the same Nintendo-Switch
+       red/blue split and the same 4px cream seam at x 198-202. -->
+
+  <defs>
+    <clipPath id="hd-clip-l"><rect x="0"   y="0" width="198" height="400"/></clipPath>
+    <clipPath id="hd-clip-r"><rect x="202" y="0" width="198" height="400"/></clipPath>
+  </defs>
+
+  <!-- ── ears: small tan blobs on top of the head ── -->
+  <circle cx="164" cy="56" r="19" fill="#c9a878" stroke="#e60012" stroke-width="5"/>
+  <circle cx="236" cy="56" r="19" fill="#c9a878" stroke="#0088cc" stroke-width="5"/>
+
+  <!-- ── head: cream ball, split-color outline ── -->
+  <circle cx="200" cy="104" r="60" fill="#fbf3e0"/>
+  <circle cx="200" cy="104" r="60" fill="none" stroke="#e60012" stroke-width="6"
+          clip-path="url(#hd-clip-l)"/>
+  <circle cx="200" cy="104" r="60" fill="none" stroke="#0088cc" stroke-width="6"
+          clip-path="url(#hd-clip-r)"/>
+
+  <!-- ── face patch: tan muzzle oval low on the front of the head ── -->
+  <ellipse cx="200" cy="127" rx="38" ry="27" fill="#b98b6a"/>
+
+  <!-- ── face: two eyes + a nose, ink dots on the patch ── -->
+  <circle cx="181" cy="120" r="7" fill="#1c2a3a"/>
+  <circle cx="219" cy="120" r="7" fill="#1c2a3a"/>
+  <circle cx="200" cy="133" r="6.5" fill="#1c2a3a"/>
+
+  <!-- ── wordmark ── -->
+  <text x="200" y="215" text-anchor="middle"
+        font-family="Fredoka, Nunito, 'Arial Rounded MT Bold', 'Segoe UI', sans-serif"
+        font-weight="700" font-size="30" letter-spacing="0.5"
+        fill="#1c2a3a">Soup Sports</text>
+</svg>

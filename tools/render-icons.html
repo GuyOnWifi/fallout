@@ -1,0 +1,267 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — icon renderer</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body.grid { background: #ecdcb1; display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; }
+  body.grid .cell { text-align: center; font-family: sans-serif; }
+  canvas.icon { display: block; }
+  body.single canvas.icon { position: fixed; top: 0; left: 0; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const SIZE = 480;          // final PNG size
+const GL = 960;            // supersampled WebGL render, drawn down 2x
+const INK = '#1c2a3a';
+const CREAM = '#fbf3e0';
+const SKY_MID = '#4fc0e3';
+const R_OUTER = 216;       // cream ring outer radius (~90% of frame)
+const R_INNER = 197;       // sky disc radius
+const CX = 240, CY = 240;
+
+// ── Icon definitions ────────────────────────────────────────────────
+// pose() receives:
+//   soup  — glb scene (model space: z-up, mm, feet z=0, faces -Y pre-flip)
+//   group — Y-up wrapper (world space, meters) for leans / extra props
+// cam: { az: azimuth deg (0 = dead front), el: elevation deg, dist, lookY }
+const ICONS = {
+  boxing: {
+    tint: 0xff9663,
+    cam: { az: 30, el: 8, dist: 2.7, lookY: 0.5 },
+    pose(soup, group) {
+      const paws = soup.getObjectByName('paws');
+      // jab: gloves rotated forward + lifted to chin height, scaled up so
+      // they read as boxing gloves; body leans in behind the punch.
+      paws.rotation.x = 0.25;
+      paws.position.z += 26;
+      paws.position.y -= 6;
+      paws.scale.setScalar(1.25);
+      group.rotation.x = 0.12;
+      group.rotation.y = 0.12;
+    },
+  },
+  tennis: {
+    tint: 0x6cb85a,
+    cam: { az: 62, el: 8, dist: 2.75, lookY: 0.5 },
+    pose(soup, group) {
+      const paws = soup.getObjectByName('paws');
+      // mid-forehand: both paws swung around the body to his right side
+      // (rotation about the model's vertical axis keeps them on the body
+      // surface), body twisted into the shot.
+      paws.rotation.z = 1.1;
+      paws.position.z += 25;
+      group.rotation.y = 0.35;
+      group.rotation.z = -0.10;
+    },
+  },
+  badminton: {
+    tint: 0xb96cd9,
+    cam: { az: -34, el: 14, dist: 2.85, lookY: 0.54 },
+    pose(soup, group) {
+      const paws = soup.getObjectByName('paws');
+      // overhead smash: paws raised to head height beside the face,
+      // shifted toward the camera side, leaning back under the shuttle.
+      paws.position.z += 72;
+      paws.position.y += 22;
+      paws.rotation.z = -0.35;
+      group.rotation.x = -0.15;
+      group.rotation.z = 0.08;
+    },
+  },
+  pingpong: {
+    tint: 0xff5a2c,
+    cam: { az: 30, el: 20, dist: 2.7, lookY: 0.46 },
+    pose(soup, group) {
+      const paws = soup.getObjectByName('paws');
+      // low flat paddle: paws arced forward-down hugging the body,
+      // crouched stance, camera looking down over the table.
+      paws.rotation.x = 0.28;
+      paws.position.y -= 4;
+      group.scale.y = 0.93;
+      group.rotation.x = 0.08;
+    },
+  },
+  ninja: {
+    tint: 0xd84a4a,
+    cam: { az: 8, el: -4, dist: 2.7, lookY: 0.54 },
+    pose(soup, group) {
+      const paws = soup.getObjectByName('paws');
+      // mid vertical slash: paws swung to his right and raised to head
+      // height on the strike line, dramatic opposite body tilt, low camera.
+      paws.rotation.z = 0.9;
+      paws.position.z += 20;
+      group.rotation.z = -0.22;
+      group.rotation.x = 0.05;
+    },
+  },
+  bomb: {
+    tint: 0xd84a4a,
+    cam: { az: 0, el: 8, dist: 2.85, lookY: 0.58 },
+    pose(soup, group) {
+      // no paw pose — he's the target. Add fuse rig on top of the head.
+      const topY = 0.975;  // ~122mm * 0.008 head top, world meters
+      const fuseMat = new THREE.MeshStandardMaterial({ color: 0x2a2330, roughness: 0.8 });
+      // dark cone fuse
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.14, 20), fuseMat);
+      cone.position.set(0, topY + 0.06, 0);
+      group.add(cone);
+      // dark ring at the base of the fuse
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.016, 12, 28), fuseMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(0, topY - 0.004, 0);
+      group.add(ring);
+      // yellow flame sparkle at the tip
+      const flameMat = new THREE.MeshStandardMaterial({
+        color: 0xf4c95d, emissive: 0xf4c95d, emissiveIntensity: 1.4, roughness: 0.4,
+      });
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.032, 16, 12), flameMat);
+      flame.position.set(0, topY + 0.15, 0);
+      group.add(flame);
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.024), flameMat.clone());
+      spark.material.emissive.setHex(0xffe9a8);
+      spark.position.set(0.034, topY + 0.185, 0.014);
+      group.add(spark);
+    },
+  },
+};
+
+// ── Renderer plumbing ───────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(GL, GL, false);
+renderer.setClearColor(0x000000, 0);
+
+const loader = new GLTFLoader();
+const gltf = await loader.loadAsync('../app/assets/mascot.glb');
+
+function darken(hex, f) {
+  const c = new THREE.Color(hex);
+  c.multiplyScalar(f);
+  return c;
+}
+
+function buildScene(def) {
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xecdcb1, 1.1));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6);
+  key.position.set(1.6, 2.6, 2.2);
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xcfeefa, 0.5);
+  rim.position.set(-2, 1.5, -1.5);
+  scene.add(rim);
+
+  const soup = gltf.scene.clone(true);
+  soup.traverse(o => { if (o.isMesh) o.material = o.material.clone(); });
+
+  // retint: body + paws + tail to accent, ears a darker shade for depth;
+  // face_patch / eyes_nose untouched per HANDOFF.
+  const accent = new THREE.Color(def.tint);
+  for (const name of ['body', 'paws', 'tail']) {
+    const n = soup.getObjectByName(name);
+    if (n) n.material.color.copy(accent);
+  }
+  const ears = soup.getObjectByName('ears');
+  if (ears) ears.material.color.copy(darken(def.tint, 0.82));
+
+  soup.rotation.x = -Math.PI / 2;   // z-up → y-up, faces +Z (camera)
+  soup.scale.setScalar(0.008);      // mm → ~1m tall
+
+  const group = new THREE.Group();
+  group.add(soup);
+  scene.add(group);
+
+  def.pose(soup, group);
+
+  const cam = new THREE.PerspectiveCamera(34, 1, 0.05, 20);
+  const az = THREE.MathUtils.degToRad(def.cam.az);
+  const el = THREE.MathUtils.degToRad(def.cam.el);
+  cam.position.set(
+    Math.sin(az) * Math.cos(el) * def.cam.dist,
+    def.cam.lookY + Math.sin(el) * def.cam.dist,
+    Math.cos(az) * Math.cos(el) * def.cam.dist,
+  );
+  cam.lookAt(0, def.cam.lookY, 0);
+  return { scene, cam };
+}
+
+function circle(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+}
+
+function renderIcon(name) {
+  const def = ICONS[name];
+  const { scene, cam } = buildScene(def);
+  renderer.render(scene, cam);
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'icon';
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, SIZE, SIZE);
+
+  // hard 4px ink drop shadow under the whole circle
+  ctx.fillStyle = INK;
+  circle(ctx, CX, CY + 5, R_OUTER);
+  ctx.fill();
+
+  // cream ring with ink outline
+  ctx.fillStyle = CREAM;
+  circle(ctx, CX, CY, R_OUTER);
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 5;
+  circle(ctx, CX, CY, R_OUTER - 2.5);
+  ctx.stroke();
+
+  // sky-mid disc
+  ctx.fillStyle = SKY_MID;
+  circle(ctx, CX, CY, R_INNER);
+  ctx.fill();
+
+  // mascot, clipped to the disc
+  ctx.save();
+  circle(ctx, CX, CY, R_INNER);
+  ctx.clip();
+  ctx.drawImage(renderer.domElement, 0, 0, GL, GL, 0, 4, SIZE, SIZE);
+  ctx.restore();
+
+  return canvas;
+}
+
+const hash = location.hash.replace('#', '');
+if (hash && ICONS[hash]) {
+  document.body.className = 'single';
+  document.body.appendChild(renderIcon(hash));
+  document.title = 'icon-' + hash;
+} else {
+  document.body.className = 'grid';
+  for (const name of Object.keys(ICONS)) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.appendChild(renderIcon(name));
+    const label = document.createElement('div');
+    label.textContent = name;
+    cell.appendChild(label);
+    document.body.appendChild(cell);
+  }
+}
+window.ICONS_DONE = true;
+</script>
+</body>
+</html>

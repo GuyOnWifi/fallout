@@ -1,0 +1,21 @@
+# Cloudflare Pages headers
+# Web Serial requires a secure context (Pages provides HTTPS automatically).
+# No CORS headers needed for the games themselves — Three.js and font CDNs
+# handle their own CORS.
+
+# Don't cache the HTML pages so a fresh deploy is picked up on next reload.
+/*.html
+  Cache-Control: no-cache, must-revalidate
+
+# Cache JS modules for a day (they change less often than the HTML that
+# imports them). Wristbands don't hit CDN so this is browser-only.
+/*.js
+  Cache-Control: max-age=86400
+
+# Long-cache the GLB and images — they're versioned in the URL if we ever
+# need to bust cache.
+/assets/*
+  Cache-Control: max-age=2592000, immutable
+
+/docs/*
+  Cache-Control: max-age=86400

@@ -1,0 +1,23 @@
+# Cloudflare Pages config for Soup Sports.
+#
+# Deploy this repo as a static site rooted at `app/`. The browser games are
+# vanilla HTML modules + Three.js from unpkg — no build step needed.
+#
+# ── Deploy via the CF dashboard ──
+#   1. Create a Pages project pointing at github.com/GuyOnWifi/fallout
+#   2. Build command:            (leave blank)
+#   3. Build output directory:   app
+#   4. Root directory:           /
+#   5. Environment variables:    none required
+#
+# ── Deploy from the CLI ──
+#   npm i -g wrangler
+#   wrangler pages deploy app --project-name=soup-sports
+#
+# Web Serial only works over HTTPS or localhost, so use the Pages domain
+# directly (soup-sports.pages.dev). Custom domain works too — Cloudflare
+# provisions the cert automatically.
+
+name = "soup-sports"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "app"

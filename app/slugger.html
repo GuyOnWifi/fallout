@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Soup Sports — Soup Slugger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-top:    #7bd3ee;
+    --sky-mid:    #4fc0e3;
+    --sky-deep:   #2a95c4;
+    --water:      #37a7d0;
+    --cream:      #fbf3e0;
+    --cream-warm: #f6e9c9;
+    --cream-deep: #ecdcb1;
+    --ruin-blue:  #37628a;
+    --ruin-teal:  #2f8fa3;
+    --vine:       #6cb85a;
+    --vine-deep:  #4a9440;
+    --ink:        #1c2a3a;
+    --ink-soft:   #476278;
+    --hot:        #ff9663;
+    --gold:       #f4c95d;
+    --bell:       #f2c14d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; overflow:hidden;
+               font-family: "Fredoka", "Nunito", -apple-system,
+                            "SF Pro Rounded", "SF Pro Display", system-ui,
+                            sans-serif;
+               color: var(--ink);
+               background: linear-gradient(180deg,
+                           var(--sky-top) 0%,
+                           var(--sky-mid) 45%,
+                           var(--sky-deep) 78%,
+                           var(--water) 100%); }
+  canvas { display:block; width:100vw; height:100vh; position:absolute; inset:0; }
+
+  /* ── Soup Sports chrome (shared treatment across pages) ── */
+  .ss-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px;
+    background: var(--cream); color: var(--ink);
+    border: 3px solid var(--ink); border-radius: 999px;
+    font-family: inherit; font-size: 13px; font-weight: 700;
+    letter-spacing: .01em; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+    transition: transform 120ms cubic-bezier(.3,.7,.3,1), box-shadow 120ms;
+  }
+  .ss-btn:hover {
+    transform: translateY(-2px);
+    background: var(--cream-warm);
+    box-shadow: 0 5px 0 var(--ink);
+  }
+  .ss-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 var(--ink);
+  }
+
+  #back { position:absolute; top:16px; left:16px; z-index:120; }
+  #connect { position:absolute; top:16px; right:16px; z-index:120; }
+  #connect::before {
+    content: ""; width: 9px; height: 9px; border-radius: 50%; flex-shrink:0;
+    background: var(--gold); box-shadow: 0 0 8px var(--gold);
+    animation: hubpulse 1.8s ease-in-out infinite;
+  }
+  #connect.connected::before {
+    background: var(--vine); box-shadow: 0 0 8px var(--vine);
+    animation: none;
+  }
+  @keyframes hubpulse { 50% { opacity: 0.35; transform: scale(0.85); } }
+
+  /* Lobby hides the in-round HUD pieces */
+  body.in-lobby #turn-pill, body.in-lobby #meter-wrap,
+  body.in-lobby #scoreboard, body.in-lobby #readout,
+  body.in-lobby #prompt { display:none; }
+
+  /* ── Turn indicator (top-center) ──────────────────── */
+  #turn-pill {
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    z-index:100; pointer-events:none;
+    padding: 9px 22px 11px;
+    background: var(--cream);
+    border: 3px solid var(--turn-color, var(--hot));
+    border-radius: 999px;
+    box-shadow: 0 4px 0 var(--ink);
+    font-weight: 900; font-size: 16px; letter-spacing: .04em;
+    color: var(--turn-color, var(--hot));
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+  #turn-pill .throws { color: var(--ink-soft); font-weight: 800; }
+  @media (max-width: 640px) {
+    #turn-pill { top: 64px; }
+  }
+
+  /* ── Scoreboard (left column) ─────────────────────── */
+  #scoreboard {
+    position:absolute; left:16px; top:50%; transform:translateY(-50%);
+    z-index:100; display:flex; flex-direction:column; gap:10px;
+    pointer-events:none;
+  }
+  .player-card {
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 0 4px 0 var(--ink);
+    padding: 8px 16px 10px;
+    min-width: 128px;
+    transition: transform 180ms, border-color 180ms, box-shadow 180ms;
+  }
+  .player-card.current {
+    border-color: var(--pc, var(--hot));
+    box-shadow: 0 4px 0 var(--pc, var(--hot)), 0 0 0 3px var(--cream), 0 6px 0 var(--ink);
+    transform: translateX(4px) scale(1.05);
+    background: var(--cream-warm);
+  }
+  .player-card .plabel {
+    font-size: 10px; font-weight: 800;
+    letter-spacing: .2em; text-transform: uppercase;
+    color: var(--pc, var(--ink-soft));
+  }
+  .player-card .pscore {
+    font-size: 28px; font-weight: 900; line-height: 1.1;
+    color: var(--ink); letter-spacing: -.02em;
+    text-shadow: 0 2px 0 var(--cream-deep);
+  }
+  .player-card .pscore.pop { animation: scorePop 260ms ease-out; }
+  @keyframes scorePop { 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .player-card .pbest {
+    font-size: 10.5px; font-weight: 700; color: var(--ink-soft);
+    margin-top: 2px; min-height: 12px;
+  }
+  @media (max-width: 720px) {
+    #scoreboard { top:auto; bottom:70px; left:12px; transform:none;
+                  flex-direction:row; flex-wrap:wrap; gap:6px; }
+    .player-card { min-width: 96px; padding: 6px 10px 8px; }
+    .player-card .pscore { font-size: 20px; }
+  }
+
+  /* ── THE STRENGTH METER (right column) ────────────── */
+  #meter-wrap {
+    position:absolute; right: 22px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 100; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+  }
+  #meter-title {
+    font-size: 11px; font-weight: 900; letter-spacing: .26em;
+    text-transform: uppercase; color: var(--ink);
+    text-shadow: 0 2px 0 rgba(255,255,255,.5);
+  }
+  /* Cabinet: bell cap on top, glass tube below. */
+  #meter-cab {
+    display:flex; flex-direction:column; align-items:center;
+  }
+  #meter-bell {
+    width: 74px; height: 52px;
+    background: var(--bell);
+    border: 3px solid var(--ink);
+    border-bottom-width: 4px;
+    border-radius: 40px 40px 12px 12px;
+    box-shadow: 0 4px 0 var(--ink), inset 0 -8px 0 rgba(28,42,58,.18);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 11px; font-weight: 900; letter-spacing: .22em;
+    color: var(--ink);
+    position:relative; z-index:2;
+  }
+  #meter-bell.rung { animation: bellRing 700ms ease-in-out; }
+  @keyframes bellRing {
+    0%, 100% { transform: rotate(0); }
+    15% { transform: rotate(-10deg); }
+    30% { transform: rotate(9deg); }
+    45% { transform: rotate(-7deg); }
+    60% { transform: rotate(5deg); }
+    75% { transform: rotate(-3deg); }
+  }
+  #meter-tube {
+    width: 58px; height: min(58vh, 480px);
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 14px;
+    box-shadow: 0 5px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2),
+                inset 0 0 0 3px rgba(255,255,255,.35);
+    position:relative;
+    display:flex; flex-direction:column-reverse;
+    overflow:hidden;
+    margin-top: -6px;
+  }
+  .zone {
+    position:relative;
+    border-top: 2px dashed rgba(28,42,58,.28);
+    display:flex; align-items:center; justify-content:center;
+    background: transparent;
+    transition: background 200ms;
+  }
+  .zone:last-child { border-top:none; } /* topmost drawn zone */
+  .zone .zlabel {
+    font-size: 8px; font-weight: 900; letter-spacing: .12em;
+    color: var(--ink-soft);
+    transform: rotate(-90deg); white-space:nowrap;
+    transition: color 200ms;
+  }
+  .zone.lit { background: color-mix(in srgb, var(--zc) 42%, transparent); }
+  .zone.lit .zlabel { color: var(--ink); text-shadow: 0 1px 0 rgba(255,255,255,.55); }
+  /* fallback for no color-mix */
+  @supports not (background: color-mix(in srgb, red 40%, blue)) {
+    .zone.lit { background: var(--zc); }
+  }
+  #puck {
+    position:absolute; left:50%; bottom: 0%;
+    transform: translate(-50%, 50%);
+    width: 40px; height: 22px;
+    background: var(--hot);
+    border: 3px solid var(--ink);
+    border-radius: 8px;
+    box-shadow: 0 3px 0 var(--ink);
+    z-index: 3;
+    transition: bottom 800ms cubic-bezier(.22,1.35,.36,1), background 200ms;
+  }
+  #puck.instant { transition: background 200ms; }
+
+  /* Big readout under the meter: "1247 pts · BEAST!" */
+  #readout {
+    position:absolute; right: 120px; bottom: 60px;
+    z-index: 110; pointer-events:none; text-align:right;
+    opacity: 0; transition: opacity 200ms;
+  }
+  #readout.show { opacity: 1; }
+  #readout .pts {
+    font-weight: 900; letter-spacing: -.03em; line-height: 1;
+    font-size: clamp(46px, 7vw, 92px);
+    color: var(--cream);
+    text-shadow: 0 5px 0 var(--ink), 0 10px 26px rgba(28,42,58,.35);
+  }
+  #readout .tier {
+    font-weight: 900; font-size: clamp(18px, 2.4vw, 30px);
+    letter-spacing: .12em; text-transform: uppercase;
+    color: var(--tier-color, var(--gold));
+    text-shadow: 0 3px 0 var(--ink);
+    margin-top: 4px;
+  }
+  @media (max-width: 720px) {
+    #readout { right: 100px; bottom: 130px; }
+  }
+
+  /* Floating +N popups near the impact */
+  .pt-pop {
+    position:absolute; z-index: 118; pointer-events:none;
+    transform: translate(-50%, 0);
+    font-weight: 900; font-size: 30px; letter-spacing: -.02em;
+    color: var(--gold);
+    text-shadow: 0 3px 0 var(--ink), 0 6px 14px rgba(28,42,58,.35);
+    animation: ptRise 0.9s ease-out forwards;
+  }
+  @keyframes ptRise {
+    0%   { transform: translate(-50%, 0) scale(.5); opacity: 0; }
+    18%  { transform: translate(-50%, -14px) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, -95px) scale(1); opacity: 0; }
+  }
+
+  /* Prompt bar (bottom center) */
+  #prompt {
+    position:absolute; bottom: 24px; left:50%;
+    transform:translateX(-50%); z-index: 95;
+    padding: 11px 22px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-weight: 700; letter-spacing: .01em;
+    font-size: 13px; color: var(--ink);
+    box-shadow: 0 3px 0 var(--ink);
+    white-space: nowrap;
+  }
+
+  /* Banner (tier announcements, winner) */
+  #banner {
+    position:absolute; top: 38%; left:50%;
+    transform:translate(-50%,-50%) scale(.4) rotate(-3deg);
+    z-index: 130; pointer-events:none;
+    font-weight: 900; letter-spacing: -.03em;
+    font-size: clamp(60px, 11vw, 160px);
+    color: var(--gold);
+    text-shadow:
+      0 8px 0 var(--ink),
+      0 14px 40px rgba(28,42,58,.55);
+    opacity: 0; text-align:center; line-height: .9;
+    transition: opacity 180ms, transform 340ms cubic-bezier(.2,1.5,.3,1);
+  }
+  #banner.pop { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(-2deg); }
+  #banner .sub {
+    display:block; font-size: .18em; letter-spacing: .3em;
+    color: var(--cream); text-shadow: 0 4px 0 var(--ink);
+    margin-top: 12px;
+  }
+
+  /* Next-player plaque above the mascot (boxing intro-label pattern) */
+  #plaque {
+    position:absolute; top: 24%; left:50%;
+    transform: translate(-50%,-50%) scale(.8);
+    z-index: 112; pointer-events:none;
+    padding: 12px 28px 14px;
+    background: var(--plaque-color, var(--hot));
+    color: var(--cream);
+    border: 3px solid var(--ink); border-radius: 16px;
+    box-shadow: 0 5px 0 var(--ink), 0 12px 26px rgba(28,42,58,.3);
+    font-weight: 900; font-size: clamp(18px, 2.8vw, 30px);
+    letter-spacing: .06em; text-transform: uppercase;
+    text-shadow: 0 2px 0 rgba(0,0,0,.25);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 260ms, transform 320ms cubic-bezier(.2,1.4,.3,1);
+  }
+  #plaque.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+
+  /* Confetti / particles */
+  #particles { position:absolute; inset:0; z-index:125;
+               pointer-events:none; overflow:hidden; }
+  .particle {
+    position:absolute; width:14px; height:18px;
+    border: 2px solid var(--ink);
+    border-radius: 3px;
+    top:50%; left:50%;
+    animation: partFly 1.4s ease-out forwards;
+  }
+  @keyframes partFly {
+    0%   { transform: translate(-50%,-50%) rotate(0deg); opacity:1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity:0; }
+  }
+
+  /* Lobby overlay */
+  #lobby {
+    position:absolute; inset:0; z-index: 140;
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:space-between;
+    padding: 9vh 16px 9vh;
+    pointer-events:none;
+  }
+  #lobby.hidden { display:none; }
+  .lobby-controls {
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+  }
+  #lobby-title {
+    font-weight:900; letter-spacing:-.04em;
+    font-size: clamp(44px, 8vw, 110px);
+    color: var(--cream);
+    text-shadow: 0 6px 0 var(--ruin-blue),
+                 0 10px 30px rgba(28,42,58,.4);
+    line-height: .9; text-align:center;
+  }
+  #lobby-title small {
+    display:block; font-size: 15px; letter-spacing: .02em;
+    color: var(--ink); font-weight:700;
+    margin-top: 14px;
+    text-shadow: 0 2px 0 rgba(255,255,255,.5);
+  }
+  #lobby-title .accent {
+    color: var(--bell);
+    text-shadow: 0 6px 0 #a5761d, 0 10px 30px rgba(28,42,58,.4);
+  }
+  #howto {
+    max-width: 480px;
+    margin: 0 8px;
+    padding: 18px 24px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.18);
+    color: var(--ink);
+    pointer-events: auto;
+  }
+  #howto h2 {
+    margin: 0 0 10px;
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  #howto ul {
+    margin: 0; padding-left: 18px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 14px; font-weight: 600; line-height: 1.35;
+  }
+  #howto li::marker { color: var(--bell); }
+  #howto b { color: var(--hot); font-weight: 800; }
+  @media (max-height: 720px) { #howto { display: none; } }
+  .picker {
+    display:flex; align-items:center; gap: 14px;
+    padding: 10px 20px;
+    background: var(--cream);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    box-shadow: 0 4px 0 var(--ink), 0 10px 22px rgba(28,42,58,.2);
+    pointer-events:auto;
+  }
+  .picker .plabel {
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .picker .pcount {
+    font-size: 24px; font-weight: 900; color: var(--ink);
+    min-width: 30px; text-align:center;
+  }
+  .picker button {
+    width: 32px; height: 32px; padding: 0;
+    border-radius: 999px;
+    border: 3px solid var(--ink);
+    background: var(--cream-warm);
+    color: var(--ink);
+    font-family: inherit; font-weight: 900; font-size: 18px;
+    line-height: 26px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--ink);
+  }
+  .picker button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  #lobby-cta {
+    padding: 15px 32px;
+    background: var(--bell);
+    color: var(--ink);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: .02em;
+    box-shadow: 0 5px 0 var(--ink), 0 10px 20px rgba(28,42,58,.2);
+    pointer-events:auto;
+    cursor:pointer;
+    animation: ctaPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes ctaPulse { 50% { transform: scale(1.04); } }
+  #lobby-best {
+    font-size: 12px; font-weight: 800; letter-spacing: .08em;
+    color: var(--ink); text-shadow: 0 2px 0 rgba(255,255,255,.5);
+  }
+
+  /* Dev hint */
+  #devhint { position:absolute; bottom:12px; right:16px; z-index:60;
+             font-size:10px; letter-spacing:.04em; color:var(--ink);
+             opacity:.45; font-weight:600; pointer-events:none; }
+  @media (max-width: 640px) { #devhint { display:none; } }
+  html:not(.dev) #devhint { display:none !important; }
+</style>
+</head>
+<body class="in-lobby">
+<script>
+  // ?dev in the URL unlocks the keyboard hint (same convention as boxing).
+  if (new URLSearchParams(location.search).has('dev')) {
+    document.documentElement.classList.add('dev');
+  }
+</script>
+
+<a id="back" class="ss-btn" href="index.html">← menu</a>
+<button id="connect" class="ss-btn">connect hub</button>
+
+<div id="turn-pill">PLAYER A <span class="throws">· throw 1 / 3</span></div>
+
+<div id="scoreboard"></div>
+
+<div id="meter-wrap">
+  <div id="meter-title">strength</div>
+  <div id="meter-cab">
+    <div id="meter-bell">BELL</div>
+    <div id="meter-tube">
+      <!-- zones injected bottom-to-top by JS -->
+      <div id="puck"></div>
+    </div>
+  </div>
+</div>
+
+<div id="readout"><div class="pts">0 pts</div><div class="tier"></div></div>
+
+<div id="prompt">throw a punch to start</div>
+
+<div id="plaque">PLAYER A · THROW 1 / 3</div>
+<div id="banner"></div>
+<div id="particles"></div>
+
+<div id="lobby">
+  <div id="lobby-title">SOUP <span class="accent">SLUGGER</span>
+    <small>one big punch. how hard can you hit?</small>
+  </div>
+  <div id="howto">
+    <h2>how to play</h2>
+    <ul>
+      <li>throw a <b>jab</b> — hand forward, drive from the shoulder, no wind-up needed</li>
+      <li>the harder and faster you jab, the higher the puck flies up the meter</li>
+      <li>reach the golden <b>BELL</b> at the top for a score bonus (harder than it sounds)</li>
+      <li>everyone gets <b>3 throws</b> — highest total wins</li>
+      <li>going solo? beat your all-time best</li>
+    </ul>
+  </div>
+  <div class="lobby-controls">
+    <div id="lobby-best"></div>
+    <div class="picker">
+      <div class="plabel">players</div>
+      <button id="pminus">−</button>
+      <div class="pcount" id="pcount">1</div>
+      <button id="pplus">+</button>
+    </div>
+    <div class="picker">
+      <div class="plabel">throws each</div>
+      <button id="tminus">−</button>
+      <div class="pcount" id="tcount">3</div>
+      <button id="tplus">+</button>
+    </div>
+    <button id="lobby-cta">throw a punch to start</button>
+  </div>
+</div>
+
+<div id="devhint">keys · space punch · b bell · 1-7 tier · r reset</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { openSerial, autoOpenSerial } from './serial.js';
+import { ArmDispatcher } from './dispatch.js';
+import { pairing } from './pairing.js';
+import { sfx } from './sfx.js';
+import { showLoader } from './loader.js';
+
+showLoader({ game: 'slugger' });
+
+// ══════════════════════════ Tuning knobs ══════════════════════════
+const DEFAULT_THROWS = 3;              // throws per player (1..5 in lobby)
+// Impact physics — Kung Fu Panda training dummy.
+const SPRING = 40;                     // positional spring back to home (s^-2)
+const DAMP = 0.92;                     // per-frame velocity damping
+const KICK_Z = 5.0;                    // vel.z += -power * KICK_Z on impact
+const KICK_ROT = 0.6;                  // rotation.x += -power * KICK_ROT
+const ROT_SPRING = 30;                 // rotational spring back upright (s^-2)
+const ROT_DAMP = 6.0;                  // rotational damping rate (s^-1)
+const SQUISH_MS = 60;                  // body squish window (scale 0.7)
+const FLASH_MS = 100;                  // red flash window
+// Scoring — classifier features → 0..999 points.
+//   aN = min(1, dynA/140)  wN = min(1, wmag/1200)  (raised sat floors — was
+//                                                  100/950; typical live jab
+//                                                  only reached ~65-80% of
+//                                                  the old caps, making BELL
+//                                                  trivial. Now saturation
+//                                                  requires an actual full-
+//                                                  power haymaker.)
+//   combined = min(1, 0.55*aN + 0.35*wN)           (max combined ≈ 0.90, so
+//                                                   getting to BELL is real work)
+//   frac = combined^2.0                            (steeper curve punishes
+//                                                   half-effort swings hard)
+//   score = round(999 * frac)
+const ACCEL_SAT = 140.0;
+const GYRO_SAT  = 1200.0;
+const A_WEIGHT  = 0.60;
+const W_WEIGHT  = 0.42;
+const CURVE = 1.8;
+const MAX_PTS = 999;
+const BELL_BONUS = 1.25;               // bell-zone score multiplier
+// Presentation timing.
+const PUCK_MS = 800;                   // puck flight
+const COUNT_MS = 600;                  // score count-up
+const SETTLE_MS = 800;                 // extra settle after the animation
+const BEST_KEY = 'soup_slugger_best';
+
+// Meter tiers, bottom → top. `to` is the meter fraction the zone tops out at.
+const TIERS = [
+  { name: 'WIMP',    to: 0.17, color: '#476278' },
+  { name: 'SOFTIE',  to: 0.34, color: '#37a7d0' },
+  { name: 'AVERAGE', to: 0.51, color: '#6cb85a' },
+  { name: 'STRONG',  to: 0.68, color: '#f4c95d' },
+  { name: 'BEAST',   to: 0.82, color: '#ff9663' },
+  { name: 'LEGEND',  to: 0.93, color: '#ff4d1a' },
+  { name: 'BELL',    to: 1.00, color: '#f2c14d' },
+];
+const PLAYER_COLORS = ['#d84a4a', '#0088cc', '#4a9440', '#b96cd9'];
+const PLAYER_NAMES = ['A', 'B', 'C', 'D'];
+
+// ══════════════════════════ Scene ══════════════════════════
+const SKY_HEX = 0x7bd3ee;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_HEX);
+scene.fog = new THREE.Fog(SKY_HEX, 18, 55);
+
+const fovForAspect = () => (innerWidth / innerHeight < 0.75) ? 70 : 55;
+const camera = new THREE.PerspectiveCamera(fovForAspect(), innerWidth/innerHeight, 0.05, 200);
+const camHome = new THREE.Vector3(0, 1.75, 3.2);
+camera.position.copy(camHome);
+camera.lookAt(0, 1.35, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.fov = fovForAspect();
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// Lights
+scene.add(new THREE.AmbientLight(0xd8ecf4, 0.9));
+const key = new THREE.DirectionalLight(0xfff4d8, 1.3);
+key.position.set(4, 8, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xa8d8ff, 0.6);
+rim.position.set(-4, 3, -5);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0xfff2d8, 0.5);
+fill.position.set(0, 2, 6);
+scene.add(fill);
+
+// Grass apron + carnival stage disk
+const apron = new THREE.Mesh(
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color: 0x6cb85a, roughness: 0.95 })
+);
+apron.rotation.x = -Math.PI / 2;
+apron.position.y = -0.01;
+apron.receiveShadow = true;
+scene.add(apron);
+
+// Circular pedestal with a carnival starburst so Soup has a fairground stage.
+function makeStageTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fbf3e0'; g.fillRect(0,0,512,512);
+  // Starburst wedges (cream / warm-cream alternating)
+  g.fillStyle = '#f6e9c9';
+  const wedges = 12;
+  for (let i = 0; i < wedges; i++) {
+    if (i % 2) continue;
+    g.beginPath();
+    g.moveTo(256,256);
+    g.arc(256,256,240, (i/wedges)*Math.PI*2, ((i+1)/wedges)*Math.PI*2);
+    g.closePath(); g.fill();
+  }
+  g.strokeStyle = '#1c2a3a'; g.lineWidth = 14;
+  g.beginPath(); g.arc(256,256,236,0,Math.PI*2); g.stroke();
+  g.strokeStyle = '#f2c14d'; g.lineWidth = 8;
+  g.beginPath(); g.arc(256,256,216,0,Math.PI*2); g.stroke();
+  return new THREE.CanvasTexture(c);
+}
+const stage = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.2, 2.2, 0.15, 40),
+  new THREE.MeshStandardMaterial({ map: makeStageTex(), roughness: 0.8 })
+);
+stage.position.y = 0.075;
+stage.receiveShadow = true;
+scene.add(stage);
+
+// Clouds
+const clouds = [];
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+for (let i = 0; i < 7; i++) {
+  const r = 0.6 + Math.random() * 0.7;
+  const cloud = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), cloudMat);
+  cloud.position.set(-14 + Math.random()*28, 7 + Math.random()*5, -8 + Math.random()*4);
+  const b1 = new THREE.Mesh(new THREE.SphereGeometry(r*0.7, 10, 8), cloudMat);
+  b1.position.set(r*0.9, -r*0.2, 0); cloud.add(b1);
+  const b2 = new THREE.Mesh(new THREE.SphereGeometry(r*0.6, 10, 8), cloudMat);
+  b2.position.set(-r*0.9, -r*0.1, 0); cloud.add(b2);
+  cloud.userData.driftSpeed = 0.2 + Math.random()*0.3;
+  scene.add(cloud);
+  clouds.push(cloud);
+}
+
+// ══════════════════════════ Soup mascot ══════════════════════════
+const soupGroup = new THREE.Group();
+soupGroup.position.set(0, 0.15, 0);
+scene.add(soupGroup);
+
+const soupHome = soupGroup.position.clone();
+const soupVel = new THREE.Vector3();
+const soupRot = { x: 0, vx: 0 };   // training-dummy rock-back spring
+
+const placeholder = new THREE.Mesh(
+  new THREE.SphereGeometry(0.65, 24, 18),
+  new THREE.MeshStandardMaterial({ color: 0xfbf3e0, roughness: 0.8 })
+);
+placeholder.position.y = 0.7;
+placeholder.castShadow = true;
+soupGroup.add(placeholder);
+
+const mascot = {
+  root: null,
+  bodyMat: null,
+  bodyBaseHex: 0xfbf3e0,
+  baseY: 0,
+  baseScaleY: 1,
+  baseScaleUp: 1,     // scale along the model's height axis
+  upAxis: 'y',        // placeholder is y-up; the GLB is z-up
+  squishUntil: 0,
+  flashUntil: 0,
+};
+
+const loader = new GLTFLoader();
+loader.load('assets/mascot.glb', (gltf) => {
+  const soup = gltf.scene;
+  // Per soup/HANDOFF.md: z-up model, x-flip to y-up, no extra y-flip.
+  soup.rotation.x = -Math.PI / 2;
+  soup.scale.setScalar(0.012);   // ~1.5m — big and center, he IS the machine
+  soup.traverse(o => {
+    if (o.isMesh) {
+      o.material = o.material.clone();
+      o.castShadow = true;
+      o.receiveShadow = false;
+    }
+  });
+  const body = soup.getObjectByName('body');
+  const paws = soup.getObjectByName('paws');
+  const BODY_HEX = 0xfbf3e0;
+  const TRIM_HEX = 0xc9a878;
+  if (body) body.material.color.setHex(BODY_HEX);
+  if (paws) paws.material.color.setHex(TRIM_HEX);
+  mascot.root = soup;
+  mascot.bodyMat = body ? body.material : null;
+  mascot.bodyBaseHex = BODY_HEX;
+  mascot.baseY = 0.15;
+  mascot.baseScaleY = soup.scale.y;
+  mascot.baseScaleUp = soup.scale.z;   // model height axis
+  mascot.upAxis = 'z';
+  soupGroup.remove(placeholder);
+  soupGroup.add(soup);
+  document.body.classList.add('game-active');
+}, undefined, (err) => {
+  console.error('mascot load failed', err);
+  mascot.root = placeholder;
+  mascot.bodyMat = placeholder.material;
+  mascot.bodyBaseHex = 0xfbf3e0;
+  mascot.baseY = 0.7;
+  mascot.baseScaleY = 1;
+  mascot.baseScaleUp = 1;
+  mascot.upAxis = 'y';
+  document.body.classList.add('game-active');
+});
+
+// ══════════════════════════ DOM refs ══════════════════════════
+const $turnPill = document.getElementById('turn-pill');
+const $scoreboard = document.getElementById('scoreboard');
+const $meterTube = document.getElementById('meter-tube');
+const $meterBell = document.getElementById('meter-bell');
+const $puck = document.getElementById('puck');
+const $readout = document.getElementById('readout');
+const $readoutPts = $readout.querySelector('.pts');
+const $readoutTier = $readout.querySelector('.tier');
+const $prompt = document.getElementById('prompt');
+const $plaque = document.getElementById('plaque');
+const $banner = document.getElementById('banner');
+const $particles = document.getElementById('particles');
+const $lobby = document.getElementById('lobby');
+const $lobbyBest = document.getElementById('lobby-best');
+const $pcount = document.getElementById('pcount');
+const $tcount = document.getElementById('tcount');
+const $status = document.getElementById('connect');
+
+// Build the meter zones bottom-to-top (tube is flex column-reverse, so
+// append order = bottom first).
+let prevTo = 0;
+for (const tier of TIERS) {
+  const z = document.createElement('div');
+  z.className = 'zone';
+  z.style.setProperty('--zc', tier.color);
+  z.style.flexGrow = String(tier.to - prevTo);
+  z.style.flexBasis = '0';
+  z.dataset.tier = tier.name;
+  if (tier.name !== 'BELL') {
+    z.innerHTML = `<div class="zlabel">${tier.name}</div>`;
+  } else {
+    z.innerHTML = `<div class="zlabel" style="color:#a5761d">RING IT</div>`;
+  }
+  $meterTube.appendChild(z);
+  prevTo = tier.to;
+}
+const $zones = [...$meterTube.querySelectorAll('.zone')];
+
+// ══════════════════════════ Game state ══════════════════════════
+const S = {
+  gen: 0,
+  phase: 'LOBBY',        // LOBBY | INTRO | WAIT | SCORING | GAME_OVER
+  numPlayers: 1,
+  throwsEach: DEFAULT_THROWS,
+  players: [],           // [{ total, best }]
+  turn: 0,               // whose punch we're waiting for
+  throwNum: 0,           // 0-based throw index for current player
+  camShake: { until: 0, amp: 0 },
+};
+
+function makePlayers(n) {
+  S.players = [];
+  for (let i = 0; i < n; i++) S.players.push({ total: 0, best: 0 });
+}
+
+// setTimeout that dies silently if the match was reset in the meantime.
+function later(ms, fn) {
+  const gen = S.gen;
+  setTimeout(() => { if (S.gen === gen) fn(); }, ms);
+}
+
+function allTimeBest() {
+  try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; }
+  catch { return 0; }
+}
+
+function refreshLobbyBest() {
+  const best = allTimeBest();
+  $lobbyBest.textContent = best > 0 ? `all-time best · ${best} pts` : '';
+}
+refreshLobbyBest();
+
+// ── Scoring math ───────────────────────────────────────────
+// Combined power from the classifier's peak features. Both translation
+// (dynA) and rotation (wmag) scale the punch; falls back to the classifier's
+// scalar power when features are missing (dev keys).
+function combinedPower(dynA, wmag, fallback) {
+  if (Number.isFinite(dynA) && Number.isFinite(wmag)) {
+    const aN = Math.min(1, dynA / ACCEL_SAT);
+    const wN = Math.min(1, wmag / GYRO_SAT);
+    return Math.min(1, A_WEIGHT * aN + W_WEIGHT * wN);
+  }
+  return Math.max(0, Math.min(1, Number.isFinite(fallback) ? fallback : 0.7));
+}
+
+function meterFrac(power) {
+  return Math.pow(Math.max(0, Math.min(1, power)), CURVE);
+}
+
+function tierForFrac(frac) {
+  for (let i = 0; i < TIERS.length; i++) {
+    if (frac <= TIERS[i].to) return { ...TIERS[i], index: i };
+  }
+  return { ...TIERS[TIERS.length - 1], index: TIERS.length - 1 };
+}
+
+// ── HUD ────────────────────────────────────────────────────
+function playerColor(i) { return PLAYER_COLORS[i % PLAYER_COLORS.length]; }
+function playerName(i) { return PLAYER_NAMES[i % PLAYER_NAMES.length]; }
+
+function renderTurnPill() {
+  const c = playerColor(S.turn);
+  $turnPill.style.setProperty('--turn-color', c);
+  $turnPill.innerHTML =
+    `PLAYER ${playerName(S.turn)} <span class="throws">· throw ${Math.min(S.throwNum + 1, S.throwsEach)} / ${S.throwsEach}</span>`;
+}
+
+function renderScoreboard(popIdx = -1) {
+  $scoreboard.innerHTML = '';
+  const live = S.phase !== 'LOBBY' && S.phase !== 'GAME_OVER';
+  for (let i = 0; i < S.players.length; i++) {
+    const card = document.createElement('div');
+    card.className = 'player-card' + (i === S.turn && live ? ' current' : '');
+    card.style.setProperty('--pc', playerColor(i));
+    const best = S.players[i].best > 0 ? `best throw ${S.players[i].best}` : '';
+    card.innerHTML =
+      `<div class="plabel">player ${playerName(i)}</div>` +
+      `<div class="pscore${i === popIdx ? ' pop' : ''}">${S.players[i].total}</div>` +
+      `<div class="pbest">${best}</div>`;
+    $scoreboard.appendChild(card);
+  }
+}
+
+function setPrompt(text) { $prompt.textContent = text; }
+
+function popBanner(text, sub, color) {
+  $banner.innerHTML = text + (sub ? `<span class="sub">${sub}</span>` : '');
+  $banner.style.color = color || 'var(--gold)';
+  $banner.classList.remove('pop'); void $banner.offsetWidth;
+  $banner.classList.add('pop');
+  clearTimeout(popBanner._t);
+  popBanner._t = setTimeout(() => $banner.classList.remove('pop'), 1200);
+}
+
+function showPlaque(text, color, ms = 1600) {
+  $plaque.textContent = text;
+  $plaque.style.setProperty('--plaque-color', color || 'var(--hot)');
+  $plaque.classList.remove('show'); void $plaque.offsetWidth;
+  $plaque.classList.add('show');
+  clearTimeout(showPlaque._t);
+  showPlaque._t = setTimeout(() => $plaque.classList.remove('show'), ms);
+}
+
+function shakeCamera(amp, ms) {
+  const now = performance.now();
+  S.camShake.amp = Math.max(S.camShake.amp, amp);
+  S.camShake.until = Math.max(S.camShake.until, now + ms);
+}
+
+const popupScratch = new THREE.Vector3();
+function spawnScorePopup(text) {
+  popupScratch.set(
+    soupGroup.position.x + (Math.random() - 0.5) * 0.5,
+    soupGroup.position.y + 1.1 + Math.random() * 0.5,
+    soupGroup.position.z + 0.4
+  ).project(camera);
+  const x = ( popupScratch.x * 0.5 + 0.5) * innerWidth;
+  const y = (-popupScratch.y * 0.5 + 0.5) * innerHeight;
+  const el = document.createElement('div');
+  el.className = 'pt-pop';
+  el.textContent = text;
+  el.style.left = x.toFixed(0) + 'px';
+  el.style.top  = y.toFixed(0) + 'px';
+  $particles.appendChild(el);
+  setTimeout(() => el.remove(), 950);
+}
+
+function fireConfetti() {
+  const colors = ['#f2c14d', '#ff9663', '#6cb85a', '#37628a', '#fbf3e0', '#2f8fa3'];
+  for (let i = 0; i < 120; i++) {
+    const c = document.createElement('div');
+    c.className = 'particle';
+    c.style.background = colors[i % colors.length];
+    c.style.left = (Math.random() * innerWidth) + 'px';
+    c.style.top  = '-20px';
+    const dx = (Math.random() - 0.5) * 400;
+    const dy = innerHeight + 60;
+    c.style.setProperty('--dx', dx.toFixed(0) + 'px');
+    c.style.setProperty('--dy', dy.toFixed(0) + 'px');
+    c.style.setProperty('--rot', ((Math.random() - 0.5) * 900).toFixed(0) + 'deg');
+    c.style.animationDuration = (2 + Math.random() * 2) + 's';
+    c.style.animationDelay = (Math.random() * 0.8) + 's';
+    $particles.appendChild(c);
+    setTimeout(() => c.remove(), 5000);
+  }
+}
+
+// ── Meter animation ────────────────────────────────────────
+function resetMeter() {
+  $puck.classList.add('instant');
+  $puck.style.bottom = '0%';
+  $puck.style.background = 'var(--hot)';
+  void $puck.offsetWidth;
+  $puck.classList.remove('instant');
+  for (const z of $zones) z.classList.remove('lit');
+  $meterBell.classList.remove('rung');
+  $readout.classList.remove('show');
+}
+
+// Fire the puck up to `frac` (0..1 of tube height), light the resting zone
+// when it lands, ring the bell if we're in the bell zone.
+function firePuck(frac, tier) {
+  $puck.style.background = tier.color;
+  // The puck is 22px tall inside the tube; cap so it doesn't clip out the top.
+  const pct = Math.min(96, frac * 100);
+  $puck.style.bottom = pct.toFixed(1) + '%';
+  later(PUCK_MS, () => {
+    for (const z of $zones) z.classList.toggle('lit', z.dataset.tier === tier.name);
+    if (tier.name === 'BELL') {
+      $meterBell.classList.remove('rung'); void $meterBell.offsetWidth;
+      $meterBell.classList.add('rung');
+    }
+  });
+}
+
+// Count the readout from 0 → pts over COUNT_MS.
+function countUpReadout(pts, tier) {
+  $readout.classList.add('show');
+  $readoutTier.textContent = '';
+  $readout.style.setProperty('--tier-color', tier.color);
+  const t0 = performance.now();
+  const gen = S.gen;
+  function step() {
+    if (S.gen !== gen) return;
+    const p = Math.min(1, (performance.now() - t0) / COUNT_MS);
+    const eased = 1 - Math.pow(1 - p, 3);
+    $readoutPts.textContent = Math.round(pts * eased) + ' pts';
+    if (p < 1) requestAnimationFrame(step);
+    else $readoutTier.textContent = tier.name + '!';
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Impact physics ─────────────────────────────────────────
+function slugImpact(power) {
+  const p = Math.max(0.2, Math.min(1, power));
+  soupVel.z += -p * KICK_Z;          // knock him away from the camera
+  soupRot.x += -p * KICK_ROT;        // rock back at the base
+  const now = performance.now();
+  mascot.squishUntil = now + SQUISH_MS;
+  mascot.flashUntil = now + FLASH_MS;
+}
+
+// ══════════════════════════ Game flow ══════════════════════════
+function beginMatch() {
+  S.gen++;
+  makePlayers(S.numPlayers);
+  S.turn = 0;
+  S.throwNum = 0;
+  S.phase = 'INTRO';
+  document.body.classList.remove('in-lobby');
+  $lobby.classList.add('hidden');
+  resetMeter();
+  renderTurnPill();
+  renderScoreboard();
+  announceTurn();
+}
+
+function announceTurn() {
+  S.phase = 'INTRO';
+  renderTurnPill();
+  renderScoreboard();
+  const name = playerName(S.turn);
+  const color = playerColor(S.turn);
+  showPlaque(`PLAYER ${name} · THROW ${S.throwNum + 1} / ${S.throwsEach}`, color);
+  setPrompt(S.players.length === 1
+    ? `throw ${S.throwNum + 1} of ${S.throwsEach} — give it everything`
+    : `player ${name} — step up and swing`);
+  later(900, () => { if (S.phase === 'INTRO') S.phase = 'WAIT'; });
+}
+
+function scorePunch(power) {
+  S.phase = 'SCORING';
+  const frac = meterFrac(power);
+  const tier = tierForFrac(frac);
+  const isBell = tier.name === 'BELL';
+  const basePts = Math.round(frac * MAX_PTS);
+  const pts = isBell ? Math.round(basePts * BELL_BONUS) : basePts;
+
+  // 1. impact: squish + flash + knockback + sfx + shake
+  slugImpact(power);
+  sfx.punch(power);
+  shakeCamera(0.08 + 0.30 * frac, 260 + 320 * frac);
+  spawnScorePopup(`+${pts}`);
+  resetMeter();
+
+  // 2. puck rockets up the meter
+  requestAnimationFrame(() => firePuck(frac, tier));
+
+  // 3-4. tier banner + count-up once the puck lands
+  later(PUCK_MS * 0.7, () => {
+    popBanner(`${tier.name}!`, isBell ? `DING! x${BELL_BONUS} bonus` : `${pts} pts`, tier.color);
+    countUpReadout(pts, tier);
+    if (isBell) { sfx.strike(); fireConfetti(); }
+    else sfx.click();
+  });
+
+  // 5. bank the points + advance the turn
+  const player = S.players[S.turn];
+  player.total += pts;
+  if (pts > player.best) player.best = pts;
+  later(PUCK_MS * 0.7 + COUNT_MS, () => renderScoreboard(S.turn));
+
+  later(PUCK_MS + COUNT_MS + SETTLE_MS, () => nextTurn());
+}
+
+function nextTurn() {
+  // Round-robin: everyone takes throw N before anyone takes throw N+1.
+  S.turn++;
+  if (S.turn >= S.players.length) {
+    S.turn = 0;
+    S.throwNum++;
+  }
+  if (S.throwNum >= S.throwsEach) { endMatch(); return; }
+  announceTurn();
+}
+
+function endMatch() {
+  S.phase = 'GAME_OVER';
+  renderScoreboard();
+  if (S.players.length === 1) {
+    const score = S.players[0].total;
+    const prev = allTimeBest();
+    if (score > prev) {
+      try { localStorage.setItem(BEST_KEY, String(score)); } catch {}
+      popBanner('NEW BEST!', `${score} pts`, 'var(--bell)');
+      fireConfetti();
+      sfx.strike();
+    } else {
+      popBanner(`${score} PTS`, `close! your best is ${prev}`, 'var(--gold)');
+    }
+    refreshLobbyBest();
+  } else {
+    let winIdx = 0, best = -1;
+    for (let i = 0; i < S.players.length; i++) {
+      if (S.players[i].total > best) { best = S.players[i].total; winIdx = i; }
+    }
+    popBanner(`PLAYER ${playerName(winIdx)} WINS!`, `${best} pts`, playerColor(winIdx));
+    fireConfetti();
+  }
+  setPrompt('throw a punch to play again');
+}
+
+// ── Punch entry point ──────────────────────────────────────
+function onPunchDetected(power) {
+  if (S.phase === 'LOBBY') { beginMatch(); return; }
+  if (S.phase === 'GAME_OVER') {
+    // straight back into a fresh match, same settings — carnival style
+    beginMatch();
+    return;
+  }
+  if (S.phase === 'WAIT') scorePunch(power);
+}
+
+// ══════════════════════════ Tick / render ══════════════════════════
+let lastT = performance.now();
+function tick() {
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  const tSec = now / 1000;
+
+  // Positional spring back home (mass-spring damped)
+  soupVel.x += (soupHome.x - soupGroup.position.x) * SPRING * dt;
+  soupVel.y += (soupHome.y - soupGroup.position.y) * SPRING * dt;
+  soupVel.z += (soupHome.z - soupGroup.position.z) * SPRING * dt;
+  soupVel.multiplyScalar(DAMP);
+  soupGroup.position.addScaledVector(soupVel, dt);
+
+  // Rotational spring (rock back, spring upright)
+  soupRot.vx += (0 - soupRot.x) * ROT_SPRING * dt;
+  soupRot.vx *= Math.exp(-ROT_DAMP * dt);
+  soupRot.x += soupRot.vx * dt;
+  soupGroup.rotation.x = soupRot.x;
+
+  // Mascot procedural: gentle bob, squish on impact, brief red flash
+  if (mascot.root) {
+    const m = mascot.root;
+    const bob = Math.sin(tSec * 2) * 0.02;
+    const squish = 1 + Math.sin(tSec * 2) * 0.03;
+    m.position.y = mascot.baseY + bob;
+
+    if (now < mascot.flashUntil && mascot.bodyMat) {
+      mascot.bodyMat.color.setHex(0xff4444);
+    } else if (mascot.bodyMat) {
+      mascot.bodyMat.color.setHex(mascot.bodyBaseHex);
+    }
+
+    if (now < mascot.squishUntil) {
+      // Hard body squish on the impact frame
+      m.position.x = (Math.random() - 0.5) * 0.10;
+      if (mascot.upAxis === 'z') m.scale.z = mascot.baseScaleUp * 0.7;
+      else m.scale.y = mascot.baseScaleUp * 0.7;
+    } else {
+      m.position.x = 0;
+      if (mascot.upAxis === 'z') m.scale.z = mascot.baseScaleUp * squish;
+      else m.scale.y = mascot.baseScaleUp * squish;
+    }
+    m.rotation.y = Math.sin(now / 1200) * 0.08;
+  }
+
+  // Drift clouds
+  for (const cloud of clouds) {
+    cloud.position.x += cloud.userData.driftSpeed * dt;
+    if (cloud.position.x > 16) cloud.position.x = -16;
+  }
+
+  // Camera shake
+  const shake = S.camShake.until > now ? (S.camShake.until - now) / 400 : 0;
+  const amp = S.camShake.amp * Math.max(0, Math.min(1, shake));
+  camera.position.x = camHome.x + (Math.random() - 0.5) * amp;
+  camera.position.y = camHome.y + (Math.random() - 0.5) * amp * 0.6;
+  camera.position.z = camHome.z + (Math.random() - 0.5) * amp * 0.4;
+  camera.lookAt(0, 1.35, 0);
+  if (S.camShake.until <= now) S.camShake.amp *= 0.9;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ══════════════════════════ Serial + input wiring ══════════════════════════
+const dispatcher = new ArmDispatcher((armId, g) => {
+  // Only jab-shaped swings count — 'block' guard poses are irrelevant here.
+  if (g.gesture && g.gesture !== 'jab') return;
+  const f = g.features || {};
+  onPunchDetected(combinedPower(f.dynA, f.wmag, g.power));
+});
+
+const serialHandlers = {
+  baud: 115200,
+  onLine: (line) => { pairing.onLine(line); dispatcher.onLine(line); },
+  onOpen: () => {
+    $status.textContent = 'hub connected';
+    $status.classList.add('connected');
+  },
+  onClose: () => {
+    $status.textContent = 'hub disconnected';
+    $status.classList.remove('connected');
+  },
+  onError: () => {
+    $status.textContent = 'hub error, try again';
+    $status.classList.remove('connected');
+  },
+};
+document.getElementById('connect').addEventListener('click', async () => {
+  try {
+    $status.textContent = 'choosing port…';
+    await openSerial(serialHandlers);
+  } catch (e) {
+    $status.textContent = 'connect hub';
+  }
+});
+autoOpenSerial(serialHandlers).catch(() => {});
+
+// ── Lobby controls ──
+document.getElementById('pminus').addEventListener('click', () => {
+  S.numPlayers = Math.max(1, S.numPlayers - 1);
+  $pcount.textContent = S.numPlayers;
+});
+document.getElementById('pplus').addEventListener('click', () => {
+  S.numPlayers = Math.min(4, S.numPlayers + 1);
+  $pcount.textContent = S.numPlayers;
+});
+document.getElementById('tminus').addEventListener('click', () => {
+  S.throwsEach = Math.max(1, S.throwsEach - 1);
+  $tcount.textContent = S.throwsEach;
+});
+document.getElementById('tplus').addEventListener('click', () => {
+  S.throwsEach = Math.min(5, S.throwsEach + 1);
+  $tcount.textContent = S.throwsEach;
+});
+document.getElementById('lobby-cta').addEventListener('click', () => {
+  if (S.phase === 'LOBBY') beginMatch();
+});
+
+function backToLobby() {
+  S.gen++;
+  S.phase = 'LOBBY';
+  document.body.classList.add('in-lobby');
+  $particles.innerHTML = '';
+  $lobby.classList.remove('hidden');
+  $plaque.classList.remove('show');
+  soupVel.set(0, 0, 0);
+  soupRot.x = 0; soupRot.vx = 0;
+  soupGroup.rotation.x = 0;
+  resetMeter();
+  makePlayers(S.numPlayers);
+  renderScoreboard();
+  refreshLobbyBest();
+  setPrompt('throw a punch to start');
+}
+
+// ── Dev shortcuts ──
+addEventListener('keydown', (e) => {
+  const k = e.key;
+  if (k === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    onPunchDetected(0.35 + Math.random() * 0.65);
+  } else if (k === 'b' || k === 'B') {
+    onPunchDetected(1.0);                       // guaranteed bell
+  } else if (k >= '1' && k <= '7') {
+    // punch at the center of tier N (inverse of the meter curve)
+    const i = +k - 1;
+    const lo = i === 0 ? 0 : TIERS[i - 1].to;
+    const frac = (lo + TIERS[i].to) / 2;
+    onPunchDetected(Math.pow(frac, 1 / CURVE));
+  } else if (k === 'r' || k === 'R') {
+    backToLobby();
+  }
+});
+
+// Initial paint
+makePlayers(S.numPlayers);
+renderScoreboard();
+resetMeter();
+
+// Module reached the end → booted; make sure the loader can dismiss even if
+// the GLB is slow (it also sets game-active on load/error above).
+document.body.classList.add('game-active');
+
+// Dev/debug hook (read-only inspection from the console)
+window.__slug = { S, mascot, soupGroup, TIERS };
+</script>
+</body>
+</html>
